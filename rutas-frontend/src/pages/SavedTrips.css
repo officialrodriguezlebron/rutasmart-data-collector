@@ -1,0 +1,54 @@
+.saved-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.sub-text {
+  font-size: 13px;
+  color: #777;
+}
+
+.empty-text {
+  text-align: center;
+  color: #777;
+  margin: 20px 0;
+}
+
+/* List */
+.trip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 25px;
+}
+
+.trip-item {
+  background: #f8fafc;
+  padding: 18px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Trip Info */
+.trip-main .trip-id {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.trip-meta {
+  font-size: 13px;
+  color: #777;
+}
+
+.trip-stats {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Actions */
+.trip-actions {
+  display: flex;
+  gap: 10px;
+}

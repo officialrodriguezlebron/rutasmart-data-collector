@@ -1,0 +1,39 @@
+/* -------------------------
+   GLOBAL RESET
+-------------------------- */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #f4f6f9;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Prevent horizontal scroll */
+body {
+  overflow-x: hidden;
+}
+
+/* Remove Vite centering */
+#root {
+  min-height: 100vh;
+}
+
+/* Better mobile tap behavior */
+button {
+  font-family: inherit;
+  outline: none;
+}
+
+/* Improve tap highlight on mobile */
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}

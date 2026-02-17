@@ -1,0 +1,144 @@
+/* App Container - Mobile First */
+.app-container {
+  min-height: 100vh;
+  background: #f2f4f8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+
+/* Main Card */
+.app-card {
+  width: 100%;
+  max-width: 430px; /* iPhone width */
+  background: white;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Header */
+.header h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #777;
+}
+
+/* Status Row */
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.online {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.offline {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.device-id {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Buttons */
+.actions {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.btn {
+  padding: 16px;
+  border-radius: 14px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.btn-primary {
+  background: #1565c0;
+  color: white;
+}
+
+.btn-secondary {
+  background: #43a047;
+  color: white;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+/* Stats */
+.stats {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.device-id {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #f4f6f8;
+  border-radius: 8px;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.device-label {
+  font-weight: 600;
+  color: #555;
+}
+
+.device-value {
+  font-family: monospace;
+  color: #1e88e5;
+}
+
+.stat-card {
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #777;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-value.small {
+  font-size: 15px;
+}

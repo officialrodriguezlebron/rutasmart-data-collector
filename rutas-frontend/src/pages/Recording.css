@@ -1,0 +1,148 @@
+/* Layout */
+.app-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #eef2f7, #dbe5f1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.app-card {
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* Header */
+.record-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.trip-id {
+  font-size: 13px;
+  color: #888;
+}
+
+/* Status Badges */
+.status-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-badge.online {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.offline {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status-badge.queue {
+  background: #fff3cd;
+  color: #856404;
+}
+
+/* Occupancy */
+.occupancy-display {
+  background: #f8fafc;
+  border-radius: 20px;
+  padding: 30px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.capacity-label {
+  font-size: 14px;
+  color: #777;
+}
+
+.occupancy-display h1 {
+  font-size: 64px;
+  margin: 10px 0;
+  transition: 0.15s ease;
+}
+
+.occupancy-display h1.over {
+  color: #c62828;
+}
+
+.over-text {
+  color: #c62828;
+  font-weight: 600;
+}
+
+/* GPS Card */
+.gps-card {
+  background: #f8fafc;
+  padding: 18px;
+  border-radius: 16px;
+  margin-bottom: 18px;
+  font-size: 14px;
+}
+
+.good { color: #2e7d32; font-weight: 600; }
+.medium { color: #ef6c00; font-weight: 600; }
+.bad { color: #c62828; font-weight: 600; }
+
+/* Controls */
+.control-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Buttons */
+.btn {
+  flex: 1;
+  padding: 16px;
+  border-radius: 16px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.btn-success {
+  background: #2e7d32;
+  color: white;
+}
+
+.btn-secondary {
+  background: #1565c0;
+  color: white;
+}
+
+.btn-danger {
+  background: #c62828;
+  color: white;
+}
+
+.btn.full {
+  width: 100%;
+}
+
+.btn:hover {
+  opacity: 0.95;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}

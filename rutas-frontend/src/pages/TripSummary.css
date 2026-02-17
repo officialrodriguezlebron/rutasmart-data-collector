@@ -1,0 +1,40 @@
+.summary-header {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.trip-id {
+  font-size: 13px;
+  color: #888;
+}
+
+/* Grid */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 30px;
+}
+
+.summary-grid label {
+  font-size: 12px;
+  color: #777;
+}
+
+.summary-grid p {
+  margin: 6px 0 0;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.danger {
+  color: #c62828;
+  font-weight: 600;
+}
+
+/* Actions */
+.summary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
