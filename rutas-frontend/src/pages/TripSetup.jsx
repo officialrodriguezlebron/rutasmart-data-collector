@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { tripService } from "../services/tripService";
 import { startTrip as startTripAPI } from "../services/api";
-import "./tripsetup.css";
+import "./TripSetup.css";
 
 function TripSetup() {
   const navigate = useNavigate();

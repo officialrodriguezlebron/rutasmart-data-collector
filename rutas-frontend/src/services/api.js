@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:8000", // change to PC IP for phone testing
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
 export const startTrip = (data) => API.post("/trip/start-trip", data);
