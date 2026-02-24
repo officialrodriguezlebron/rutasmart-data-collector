@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { logGPS, endTrip as endTripAPI } from "../services/api";
 import { tripService } from "../services/tripService.js";
@@ -15,9 +15,9 @@ function Recording() {
     }
   }, [activeTrip, navigate]);
 
-  const QUEUE_KEY = useMemo(() => {
-    return activeTrip ? `gps_offline_queue_${activeTrip.tripId}` : null;
-  }, [activeTrip]);
+  const QUEUE_KEY = activeTrip
+    ? `gps_offline_queue_${activeTrip.tripId}`
+    : null;
 
   // ==========================
   // State
@@ -33,6 +33,7 @@ function Recording() {
   const [logsSent, setLogsSent] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [queueCount, setQueueCount] = useState(0);
+  const [debugLog, setDebugLog] = useState([]);
 
   const [gpsData, setGpsData] = useState({
     latitude: null,
@@ -43,73 +44,20 @@ function Recording() {
       : "Geolocation not supported",
   });
 
+  // ==========================
+  // Refs — everything the interval
+  // needs lives in refs so the
+  // interval never needs to restart
+  // ==========================
+
   const watchIdRef = useRef(null);
   const intervalRef = useRef(null);
   const latestGpsRef = useRef(gpsData);
   const latestOccupancyRef = useRef(initialOccupancy);
+  const logsSentRef = useRef(0);
+  const isFlushing = useRef(false);
 
-  // ==========================
-  // Queue Utilities (Memoized)
-  // ==========================
-
-  const getQueue = useCallback(() => {
-    if (!QUEUE_KEY) return [];
-    try {
-      return JSON.parse(localStorage.getItem(QUEUE_KEY)) || [];
-    } catch {
-      return [];
-    }
-  }, [QUEUE_KEY]);
-
-  const saveQueue = useCallback(
-    (queue) => {
-      if (!QUEUE_KEY) return;
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-    },
-    [QUEUE_KEY]
-  );
-
-  const clearQueue = useCallback(() => {
-    if (!QUEUE_KEY) return;
-    localStorage.removeItem(QUEUE_KEY);
-  }, [QUEUE_KEY]);
-
-  const addToQueue = useCallback(
-    (log) => {
-      const queue = getQueue();
-      queue.push(log);
-      saveQueue(queue);
-      setQueueCount(queue.length);
-    },
-    [getQueue, saveQueue]
-  );
-
-  const flushQueue = useCallback(async () => {
-    const queue = getQueue();
-    if (queue.length === 0) return;
-
-    const remaining = [];
-
-    for (const log of queue) {
-      try {
-        await logGPS(log);
-        setLogsSent((prev) => prev + 1);
-      } catch {
-        remaining.push(log);
-      }
-    }
-
-    saveQueue(remaining);
-    setQueueCount(remaining.length);
-  }, [getQueue, saveQueue]);
-
-  // Initialize queue count safely
-  useEffect(() => {
-    if (QUEUE_KEY) {
-      setQueueCount(getQueue().length);
-    }
-  }, [QUEUE_KEY, getQueue]);
-
+  // Keep refs in sync with state
   useEffect(() => {
     latestGpsRef.current = gpsData;
   }, [gpsData]);
@@ -117,6 +65,90 @@ function Recording() {
   useEffect(() => {
     latestOccupancyRef.current = occupancy;
   }, [occupancy]);
+
+  // ==========================
+  // Debug helper
+  // ==========================
+
+  const addDebug = (msg) => {
+    const time = new Date().toLocaleTimeString();
+    setDebugLog((prev) => [`[${time}] ${msg}`, ...prev].slice(0, 20));
+  };
+
+  // ==========================
+  // Queue Utilities
+  // All use QUEUE_KEY directly
+  // from closure — no useCallback
+  // so interval never restarts
+  // ==========================
+
+  const getQueue = () => {
+    if (!QUEUE_KEY) return [];
+    try {
+      return JSON.parse(localStorage.getItem(QUEUE_KEY)) || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveQueue = (queue) => {
+    if (!QUEUE_KEY) return;
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    setQueueCount(queue.length);
+  };
+
+  const clearQueue = () => {
+    if (!QUEUE_KEY) return;
+    localStorage.removeItem(QUEUE_KEY);
+    setQueueCount(0);
+  };
+
+  const addToQueue = (log) => {
+    const queue = getQueue();
+    queue.push(log);
+    saveQueue(queue);
+    addDebug(`Queued. Queue size: ${queue.length}`);
+  };
+
+  // ==========================
+  // Flush Queue
+  // Tries to send all queued logs
+  // regardless of navigator.onLine
+  // ==========================
+
+  const flushQueue = async () => {
+    if (isFlushing.current) return;
+    const queue = getQueue();
+    if (queue.length === 0) return;
+
+    isFlushing.current = true;
+    addDebug(`Flushing ${queue.length} queued logs...`);
+
+    const remaining = [];
+
+    for (const log of queue) {
+      try {
+        await logGPS(log);
+        logsSentRef.current += 1;
+        setLogsSent(logsSentRef.current);
+        addDebug(`Flushed 1 queued log. Total sent: ${logsSentRef.current}`);
+      } catch (err) {
+        remaining.push(log);
+        addDebug(`Flush failed: ${err?.message || "unknown error"}`);
+      }
+    }
+
+    saveQueue(remaining);
+    isFlushing.current = false;
+  };
+
+  // Initialize queue count on mount
+  useEffect(() => {
+    if (QUEUE_KEY) {
+      setQueueCount(getQueue().length);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================
   // GPS Watcher
@@ -134,10 +166,10 @@ function Recording() {
           status: "Active",
         });
       },
-      () => {
+      (err) => {
         setGpsData((prev) => ({
           ...prev,
-          status: "GPS Error",
+          status: `GPS Error: ${err.message}`,
         }));
       },
       {
@@ -161,10 +193,14 @@ function Recording() {
   useEffect(() => {
     const goOnline = async () => {
       setIsOnline(true);
+      addDebug("Back online — flushing queue");
       await flushQueue();
     };
 
-    const goOffline = () => setIsOnline(false);
+    const goOffline = () => {
+      setIsOnline(false);
+      addDebug("Went offline");
+    };
 
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
@@ -173,54 +209,81 @@ function Recording() {
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
-  }, [flushQueue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================
   // Logger Interval
+  //
+  // KEY FIX: Empty dependency array
+  // so this interval is created ONCE
+  // and never restarted. All values
+  // come from refs, not state.
+  //
+  // KEY FIX: We attempt to send
+  // directly first. If it fails for
+  // ANY reason (timeout, server error,
+  // weak signal), we queue it.
+  // Then we ALWAYS try to flush the
+  // queue afterward — not just on
+  // success.
   // ==========================
 
   useEffect(() => {
     if (!activeTrip) return;
 
+    addDebug("Interval started");
+
     intervalRef.current = setInterval(async () => {
       const gps = latestGpsRef.current;
       const occ = latestOccupancyRef.current;
 
-      if (gps.latitude !== null && gps.accuracy !== null) {
-        const payload = {
-          trip_id: activeTrip.tripId,
-          device_id: deviceId,
-          latitude: gps.latitude,
-          longitude: gps.longitude,
-          accuracy: gps.accuracy,
-          occupancy_count: occ,
-        };
-
-        try {
-          if (navigator.onLine) {
-            tripService.addLog({
-              timestamp: new Date().toISOString(),
-              latitude: payload.latitude,
-              longitude: payload.longitude,
-              accuracy: payload.accuracy,
-              occupancy: payload.occupancy_count,
-            });
-
-            await logGPS(payload);
-            setLogsSent((prev) => prev + 1);
-
-            await flushQueue();
-          } else {
-            throw new Error("Offline");
-          }
-        } catch {
-          addToQueue(payload);
-        }
+      // Skip if GPS not ready yet
+      if (gps.latitude === null || gps.accuracy === null) {
+        addDebug("Skipped — GPS not ready");
+        return;
       }
+
+      const payload = {
+        trip_id: activeTrip.tripId,
+        device_id: deviceId,
+        latitude: gps.latitude,
+        longitude: gps.longitude,
+        accuracy: gps.accuracy,
+        occupancy_count: occ,
+      };
+
+      // Always try to send directly first
+      try {
+        tripService.addLog({
+          timestamp: new Date().toISOString(),
+          latitude: payload.latitude,
+          longitude: payload.longitude,
+          accuracy: payload.accuracy,
+          occupancy: payload.occupancy_count,
+        });
+
+        await logGPS(payload);
+        logsSentRef.current += 1;
+        setLogsSent(logsSentRef.current);
+        addDebug(`Log sent. Total: ${logsSentRef.current}`);
+      } catch (err) {
+        // Direct send failed — queue it
+        addDebug(`Direct send failed (${err?.message || "error"}) — queuing`);
+        addToQueue(payload);
+      }
+
+      // ALWAYS try to flush queue after each attempt
+      // whether the direct send succeeded or not
+      await flushQueue();
     }, 3000);
 
-    return () => clearInterval(intervalRef.current);
-  }, [activeTrip, deviceId, flushQueue, addToQueue]);
+    return () => {
+      addDebug("Interval cleared");
+      clearInterval(intervalRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================
   // Boarding / Alighting
@@ -261,18 +324,19 @@ function Recording() {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
 
+      addDebug("Trip ending — final flush...");
       await flushQueue();
       clearQueue();
 
       try {
         await endTripAPI(activeTrip.tripId);
       } catch {
-        console.warn("Backend endTrip failed.");
+        console.warn("Backend endTrip failed — continuing anyway.");
       }
 
       const completedTrip = tripService.endTrip({
         finalOccupancy: occupancy,
-        logsSent,
+        logsSent: logsSentRef.current,
         queueRemaining: 0,
       });
 
@@ -289,8 +353,7 @@ function Recording() {
   if (!activeTrip) return null;
 
   const isOverloaded =
-    activeTrip.capacity > 0 &&
-    occupancy > activeTrip.capacity;
+    activeTrip.capacity > 0 && occupancy > activeTrip.capacity;
 
   return (
     <div className="app-container">
@@ -306,20 +369,14 @@ function Recording() {
           </span>
 
           {queueCount > 0 && (
-            <span className="status-badge queue">
-              Queue: {queueCount}
-            </span>
+            <span className="status-badge queue">Queue: {queueCount}</span>
           )}
         </div>
 
         <div className="occupancy-display">
-          <p className="capacity-label">
-            Capacity: {activeTrip.capacity}
-          </p>
+          <p className="capacity-label">Capacity: {activeTrip.capacity}</p>
 
-          <h1 className={isOverloaded ? "over" : ""}>
-            {occupancy}
-          </h1>
+          <h1 className={isOverloaded ? "over" : ""}>{occupancy}</h1>
 
           {isOverloaded && <p className="over-text">OVER CAPACITY</p>}
         </div>
@@ -328,11 +385,10 @@ function Recording() {
           <p>Status: {gpsData.status}</p>
           <p>
             Accuracy:
-            {gpsData.accuracy
-              ? ` ${gpsData.accuracy.toFixed(1)}m`
-              : " -"}
+            {gpsData.accuracy ? ` ${gpsData.accuracy.toFixed(1)}m` : " -"}
           </p>
           <p>Logs Sent: {logsSent}</p>
+          <p>Queue: {queueCount}</p>
         </div>
 
         <div className="control-row">
@@ -348,6 +404,26 @@ function Recording() {
         <button onClick={handleEndTrip} className="btn btn-danger full">
           End Trip
         </button>
+
+        {/* Debug log — remove before final deployment */}
+        <div
+          style={{
+            marginTop: "16px",
+            background: "#f0f0f0",
+            borderRadius: "10px",
+            padding: "10px",
+            fontSize: "11px",
+            fontFamily: "monospace",
+            maxHeight: "160px",
+            overflowY: "auto",
+            color: "#333",
+          }}
+        >
+          <strong>Debug Log</strong>
+          {debugLog.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
       </div>
     </div>
   );

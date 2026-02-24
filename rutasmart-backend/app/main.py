@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 
-# Models (so SQLAlchemy creates tables)
+# Models
 from app.models.trip import Trip
 from app.models.gps_log import GPSLog
 
@@ -12,7 +12,7 @@ from app.routes.gps_routes import router as gps_router
 
 app = FastAPI()
 
-# ✅ CORS Configuration
+# CORS Config
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
