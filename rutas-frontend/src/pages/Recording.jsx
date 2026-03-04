@@ -19,9 +19,6 @@ function Recording() {
     ? `gps_offline_queue_${activeTrip.tripId}`
     : null;
 
-  // ==========================
-  // State
-  // ==========================
 
   const initialOccupancy =
     activeTrip?.liveOccupancy ??
@@ -44,12 +41,6 @@ function Recording() {
       : "Geolocation not supported",
   });
 
-  // ==========================
-  // Refs — everything the interval
-  // needs lives in refs so the
-  // interval never needs to restart
-  // ==========================
-
   const watchIdRef = useRef(null);
   const intervalRef = useRef(null);
   const latestGpsRef = useRef(gpsData);
@@ -57,7 +48,6 @@ function Recording() {
   const logsSentRef = useRef(0);
   const isFlushing = useRef(false);
 
-  // Keep refs in sync with state
   useEffect(() => {
     latestGpsRef.current = gpsData;
   }, [gpsData]);
@@ -66,21 +56,10 @@ function Recording() {
     latestOccupancyRef.current = occupancy;
   }, [occupancy]);
 
-  // ==========================
-  // Debug helper
-  // ==========================
-
   const addDebug = (msg) => {
     const time = new Date().toLocaleTimeString();
     setDebugLog((prev) => [`[${time}] ${msg}`, ...prev].slice(0, 20));
   };
-
-  // ==========================
-  // Queue Utilities
-  // All use QUEUE_KEY directly
-  // from closure — no useCallback
-  // so interval never restarts
-  // ==========================
 
   const getQueue = () => {
     if (!QUEUE_KEY) return [];
@@ -110,12 +89,6 @@ function Recording() {
     addDebug(`Queued. Queue size: ${queue.length}`);
   };
 
-  // ==========================
-  // Flush Queue
-  // Tries to send all queued logs
-  // regardless of navigator.onLine
-  // ==========================
-
   const flushQueue = async () => {
     if (isFlushing.current) return;
     const queue = getQueue();
@@ -142,17 +115,12 @@ function Recording() {
     isFlushing.current = false;
   };
 
-  // Initialize queue count on mount
   useEffect(() => {
     if (QUEUE_KEY) {
       setQueueCount(getQueue().length);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ==========================
-  // GPS Watcher
-  // ==========================
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -186,10 +154,6 @@ function Recording() {
     };
   }, []);
 
-  // ==========================
-  // Online / Offline Handling
-  // ==========================
-
   useEffect(() => {
     const goOnline = async () => {
       setIsOnline(true);
@@ -212,23 +176,6 @@ function Recording() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ==========================
-  // Logger Interval
-  //
-  // KEY FIX: Empty dependency array
-  // so this interval is created ONCE
-  // and never restarted. All values
-  // come from refs, not state.
-  //
-  // KEY FIX: We attempt to send
-  // directly first. If it fails for
-  // ANY reason (timeout, server error,
-  // weak signal), we queue it.
-  // Then we ALWAYS try to flush the
-  // queue afterward — not just on
-  // success.
-  // ==========================
-
   useEffect(() => {
     if (!activeTrip) return;
 
@@ -238,7 +185,6 @@ function Recording() {
       const gps = latestGpsRef.current;
       const occ = latestOccupancyRef.current;
 
-      // Skip if GPS not ready yet
       if (gps.latitude === null || gps.accuracy === null) {
         addDebug("Skipped — GPS not ready");
         return;
@@ -253,7 +199,6 @@ function Recording() {
         occupancy_count: occ,
       };
 
-      // Always try to send directly first
       try {
         tripService.addLog({
           timestamp: new Date().toISOString(),
@@ -273,8 +218,6 @@ function Recording() {
         addToQueue(payload);
       }
 
-      // ALWAYS try to flush queue after each attempt
-      // whether the direct send succeeded or not
       await flushQueue();
     }, 3000);
 
@@ -284,10 +227,6 @@ function Recording() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ==========================
-  // Boarding / Alighting
-  // ==========================
 
   const handleBoard = () => {
     setOccupancy((prev) => {
@@ -304,10 +243,6 @@ function Recording() {
       return newValue;
     });
   };
-
-  // ==========================
-  // End Trip
-  // ==========================
 
   const handleEndTrip = async () => {
     if (!activeTrip) return;

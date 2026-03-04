@@ -67,9 +67,9 @@ function TripSetup() {
 
       const backendTrip = response.data;
 
-      // 🔥 SAVE ACTIVE TRIP LOCALLY USING BACKEND trip_id
+    
       tripService.startTrip({
-        tripId: backendTrip.trip_id, // CRITICAL
+        tripId: backendTrip.trip_id, 
         route: routeId,
         direction,
         jeepCode,

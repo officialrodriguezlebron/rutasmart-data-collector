@@ -7,26 +7,21 @@ function TripSummary() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* ===========================
-     Get Summary (Safe)
-  ============================ */
+
 
   const summary = useMemo(() => {
-    // 1️⃣ Prefer navigation state
+    
     if (location.state?.trip) {
       return location.state.trip;
     }
 
-    // 2️⃣ Fallback to last saved trip
+    
     const trips = tripService.getAllTrips();
     if (!trips.length) return null;
 
     return trips[trips.length - 1];
   }, [location.state]);
 
-  /* ===========================
-     Redirect if Missing
-  ============================ */
 
   useEffect(() => {
     if (!summary) {
@@ -36,17 +31,9 @@ function TripSummary() {
 
   if (!summary) return null;
 
-  /* ===========================
-     Capacity Check
-  ============================ */
-
   const isOverCapacity =
     summary.capacity > 0 &&
     summary.finalOccupancy > summary.capacity;
-
-  /* ===========================
-     CSV Export (FIXED)
-  ============================ */
 
   const handleExportCSV = () => {
     const logs = summary.logs || [];
@@ -96,10 +83,6 @@ function TripSummary() {
 
     URL.revokeObjectURL(url);
   };
-
-  /* ===========================
-     UI
-  ============================ */
 
   return (
     <div className="app-container">

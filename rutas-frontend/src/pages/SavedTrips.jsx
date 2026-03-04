@@ -10,13 +10,11 @@ function SavedTrips() {
     tripService.getAllTrips()
   );
 
-  // ✅ Delete via service
   const handleDelete = (tripId) => {
     tripService.deleteTrip(tripId);
     setTrips(tripService.getAllTrips());
   };
 
-  // ✅ Export logs per trip (correct architecture)
   const handleExport = (trip) => {
     if (!trip.logs || trip.logs.length === 0) {
       alert("No logs available.");

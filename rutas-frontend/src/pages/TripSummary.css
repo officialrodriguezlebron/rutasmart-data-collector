@@ -8,7 +8,6 @@
   color: #888;
 }
 
-/* Grid */
 .summary-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -32,7 +31,6 @@
   font-weight: 600;
 }
 
-/* Actions */
 .summary-actions {
   display: flex;
   flex-direction: column;

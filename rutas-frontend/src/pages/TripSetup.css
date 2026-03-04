@@ -1,4 +1,4 @@
-/* Page Background */
+
 .app-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #eef2f7, #dbe5f1);
@@ -9,7 +9,6 @@
   font-family: "Inter", "Segoe UI", sans-serif;
 }
 
-/* Card */
 .app-card {
   width: 100%;
   max-width: 420px;
@@ -20,14 +19,12 @@
   transition: 0.2s ease;
 }
 
-/* Form Layout */
 .form {
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-/* Labels */
 label {
   font-size: 13px;
   font-weight: 500;
@@ -36,7 +33,6 @@ label {
   display: block;
 }
 
-/* Inputs & Select */
 .input {
   width: 100%;
   padding: 14px;
@@ -54,11 +50,10 @@ label {
   box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
 }
 
-/* Remove number input arrows */
 input[type="number"] {
-  appearance: textfield;          /* Standard */
-  -webkit-appearance: textfield;  /* Chrome, Safari */
-  -moz-appearance: textfield;     /* Firefox */
+  appearance: textfield;          
+  -webkit-appearance: textfield;  
+  -moz-appearance: textfield;   
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -66,7 +61,7 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-/* Error */
+
 .error-text {
   font-size: 13px;
   color: #c62828;
@@ -74,7 +69,7 @@ input[type="number"]::-webkit-outer-spin-button {
   margin-top: -5px;
 }
 
-/* Buttons */
+
 .btn {
   padding: 16px;
   border-radius: 16px;
@@ -99,7 +94,7 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 100%;
 }
 
-/* Device ID */
+
 .device-info {
   text-align: center;
   font-size: 12px;
