@@ -139,7 +139,11 @@ def export_trip_csv(trip_id: str, db: Session = Depends(get_db)):
         "gps_quality_flag",
         "occupancy_count",
         "over_capacity_flag",
-        "timestamp"
+        "timestamp",
+        # KPI instrumentation columns
+        "gps_timestamp",           # browser GPS fix time (KPI #7 — jitter)
+        "client_seq",              # payload sequence number (KPI #5 — lost logs)
+        "client_online_event_at",  # reconnect event time (KPI #6 — flush latency)
     ])
 
     # Rows
@@ -154,7 +158,10 @@ def export_trip_csv(trip_id: str, db: Session = Depends(get_db)):
             log.gps_quality_flag,
             log.occupancy_count,
             log.over_capacity_flag,
-            log.timestamp
+            log.timestamp,
+            log.gps_timestamp,
+            log.client_seq,
+            log.client_online_event_at,
         ])
 
     output.seek(0)

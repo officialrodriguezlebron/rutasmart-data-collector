@@ -48,6 +48,17 @@ function Recording() {
   const logsSentRef = useRef(0);
   const isFlushing = useRef(false);
 
+  // ── KPI instrumentation refs ─────────────────────────────────────────────
+  // clientSeqRef: increments by 1 for every payload the interval constructs,
+  //   regardless of network state. Gaps in the DB sequence = confirmed lost
+  //   logs (KPI #5).
+  const clientSeqRef = useRef(0);
+
+  // onlineEventAtRef: set to Date.now() ISO string when the browser fires the
+  //   'online' event. Attached to the first log after reconnect so the backend
+  //   can compute flush latency (KPI #6). Cleared after first use.
+  const onlineEventAtRef = useRef(null);
+
   useEffect(() => {
     latestGpsRef.current = gpsData;
   }, [gpsData]);
@@ -91,27 +102,39 @@ function Recording() {
 
   const flushQueue = async () => {
     if (isFlushing.current) return;
-    const queue = getQueue();
-    if (queue.length === 0) return;
+    const snapshot = getQueue();          // snapshot length at flush start
+    if (snapshot.length === 0) return;
 
     isFlushing.current = true;
-    addDebug(`Flushing ${queue.length} queued logs...`);
+    addDebug(`Flushing ${snapshot.length} queued logs...`);
 
-    const remaining = [];
+    const failed = [];
 
-    for (const log of queue) {
+    for (const log of snapshot) {
+      // Attach the reconnect event timestamp to the first log of this flush,
+      // then clear it so subsequent logs in the same flush don't carry it.
+      const logWithOnline = onlineEventAtRef.current
+        ? { ...log, client_online_event_at: onlineEventAtRef.current }
+        : log;
+      if (onlineEventAtRef.current) onlineEventAtRef.current = null;
+
       try {
-        await logGPS(log);
+        await logGPS(logWithOnline);
         logsSentRef.current += 1;
         setLogsSent(logsSentRef.current);
         addDebug(`Flushed 1 queued log. Total sent: ${logsSentRef.current}`);
       } catch (err) {
-        remaining.push(log);
+        failed.push(log);               // keep original (without online stamp)
         addDebug(`Flush failed: ${err?.message || "unknown error"}`);
       }
     }
 
-    saveQueue(remaining);
+    // Race-condition fix: re-read queue and keep anything added DURING the
+    // flush (new offline failures) plus whatever we couldn't send.
+    const current = getQueue();
+    const addedDuringFlush = current.slice(snapshot.length);
+    saveQueue([...failed, ...addedDuringFlush]);
+
     isFlushing.current = false;
   };
 
@@ -128,9 +151,12 @@ function Recording() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         setGpsData({
-          latitude: position.coords.latitude,
+          latitude:  position.coords.latitude,
           longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
+          accuracy:  position.coords.accuracy,
+          // GeolocationPosition.timestamp is epoch-ms — store it so every
+          // payload can carry the exact fix time (KPI #7 inter-arrival jitter)
+          fixTimestamp: position.timestamp,
           status: "Active",
         });
       },
@@ -157,6 +183,10 @@ function Recording() {
   useEffect(() => {
     const goOnline = async () => {
       setIsOnline(true);
+      // Record the exact moment the browser came back online. This ISO string
+      // will be attached to the first log flushed after reconnect so the
+      // backend can compute flush latency (KPI #6).
+      onlineEventAtRef.current = new Date().toISOString();
       addDebug("Back online — flushing queue");
       await flushQueue();
     };
@@ -190,30 +220,31 @@ function Recording() {
         return;
       }
 
+      // Increment sequence counter BEFORE building the payload so the very
+      // first log is seq=1. Gaps in the DB sequence confirm lost logs (KPI #5).
+      clientSeqRef.current += 1;
+
       const payload = {
-        trip_id: activeTrip.tripId,
-        device_id: deviceId,
-        latitude: gps.latitude,
-        longitude: gps.longitude,
-        accuracy: gps.accuracy,
+        trip_id:        activeTrip.tripId,
+        device_id:      deviceId,
+        latitude:       gps.latitude,
+        longitude:      gps.longitude,
+        accuracy:       gps.accuracy,
         occupancy_count: occ,
+        // KPI instrumentation — all three fields
+        gps_timestamp:  gps.fixTimestamp ?? null,   // epoch-ms from Geolocation API (KPI #7)
+        client_seq:     clientSeqRef.current,        // sequence number (KPI #5)
+        client_online_event_at: null,                // set on first post-reconnect flush only
       };
 
       try {
-        tripService.addLog({
-          timestamp: new Date().toISOString(),
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-          accuracy: payload.accuracy,
-          occupancy: payload.occupancy_count,
-        });
-
         await logGPS(payload);
         logsSentRef.current += 1;
         setLogsSent(logsSentRef.current);
-        addDebug(`Log sent. Total: ${logsSentRef.current}`);
+        addDebug(`Log sent. seq=${clientSeqRef.current} total=${logsSentRef.current}`);
       } catch (err) {
-        // Direct send failed — queue it
+        // Direct send failed — queue it (offline queue is the only localStorage
+        // write for GPS data; tripService.addLog removed to avoid quota bloat)
         addDebug(`Direct send failed (${err?.message || "error"}) — queuing`);
         addToQueue(payload);
       }
@@ -340,25 +371,27 @@ function Recording() {
           End Trip
         </button>
 
-        {/* Debug log — remove before final deployment */}
-        <div
-          style={{
-            marginTop: "16px",
-            background: "#f0f0f0",
-            borderRadius: "10px",
-            padding: "10px",
-            fontSize: "11px",
-            fontFamily: "monospace",
-            maxHeight: "160px",
-            overflowY: "auto",
-            color: "#333",
-          }}
-        >
-          <strong>Debug Log</strong>
-          {debugLog.map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
-        </div>
+        {/* Debug log — dev builds only, hidden in production */}
+        {import.meta.env.DEV && (
+          <div
+            style={{
+              marginTop: "16px",
+              background: "#f0f0f0",
+              borderRadius: "10px",
+              padding: "10px",
+              fontSize: "11px",
+              fontFamily: "monospace",
+              maxHeight: "160px",
+              overflowY: "auto",
+              color: "#333",
+            }}
+          >
+            <strong>Debug Log</strong>
+            {debugLog.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

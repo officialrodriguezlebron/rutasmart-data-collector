@@ -50,4 +50,20 @@ class GPSLog(Base):
         nullable=False
     )
 
+    # ── KPI instrumentation fields ──────────────────────────────────────────
+    # gps_timestamp : browser's GPS fix time (from position.timestamp).
+    #                 Distinct from server insert time; used to compute
+    #                 inter-arrival jitter (KPI #7 on-time interval delivery).
+    # client_seq    : monotonically-increasing counter per trip, incremented
+    #                 by the PWA for every payload it constructs. Missing
+    #                 sequence numbers = confirmed lost logs (KPI #5).
+    # client_online_event_at : ISO timestamp the browser fired the 'online'
+    #                 event, carried on the first log after reconnect.
+    #                 Diff vs. server timestamp = reconnect flush latency
+    #                 (KPI #6). NULL on normal (always-online) logs.
+    gps_timestamp          = Column(DateTime, nullable=True)
+    client_seq             = Column(Integer,  nullable=True)
+    client_online_event_at = Column(DateTime, nullable=True)
+
+    # server insert time — set by DB, never sent by client
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)

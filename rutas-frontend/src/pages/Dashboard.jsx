@@ -24,7 +24,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const hasActiveTrip = tripService.hasActiveTrip();
 
-  // ✅ Lazy initialization (NO setState inside effect)
   const [deviceId] = useState(() => getOrCreateDeviceId());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
