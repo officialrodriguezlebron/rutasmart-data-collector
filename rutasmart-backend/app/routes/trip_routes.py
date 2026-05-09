@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import csv
 import io
@@ -42,9 +42,13 @@ def start_trip(request: TripStartRequest, db: Session = Depends(get_db)):
         )
 
     # 3️⃣ Generate trip_id
-    trip_id = f"{datetime.utcnow().date()}_{request.jeep_code}_{request.direction}_{uuid.uuid4().hex[:4]}"
+    trip_id = f"{datetime.now(timezone.utc).date()}_{request.jeep_code}_{request.direction}_{uuid.uuid4().hex[:4]}"
 
-    # 4️⃣ Create trip
+    # 4️⃣ Create trip — set start_time explicitly in UTC so the response
+    #    doesn't depend on SQLAlchemy re-fetching a server_default value,
+    #    which is unreliable across drivers on Windows.
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
     new_trip = Trip(
         trip_id=trip_id,
         route_id=request.route_id,
@@ -54,7 +58,8 @@ def start_trip(request: TripStartRequest, db: Session = Depends(get_db)):
         official_capacity=request.official_capacity,
         starting_occupancy=request.starting_occupancy,
         status=TripStatusEnum.ACTIVE,
-        start_time=datetime.utcnow()
+        start_time=now_utc,
+        created_at=now_utc,
     )
 
     db.add(new_trip)
@@ -82,8 +87,8 @@ def end_trip(trip_id: str, db: Session = Depends(get_db)):
             detail="Only ACTIVE trips can be ended"
         )
 
-    trip.status = TripStatusEnum.COMPLETED
-    trip.end_time = datetime.utcnow()
+    trip.status   = TripStatusEnum.COMPLETED
+    trip.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
 
     db.commit()
     db.refresh(trip)

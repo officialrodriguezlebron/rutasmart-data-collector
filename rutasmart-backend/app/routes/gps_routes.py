@@ -81,6 +81,7 @@ def create_gps_log(log: GPSLogCreate, db: Session = Depends(get_db)):
         gps_timestamp=gps_ts,
         client_seq=log.client_seq,
         client_online_event_at=online_at,
+        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     db.add(new_log)

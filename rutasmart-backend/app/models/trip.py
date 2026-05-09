@@ -5,7 +5,8 @@ from sqlalchemy import (
     DateTime,
     CheckConstraint,
     Enum,
-    Index
+    Index,
+    text,
 )
 from datetime import datetime
 from app.database import Base
@@ -48,6 +49,6 @@ class Trip(Base):
         nullable=False
     )
 
-    start_time = Column(DateTime, default=datetime.utcnow, nullable=False)
-    end_time = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    start_time  = Column(DateTime, server_default=text("(now() AT TIME ZONE 'UTC')"), nullable=False)
+    end_time    = Column(DateTime, nullable=True)
+    created_at  = Column(DateTime, server_default=text("(now() AT TIME ZONE 'UTC')"), nullable=False)

@@ -8,8 +8,10 @@ from sqlalchemy import (
     ForeignKey,
     CheckConstraint,
     Enum,
-    Index
+    Index,
+    text,
 )
+from sqlalchemy.sql import func
 from datetime import datetime
 from app.database import Base
 import enum
@@ -65,5 +67,10 @@ class GPSLog(Base):
     client_seq             = Column(Integer,  nullable=True)
     client_online_event_at = Column(DateTime, nullable=True)
 
-    # server insert time — set by DB, never sent by client
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # server insert time — set explicitly in gps_routes.py to UTC,
+    # server_default acts as a DB-level fallback for raw inserts only.
+    timestamp = Column(
+        DateTime,
+        server_default=text("(now() AT TIME ZONE 'UTC')"),
+        nullable=False,
+    )

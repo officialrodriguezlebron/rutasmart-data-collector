@@ -9,6 +9,7 @@ from app.models.gps_log import GPSLog
 # Routers
 from app.routes.trip_routes import router as trip_router
 from app.routes.gps_routes import router as gps_router
+from app.routes.analytics_routes import router as analytics_router
 
 app = FastAPI()
 
@@ -34,6 +35,7 @@ Base.metadata.create_all(bind=engine)
 # Include routers
 app.include_router(trip_router)
 app.include_router(gps_router)
+app.include_router(analytics_router)
 
 @app.get("/")
 def read_root():
