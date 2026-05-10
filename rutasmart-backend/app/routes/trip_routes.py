@@ -20,10 +20,10 @@ limiter = Limiter(key_func=get_remote_address)
 # 🔹 START TRIP
 @router.post("/start-trip", response_model=TripStartResponse)
 @limiter.limit("10/minute")
-def start_trip(request: TripStartRequest, req: Request, db: Session = Depends(get_db)):
+def start_trip(body: TripStartRequest, request: Request, db: Session = Depends(get_db)):
 
     # 1️⃣ Prevent impossible occupancy
-    if request.starting_occupancy > request.official_capacity:
+    if body.starting_occupancy > body.official_capacity:
         raise HTTPException(
             status_code=400,
             detail="Starting occupancy cannot exceed official capacity"
@@ -33,7 +33,7 @@ def start_trip(request: TripStartRequest, req: Request, db: Session = Depends(ge
     existing_active = (
         db.query(Trip)
         .filter(
-            Trip.jeep_code == request.jeep_code,
+            Trip.jeep_code == body.jeep_code,
             Trip.status == TripStatusEnum.ACTIVE
         )
         .first()
@@ -42,25 +42,23 @@ def start_trip(request: TripStartRequest, req: Request, db: Session = Depends(ge
     if existing_active:
         raise HTTPException(
             status_code=409,
-            detail=f"Jeep {request.jeep_code} already has an ACTIVE trip"
+            detail=f"Jeep {body.jeep_code} already has an ACTIVE trip"
         )
 
     # 3️⃣ Generate trip_id
-    trip_id = f"{datetime.now(timezone.utc).date()}_{request.jeep_code}_{request.direction}_{uuid.uuid4().hex[:4]}"
+    trip_id = f"{datetime.now(timezone.utc).date()}_{body.jeep_code}_{body.direction}_{uuid.uuid4().hex[:4]}"
 
-    # 4️⃣ Create trip — set start_time explicitly in UTC so the response
-    #    doesn't depend on SQLAlchemy re-fetching a server_default value,
-    #    which is unreliable across drivers on Windows.
+    # 4️⃣ Create trip
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
     new_trip = Trip(
         trip_id=trip_id,
-        route_id=request.route_id,
-        direction=request.direction,
-        recorder_id=request.recorder_id,
-        jeep_code=request.jeep_code,
-        official_capacity=request.official_capacity,
-        starting_occupancy=request.starting_occupancy,
+        route_id=body.route_id,
+        direction=body.direction,
+        recorder_id=body.recorder_id,
+        jeep_code=body.jeep_code,
+        official_capacity=body.official_capacity,
+        starting_occupancy=body.starting_occupancy,
         status=TripStatusEnum.ACTIVE,
         start_time=now_utc,
         created_at=now_utc,
