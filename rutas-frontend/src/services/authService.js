@@ -71,7 +71,7 @@ export const authService = {
     const role = this.getRole();
     if (role === "ADMIN")     return "/admin";
     if (role === "ANALYST")   return "/analytics";
-    if (role === "CONDUCTOR") return "/";
+    if (role === "CONDUCTOR") return "/dashboard";
     return "/login";
   },
 };
