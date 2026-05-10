@@ -140,3 +140,26 @@
 .btn:active {
   transform: scale(0.97);
 }
+
+/* ── Wake Lock status banner ─────────────────────────────────────────────── */
+.wakelock-banner {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.wakelock-ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.wakelock-warn {
+  background: #fff8e1;
+  color: #5d4037;
+  border: 1px solid #ffe082;
+}

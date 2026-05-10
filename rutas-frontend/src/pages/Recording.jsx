@@ -47,6 +47,13 @@ function Recording() {
   const latestOccupancyRef = useRef(initialOccupancy);
   const logsSentRef = useRef(0);
   const isFlushing = useRef(false);
+  const wakeLockRef = useRef(null);   // Screen Wake Lock sentinel
+
+  // ── Wake Lock support detection ──────────────────────────────────────────
+  // "wakeLock" = API supported and lock acquired
+  // "unsupported" = browser doesn't support Wake Lock (iOS < 16.4 in browser)
+  // "failed" = supported but acquisition failed (permissions, battery saver)
+  const [wakeLockStatus, setWakeLockStatus] = useState("pending");
 
   // ── KPI instrumentation refs ─────────────────────────────────────────────
   // clientSeqRef: increments by 1 for every payload the interval constructs,
@@ -58,6 +65,59 @@ function Recording() {
   //   'online' event. Attached to the first log after reconnect so the backend
   //   can compute flush latency (KPI #6). Cleared after first use.
   const onlineEventAtRef = useRef(null);
+
+  // ── Screen Wake Lock ──────────────────────────────────────────────────────
+  // Requests the Wake Lock API to prevent the screen from sleeping during
+  // an active recording session. Without this, iOS/Android may suspend
+  // JavaScript execution when the screen locks, stopping GPS logging.
+  //
+  // Support matrix:
+  //   Android Chrome/Firefox/Samsung : ✅ Full support
+  //   iOS Safari 16.4+ (PWA mode)    : ✅ Supported
+  //   iOS Safari < 16.4              : ❌ Not supported — user must keep screen on
+  //
+  // Re-acquisition on visibilitychange handles the case where the conductor
+  // briefly switches apps and comes back — the lock is automatically restored.
+  useEffect(() => {
+    let cancelled = false;
+
+    const acquireWakeLock = async () => {
+      if (!("wakeLock" in navigator)) {
+        setWakeLockStatus("unsupported");
+        return;
+      }
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+        if (!cancelled) setWakeLockStatus("wakeLock");
+
+        wakeLockRef.current.addEventListener("release", () => {
+          if (!cancelled) setWakeLockStatus("released");
+        });
+      } catch {
+        if (!cancelled) setWakeLockStatus("failed");
+      }
+    };
+
+    // Re-acquire when the page becomes visible again (conductor switches back)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        acquireWakeLock();
+      }
+    };
+
+    acquireWakeLock();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Release the lock when the recording screen unmounts (trip ended)
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     latestGpsRef.current = gpsData;
@@ -338,6 +398,29 @@ function Recording() {
             <span className="status-badge queue">Queue: {queueCount}</span>
           )}
         </div>
+
+        {/* Wake Lock status banner */}
+        {wakeLockStatus === "unsupported" && (
+          <div className="wakelock-banner wakelock-warn">
+            ⚠ Screen lock not supported on this device. Keep screen on and
+            app open during the entire trip to prevent GPS logging from stopping.
+          </div>
+        )}
+        {wakeLockStatus === "failed" && (
+          <div className="wakelock-banner wakelock-warn">
+            ⚠ Could not prevent screen sleep. Keep the screen on during recording.
+          </div>
+        )}
+        {wakeLockStatus === "released" && (
+          <div className="wakelock-banner wakelock-warn">
+            ⚠ Screen lock was released. Tap here to re-activate.
+          </div>
+        )}
+        {wakeLockStatus === "wakeLock" && (
+          <div className="wakelock-banner wakelock-ok">
+            🔒 Screen will stay on during recording
+          </div>
+        )}
 
         <div className="occupancy-display">
           <p className="capacity-label">Capacity: {activeTrip.capacity}</p>

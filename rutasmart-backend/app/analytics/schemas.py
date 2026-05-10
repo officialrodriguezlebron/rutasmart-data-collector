@@ -135,3 +135,59 @@ class OverlapResult(BaseModel):
     min_samples:      int
     total_a:          int
     total_b:          int
+
+
+# ── Cluster evaluation schemas (ML metrics) ───────────────────────────────────
+
+class SilhouetteResultOut(BaseModel):
+    score:          float
+    per_cluster:    List[dict]
+    interpretation: str
+    n_clusters:     int
+    n_points:       int
+
+
+class DaviesBouldinResultOut(BaseModel):
+    index:          float
+    per_cluster:    List[dict]
+    interpretation: str
+    n_clusters:     int
+
+
+class GroundTruthMatchOut(BaseModel):
+    cluster_id:    int
+    detected_lat:  float
+    detected_lon:  float
+    nearest_stop:  str
+    gt_lat:        float
+    gt_lon:        float
+    offset_m:      float
+    matched:       bool
+
+
+class ClusterEvaluationOut(BaseModel):
+    """
+    Full ML evaluation result — Silhouette + Davies-Bouldin + Ground Truth.
+    Required by professor's revision to Chapter 3.
+    """
+    # Internal validity metrics
+    silhouette:     SilhouetteResultOut
+    davies_bouldin: DaviesBouldinResultOut
+
+    # External validity (ground truth comparison)
+    match_threshold_m: float
+    matches:           List[GroundTruthMatchOut]
+    mae_m:             float
+    true_positives:    int
+    false_positives:   int
+    false_negatives:   int
+    precision:         float
+    recall:            float
+    f1_score:          float
+
+    # Context
+    eps_m:        float
+    min_samples:  int
+    total_input:  int
+    dbscan_input: int
+    noise_ratio:  float
