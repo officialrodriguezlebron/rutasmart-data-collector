@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { authService } from "../services/authService";
 import "./AnalyticsEngine.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -66,7 +67,8 @@ function SectionHeader({ title, badge }) {
 
 export default function AnalyticsEngine() {
   const navigate    = useNavigate();
-  const [tripId, setTripId]       = useState("");
+  const [searchParams] = useSearchParams();
+  const [tripId, setTripId]       = useState(searchParams.get("trip") || "");
   const [epsM, setEpsM]           = useState(50);
   const [minPts, setMinPts]       = useState(5);
   const [data, setData]           = useState(null);
@@ -129,15 +131,23 @@ export default function AnalyticsEngine() {
       {/* Header */}
       <div className="ae-header">
         <div className="ae-header-left">
-          <button className="ae-back-btn" onClick={() => navigate("/")}>
-            ← Dashboard
+          <button className="ae-back-btn" onClick={() => authService.isAdmin()
+            ? navigate("/admin") : navigate("/login")}>
+            ← {authService.isAdmin() ? "Admin Panel" : "Dashboard"}
           </button>
           <div className="ae-title-block">
             <h1>Analytics Engine</h1>
             <p>DBSCAN · Load Factor · Demand · Time Categorisation</p>
           </div>
         </div>
-        <span className="ae-corridor-badge">Malanday–Recto</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="ae-corridor-badge">Malanday–Recto</span>
+          <button onClick={() => { authService.clearSession(); navigate("/login"); }}
+            style={{ padding: "5px 12px", background: "white", border: "1px solid #e5e7eb",
+                     borderRadius: 8, fontSize: 12, color: "#888", cursor: "pointer" }}>
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* Two-column layout */}

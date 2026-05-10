@@ -11,7 +11,7 @@ function Recording() {
 
   useEffect(() => {
     if (!activeTrip) {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [activeTrip, navigate]);
 

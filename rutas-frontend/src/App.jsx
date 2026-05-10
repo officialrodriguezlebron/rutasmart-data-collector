@@ -1,25 +1,64 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import TripSetup from "./pages/TripSetup";
-import Recording from "./pages/Recording";
-import TripSummary from "./pages/TripSummary";
-import SavedTrips from "./pages/SavedTrips";
-import AnalyticsEngine from "./pages/AnalyticsEngine";
+import { authService } from "./services/authService";
 
-function App() {
+import Login           from "./pages/Login";
+import Dashboard       from "./pages/Dashboard";
+import TripSetup       from "./pages/TripSetup";
+import Recording       from "./pages/Recording";
+import TripSummary     from "./pages/TripSummary";
+import SavedTrips      from "./pages/SavedTrips";
+import AnalyticsEngine from "./pages/AnalyticsEngine";
+import AdminDashboard  from "./pages/AdminDashboard";
+
+// Must be logged in
+function RequireAuth({ children }) {
+  if (!authService.isLoggedIn()) return <Navigate to="/login" replace />;
+  return children;
+}
+
+// Conductor only
+function RequireConductor({ children }) {
+  if (!authService.isLoggedIn())  return <Navigate to="/login" replace />;
+  if (!authService.isConductor()) return <Navigate to="/login" replace />;
+  return children;
+}
+
+// Admin only
+function RequireAdmin({ children }) {
+  if (!authService.isLoggedIn()) return <Navigate to="/login" replace />;
+  if (!authService.isAdmin())    return <Navigate to="/login" replace />;
+  return children;
+}
+
+// Sends each role to their home screen
+function RootRedirect() {
+  if (!authService.isLoggedIn()) return <Navigate to="/login" replace />;
+  return <Navigate to={authService.getHomeRoute()} replace />;
+}
+
+export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/"             element={<Dashboard />} />
-        <Route path="/trip-setup"   element={<TripSetup />} />
-        <Route path="/record"       element={<Recording />} />
-        <Route path="/summary"      element={<TripSummary />} />
-        <Route path="/saved-trips"  element={<SavedTrips />} />
-        <Route path="/analytics"    element={<AnalyticsEngine />} />
-        <Route path="*"             element={<Navigate to="/" replace />} />
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/"      element={<RootRedirect />} />
+
+        {/* Conductor */}
+        <Route path="/dashboard"   element={<RequireConductor><Dashboard /></RequireConductor>} />
+        <Route path="/trip-setup"  element={<RequireConductor><TripSetup /></RequireConductor>} />
+        <Route path="/record"      element={<RequireConductor><Recording /></RequireConductor>} />
+        <Route path="/summary"     element={<RequireConductor><TripSummary /></RequireConductor>} />
+        <Route path="/saved-trips" element={<RequireConductor><SavedTrips /></RequireConductor>} />
+
+        {/* Analytics — Admin AND Analyst both land here */}
+        <Route path="/analytics" element={<RequireAuth><AnalyticsEngine /></RequireAuth>} />
+
+        {/* Admin panel — Admin only, Analyst never sees this */}
+        <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
 }
-
-export default App;

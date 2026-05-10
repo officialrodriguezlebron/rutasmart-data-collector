@@ -25,7 +25,7 @@ function TripSummary() {
 
   useEffect(() => {
     if (!summary) {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [summary, navigate]);
 
@@ -145,7 +145,7 @@ function TripSummary() {
           <button
             className="btn btn-secondary full"
             onClick={() =>
-              navigate("/", { replace: true })
+              navigate("/dashboard", { replace: true })
             }
           >
             Back to Dashboard

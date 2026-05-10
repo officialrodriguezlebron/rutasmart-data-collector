@@ -128,7 +128,7 @@ function SavedTrips() {
 
         <button
           className="btn btn-secondary full"
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/dashboard")}
         >
           Back to Dashboard
         </button>

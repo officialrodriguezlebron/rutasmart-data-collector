@@ -1,0 +1,183 @@
+/* ── Login page ─────────────────────────────────────────────────────────── */
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e8f0fe 0%, #dbeafe 50%, #ede9fe 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: white;
+  border-radius: 24px;
+  padding: 32px 28px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+}
+
+/* Header */
+.login-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.login-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1565c0;
+  letter-spacing: -0.5px;
+}
+
+.login-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+.login-institute {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* Role tabs */
+.login-tabs {
+  display: flex;
+  background: #f4f6f8;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+  gap: 2px;
+}
+
+.login-tab {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #888;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.login-tab:hover {
+  color: #555;
+  background: rgba(255,255,255,0.6);
+}
+
+.login-tab.active {
+  background: white;
+  color: #1565c0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Form */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.login-field input {
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: #1f2937;
+  background: #f8fafc;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  outline: none;
+}
+
+.login-field input:focus {
+  border-color: #1565c0;
+  background: white;
+}
+
+.login-field input::placeholder {
+  color: #ccc;
+}
+
+/* Conductor PWA note */
+.login-pwa-note {
+  font-size: 12px;
+  color: #2e7d32;
+  text-align: center;
+  padding: 6px 10px;
+  background: #e8f5e9;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+/* Error */
+.login-error {
+  padding: 10px 14px;
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  border-radius: 10px;
+  color: #c62828;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Submit button */
+.login-btn {
+  padding: 14px;
+  background: #1565c0;
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  font-family: inherit;
+  margin-top: 4px;
+}
+
+.login-btn:hover:not(:disabled) {
+  background: #1251a3;
+}
+
+.login-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.login-btn:disabled {
+  background: #93b4e0;
+  cursor: not-allowed;
+}
+
+/* Role description */
+.login-role-desc {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #aaa;
+  min-height: 16px;
+}
