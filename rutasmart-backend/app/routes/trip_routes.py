@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from datetime import datetime, timezone
 import uuid
 import csv
@@ -11,12 +13,14 @@ from app.models.trip import Trip, TripStatusEnum
 from app.models.gps_log import GPSLog
 from app.schemas.trip_schema import TripStartRequest, TripStartResponse
 
-router = APIRouter(prefix="/trip", tags=["Trip Management"])
+router  = APIRouter(prefix="/trip", tags=["Trip Management"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 # 🔹 START TRIP
 @router.post("/start-trip", response_model=TripStartResponse)
-def start_trip(request: TripStartRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def start_trip(request: TripStartRequest, req: Request, db: Session = Depends(get_db)):
 
     # 1️⃣ Prevent impossible occupancy
     if request.starting_occupancy > request.official_capacity:
@@ -74,7 +78,8 @@ def start_trip(request: TripStartRequest, db: Session = Depends(get_db)):
 
 # 🔹 END TRIP
 @router.post("/end-trip/{trip_id}")
-def end_trip(trip_id: str, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def end_trip(trip_id: str, request: Request, db: Session = Depends(get_db)):
 
     trip = db.query(Trip).filter(Trip.trip_id == trip_id).first()
 
