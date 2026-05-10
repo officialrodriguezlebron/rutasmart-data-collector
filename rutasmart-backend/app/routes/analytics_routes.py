@@ -121,8 +121,10 @@ def get_gps_quality(trip_id: str, request: Request, db: Session = Depends(get_db
 # ── 2. DBSCAN Stop Cluster Detection ──────────────────────────────────────────
 
 @router.get("/{trip_id}/dbscan", response_model=DBSCANResult)
+@limiter.limit("20/minute")
 def get_dbscan_clusters(
     trip_id: str,
+    request: Request,
     eps_m: float = Query(default=50.0, gt=0, le=500,
                          description="Cluster radius in metres"),
     min_samples: int = Query(default=5, ge=2, le=50,
@@ -180,7 +182,8 @@ def get_dbscan_clusters(
 # ── 3. Load Factor ─────────────────────────────────────────────────────────────
 
 @router.get("/{trip_id}/load-factor", response_model=LoadFactorResult)
-def get_load_factor(trip_id: str, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def get_load_factor(trip_id: str, request: Request, db: Session = Depends(get_db)):
     """
     Load factor (occupancy / capacity × 100) broken down by time period.
     POOR logs are INCLUDED — occupancy data is valid regardless of GPS accuracy.
@@ -210,7 +213,8 @@ def get_load_factor(trip_id: str, db: Session = Depends(get_db)):
 # ── 4. Demand Intensity ────────────────────────────────────────────────────────
 
 @router.get("/{trip_id}/demand", response_model=DemandResult)
-def get_demand(trip_id: str, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def get_demand(trip_id: str, request: Request, db: Session = Depends(get_db)):
     """
     Demand intensity distribution across Normal / Moderate / High / Critical.
     Based on occupancy vs. official capacity. Includes POOR logs.
@@ -233,7 +237,8 @@ def get_demand(trip_id: str, db: Session = Depends(get_db)):
 # ── 5. Time Period Distribution ────────────────────────────────────────────────
 
 @router.get("/{trip_id}/time", response_model=TimeResult)
-def get_time_distribution(trip_id: str, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def get_time_distribution(trip_id: str, request: Request, db: Session = Depends(get_db)):
     """
     Log count per time period: Morning Peak / Midday / Afternoon Peak / Off-Peak.
     """
@@ -299,9 +304,11 @@ def get_sensitivity_analysis(
 
 
 @router.get("/overlap/{trip_a_id}/{trip_b_id}", response_model=OverlapResult)
+@limiter.limit("10/minute")
 def get_route_overlap(
     trip_a_id: str,
     trip_b_id: str,
+    request: Request,
     eps_m: float = Query(default=75.0, gt=0, le=500,
                          description="Overlap radius in metres (Task B: 75m recommended)"),
     min_samples: int = Query(default=20, ge=2, le=100,
@@ -351,8 +358,10 @@ def get_route_overlap(
 # ── 6. Full Analytics Run ──────────────────────────────────────────────────────
 
 @router.get("/{trip_id}/run-all", response_model=FullAnalyticsResult)
+@limiter.limit("10/minute")
 def run_all_analytics(
     trip_id: str,
+    request: Request,
     eps_m: float = Query(default=50.0, gt=0, le=500),
     min_samples: int = Query(default=5, ge=2, le=50),
     db: Session = Depends(get_db),
