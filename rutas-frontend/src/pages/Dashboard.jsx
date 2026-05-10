@@ -11,12 +11,10 @@ function generateDeviceId() {
 
 function getOrCreateDeviceId() {
   let storedId = localStorage.getItem(DEVICE_KEY);
-
   if (!storedId) {
     storedId = generateDeviceId();
     localStorage.setItem(DEVICE_KEY, storedId);
   }
-
   return storedId;
 }
 
@@ -28,14 +26,12 @@ export default function Dashboard() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const goOnline = () => setIsOnline(true);
+    const goOnline  = () => setIsOnline(true);
     const goOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", goOnline);
+    window.addEventListener("online",  goOnline);
     window.addEventListener("offline", goOffline);
-
     return () => {
-      window.removeEventListener("online", goOnline);
+      window.removeEventListener("online",  goOnline);
       window.removeEventListener("offline", goOffline);
     };
   }, []);
@@ -63,7 +59,7 @@ export default function Dashboard() {
           <span className="device-value">{deviceId}</span>
         </div>
 
-        {/* ACTION BUTTONS */}
+        {/* PRIMARY ACTIONS — trip collection */}
         <div className="actions">
           {hasActiveTrip ? (
             <button
@@ -86,6 +82,19 @@ export default function Dashboard() {
             onClick={() => navigate("/saved-trips")}
           >
             View Saved Trips
+          </button>
+        </div>
+
+        {/* DIVIDER */}
+        <hr style={{ margin: "16px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
+
+        {/* ANALYTICS — separate section so conductors know it's a different tool */}
+        <div className="actions">
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate("/analytics")}
+          >
+            Analytics Engine
           </button>
         </div>
 

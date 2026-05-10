@@ -1,0 +1,873 @@
+/* ─── Analytics Engine — Desktop-first layout ─────────────────────────────── */
+/* Matches the RutaSmart design system:                                         */
+/*   Primary blue  : #1565c0                                                    */
+/*   Success green : #2e7d32  / #43a047                                         */
+/*   Warning amber : #ef6c00  / #856404                                         */
+/*   Danger red    : #c62828  / #e24b4a                                         */
+/*   Surface       : #f8fafc                                                    */
+/*   Border        : #e5e7eb                                                    */
+/*   Font          : system-ui / Segoe UI (matches index.css)                   */
+
+/* ─── Page shell ─────────────────────────────────────────────────────────── */
+.ae-page {
+  min-height: 100vh;
+  background: #f2f4f8;
+  padding: 24px 16px 48px;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Header bar ─────────────────────────────────────────────────────────── */
+.ae-header {
+  max-width: 960px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ae-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ae-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.ae-back-btn:hover {
+  background: #f4f6f8;
+  color: #1565c0;
+}
+
+.ae-title-block h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.ae-title-block p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #888;
+}
+
+.ae-corridor-badge {
+  padding: 5px 12px;
+  background: #e8f0fe;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1565c0;
+  white-space: nowrap;
+}
+
+/* ─── Main layout: sidebar + content ────────────────────────────────────── */
+.ae-layout {
+  max-width: 960px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .ae-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Sidebar (input + params) ───────────────────────────────────────────── */
+.ae-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 24px;
+}
+
+.ae-card {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.ae-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+  margin: 0 0 14px;
+}
+
+/* Trip ID input */
+.ae-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ae-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+}
+
+.ae-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: monospace;
+  color: #1f2937;
+  background: #f8fafc;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.ae-input:focus {
+  outline: none;
+  border-color: #1565c0;
+  background: white;
+}
+
+.ae-input::placeholder {
+  color: #bbb;
+  font-size: 11px;
+}
+
+/* Run button */
+.ae-run-btn {
+  width: 100%;
+  padding: 13px;
+  background: #1565c0;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ae-run-btn:hover:not(:disabled) {
+  background: #1251a3;
+}
+
+.ae-run-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.ae-run-btn:disabled {
+  background: #93b4e0;
+  cursor: not-allowed;
+}
+
+/* DBSCAN parameter sliders */
+.ae-param {
+  margin-bottom: 14px;
+}
+
+.ae-param-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.ae-param-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+}
+
+.ae-param-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1565c0;
+  font-family: monospace;
+  background: #e8f0fe;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.ae-slider {
+  width: 100%;
+  accent-color: #1565c0;
+  cursor: pointer;
+}
+
+.ae-rerun-btn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  color: #1565c0;
+  border: 1.5px solid #1565c0;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ae-rerun-btn:hover:not(:disabled) {
+  background: #e8f0fe;
+}
+
+.ae-rerun-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sensitivity reference in sidebar */
+.ae-sensitivity-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ae-sensitivity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.ae-sensitivity-eps {
+  font-family: monospace;
+  font-weight: 700;
+  color: #1565c0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ae-sensitivity-note {
+  color: #777;
+  line-height: 1.4;
+}
+
+.ae-sensitivity-row.recommended {
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+}
+
+.ae-sensitivity-row.recommended .ae-sensitivity-eps {
+  color: #2e7d32;
+}
+
+/* ─── Error banner ───────────────────────────────────────────────────────── */
+.ae-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  border-radius: 12px;
+  color: #c62828;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.ae-error-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ─── Empty state ────────────────────────────────────────────────────────── */
+.ae-empty {
+  background: white;
+  border-radius: 20px;
+  padding: 60px 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  text-align: center;
+  color: #bbb;
+}
+
+.ae-empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.ae-empty p {
+  margin: 0;
+  font-size: 15px;
+  color: #888;
+}
+
+.ae-empty small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #bbb;
+}
+
+/* ─── Content area ───────────────────────────────────────────────────────── */
+.ae-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─── Tabs ───────────────────────────────────────────────────────────────── */
+.ae-tabs {
+  display: flex;
+  gap: 2px;
+  background: white;
+  border-radius: 14px;
+  padding: 5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  flex-wrap: wrap;
+}
+
+.ae-tab {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  background: transparent;
+  color: #888;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ae-tab:hover {
+  background: #f4f6f8;
+  color: #444;
+}
+
+.ae-tab.active {
+  background: #1565c0;
+  color: white;
+}
+
+/* ─── Metric cards grid ──────────────────────────────────────────────────── */
+.ae-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.ae-metric {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ae-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+}
+
+.ae-metric-value {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: monospace;
+  color: #1f2937;
+  line-height: 1.1;
+}
+
+.ae-metric-value.good    { color: #2e7d32; }
+.ae-metric-value.warning { color: #ef6c00; }
+.ae-metric-value.danger  { color: #c62828; }
+.ae-metric-value.info    { color: #1565c0; }
+
+.ae-metric-sub {
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* ─── Section header inside card ─────────────────────────────────────────── */
+.ae-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ae-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.ae-section-badge {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: #f4f6f8;
+  color: #777;
+  border: 1px solid #e5e7eb;
+}
+
+/* ─── Bar rows (quality / demand / time) ─────────────────────────────────── */
+.ae-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ae-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.ae-bar-label {
+  width: 130px;
+  flex-shrink: 0;
+  color: #555;
+  font-size: 12px;
+}
+
+.ae-bar-track {
+  flex: 1;
+  background: #f0f2f5;
+  border-radius: 4px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.ae-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ae-bar-pct {
+  width: 46px;
+  text-align: right;
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 12px;
+  color: #1f2937;
+}
+
+.ae-bar-count {
+  width: 48px;
+  text-align: right;
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* ─── Info notice (e.g. 100% POOR desktop warning) ───────────────────────── */
+.ae-notice {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #5d4037;
+  line-height: 1.5;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.ae-notice-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ─── Cluster table ──────────────────────────────────────────────────────── */
+.ae-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+}
+
+.ae-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 560px;
+}
+
+.ae-table thead tr {
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ae-table thead th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  white-space: nowrap;
+}
+
+.ae-table tbody tr {
+  border-bottom: 1px solid #f0f2f5;
+  transition: background 0.1s ease;
+}
+
+.ae-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.ae-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.ae-table td {
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+.ae-cluster-id {
+  font-family: monospace;
+  font-weight: 700;
+  color: #1565c0;
+}
+
+.ae-coord {
+  font-family: monospace;
+  font-size: 11px;
+  color: #888;
+}
+
+/* Demand tier badges */
+.ae-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ae-badge.Normal   { background: #e8f5e9; color: #2e7d32; }
+.ae-badge.Moderate { background: #fff8e1; color: #ef6c00; }
+.ae-badge.High     { background: #fce4ec; color: #c62828; }
+.ae-badge.Critical { background: #ffebee; color: #b71c1c; }
+
+/* Load factor mini-bar in table */
+.ae-lf-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ae-lf-track {
+  width: 52px;
+  height: 6px;
+  background: #f0f2f5;
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ae-lf-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.ae-lf-text {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ae-lf-text.over { color: #c62828; }
+
+/* No-clusters empty state inside table area */
+.ae-no-clusters {
+  text-align: center;
+  padding: 40px 20px;
+  color: #aaa;
+}
+
+.ae-no-clusters-icon {
+  font-size: 36px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.ae-no-clusters p {
+  margin: 0;
+  font-size: 14px;
+  color: #888;
+}
+
+.ae-no-clusters small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #bbb;
+}
+
+/* ─── Load factor period bars ────────────────────────────────────────────── */
+.ae-lf-periods {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ae-lf-period {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ae-lf-period-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.ae-lf-period-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #555;
+}
+
+.ae-lf-period-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ae-lf-period-stats {
+  font-family: monospace;
+  font-size: 11px;
+  color: #888;
+}
+
+.ae-lf-period-stats.over {
+  color: #c62828;
+  font-weight: 700;
+}
+
+.ae-lf-dual-track {
+  height: 14px;
+  background: #f0f2f5;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ae-lf-dual-max {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  opacity: 0.25;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ae-lf-dual-avg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ae-lf-capacity-line {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: #c62828;
+  opacity: 0.7;
+}
+
+.ae-lf-empty-period {
+  font-size: 11px;
+  color: #bbb;
+  margin-top: 2px;
+}
+
+.ae-lf-footnote {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 14px;
+  line-height: 1.5;
+  padding-top: 12px;
+  border-top: 1px solid #f0f2f5;
+}
+
+/* ─── Demand tier legend grid ────────────────────────────────────────────── */
+.ae-tier-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ae-tier-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.ae-tier-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ae-tier-name {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.ae-tier-rule {
+  font-family: monospace;
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* ─── Time period legend ─────────────────────────────────────────────────── */
+.ae-period-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ae-period-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.ae-period-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ae-period-name {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 11px;
+}
+
+.ae-period-hours {
+  font-family: monospace;
+  font-size: 10px;
+  color: #aaa;
+}
+
+.ae-tz-note {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f2f5;
+  line-height: 1.5;
+}
+
+/* ─── Cross-reference note ───────────────────────────────────────────────── */
+.ae-crossref {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ae-crossref code {
+  font-family: monospace;
+  font-size: 12px;
+  background: #f4f6f8;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #1565c0;
+}
+
+/* ─── Loading spinner ────────────────────────────────────────────────────── */
+@keyframes ae-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ae-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: ae-spin 0.7s linear infinite;
+}
+
+.ae-spinner.blue {
+  border-color: rgba(21,101,192,0.3);
+  border-top-color: #1565c0;
+}
+
+/* ─── Divider ────────────────────────────────────────────────────────────── */
+.ae-divider {
+  height: 1px;
+  background: #f0f2f5;
+  border: none;
+  margin: 14px 0;
+}

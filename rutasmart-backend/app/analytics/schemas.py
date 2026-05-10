@@ -18,6 +18,9 @@ class StopClusterOut(BaseModel):
     peak_period:     str
     load_factor_pct: float
     noise_ratio_pct: float
+    avg_velocity_ms: float = 0.0
+    cluster_type:    str   = "TRUE_STOP"
+    # TRUE_STOP | CREEPING_QUEUE | MOVING
 
 
 class DBSCANResult(BaseModel):
@@ -88,3 +91,47 @@ class FullAnalyticsResult(BaseModel):
     load_factor: LoadFactorResult
     demand:      DemandResult
     time_dist:   TimeResult
+
+
+# ── Sensitivity analysis schemas ──────────────────────────────────────────────
+
+class SensitivityRow(BaseModel):
+    eps_m:                float
+    min_samples:          int
+    cluster_count:        int
+    noise_points:         int
+    dbscan_input:         int
+    avg_cluster_size:     float
+    centroid_spread_m:    float
+    true_stop_count:      int
+    creeping_queue_count: int
+    moving_count:         int
+    noise_ratio:          float
+
+
+class SensitivityResult(BaseModel):
+    trip_id:    str
+    rows:       List[SensitivityRow]
+    recommended: dict   # highlights the (eps=50, minPts=5) cell
+
+
+# ── Inter-route overlap schemas ───────────────────────────────────────────────
+
+class OverlapSegment(BaseModel):
+    cluster_id:    int
+    centroid:      dict   # {lat, lon}
+    total_points:  int
+    trip_a_points: int
+    trip_b_points: int
+
+
+class OverlapResult(BaseModel):
+    trip_a_id:        str
+    trip_b_id:        str
+    overlap_segments: List[OverlapSegment]
+    trip_a_only:      List[OverlapSegment]
+    trip_b_only:      List[OverlapSegment]
+    eps_m:            float
+    min_samples:      int
+    total_a:          int
+    total_b:          int
