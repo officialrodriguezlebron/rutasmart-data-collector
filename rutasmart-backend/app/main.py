@@ -24,7 +24,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://rutasmart-data-collector.onrender.com",
+    "https://rutasmart-data-collector.onrender.com"
+    "https://rutasmart-data-collector.vercel.app",
 ]
 
 app.add_middleware(
