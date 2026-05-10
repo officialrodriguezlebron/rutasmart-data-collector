@@ -14,12 +14,20 @@ GET /analytics/{trip_id}/time         Time period distribution
 GET /analytics/{trip_id}/run-all      All four features in one call
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.database import get_db
 from app.models.trip import Trip, TripStatusEnum
 from app.models.gps_log import GPSLog
+
+limiter = Limiter(key_func=get_remote_address)
+
+# Malanday-Recto corridor bounding box (±0.05 degree buffer around corridor)
+CORRIDOR_LAT_MIN, CORRIDOR_LAT_MAX =  14.55,  14.75
+CORRIDOR_LON_MIN, CORRIDOR_LON_MAX = 120.95, 121.05
 from app.analytics.algorithms import (
     GPSPoint,
     run_dbscan,
@@ -94,7 +102,8 @@ def _fetch_points(trip_id: str, db: Session) -> list[GPSPoint]:
 # ── 1. GPS Quality ─────────────────────────────────────────────────────────────
 
 @router.get("/{trip_id}/quality", response_model=GPSQualityResult)
-def get_gps_quality(trip_id: str, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def get_gps_quality(trip_id: str, request: Request, db: Session = Depends(get_db)):
     """
     GPS quality breakdown: GOOD / ACCEPTABLE / POOR counts and percentages.
     Also reports how many logs are eligible for DBSCAN vs. excluded.
@@ -244,8 +253,10 @@ def get_time_distribution(trip_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{trip_id}/sensitivity", response_model=SensitivityResult)
+@limiter.limit("5/minute")
 def get_sensitivity_analysis(
     trip_id: str,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """

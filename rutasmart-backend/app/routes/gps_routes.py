@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import uuid
@@ -8,12 +10,13 @@ from app.models.gps_log import GPSLog, GPSQualityEnum
 from app.models.trip import Trip, TripStatusEnum
 from app.schemas.gps_schema import GPSLogCreate, GPSLogResponse
 
-
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/log", tags=["GPS Logs"])
 
 
 @router.post("/", response_model=GPSLogResponse)
-def create_gps_log(log: GPSLogCreate, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def create_gps_log(request: Request, log: GPSLogCreate, db: Session = Depends(get_db)):
 
     # device_id already validated by Pydantic Field(min_length=3)
     # but keep an explicit strip-check for whitespace-only strings
@@ -33,7 +36,18 @@ def create_gps_log(log: GPSLogCreate, db: Session = Depends(get_db)):
             detail="Cannot log data. Trip is not ACTIVE."
         )
 
-    # accuracy and occupancy_count already validated by Pydantic Field(gt=0 / ge=0)
+    # ── GPS bounding box — Malanday-Recto corridor ±0.05° buffer ────────────
+    # Rejects logs with coordinates outside Metro Manila / North Manila area.
+    # Prevents accidental or malicious pollution of DBSCAN with off-corridor data.
+    LAT_MIN, LAT_MAX =  14.55,  14.75
+    LON_MIN, LON_MAX = 120.95, 121.05
+    if not (LAT_MIN <= log.latitude  <= LAT_MAX and
+            LON_MIN <= log.longitude <= LON_MAX):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Coordinates ({log.latitude:.4f}, {log.longitude:.4f}) are outside "
+                   f"the Malanday-Recto corridor bounding box."
+        )
 
     # ── GPS quality classification ───────────────────────────────────────────
     if log.accuracy <= 20:
