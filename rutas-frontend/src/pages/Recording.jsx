@@ -368,7 +368,7 @@ function Recording() {
 
       navigate("/summary", {
         replace: true,
-        state: { trip: completedTrip },
+        state: { trip: completedTrip, logsSent: logsSentRef.current },
       });
     } catch (err) {
       console.error(err);
