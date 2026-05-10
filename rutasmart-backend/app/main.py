@@ -24,9 +24,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://rutasmart-data-collector.onrender.com"
+    "https://rutasmart-data-collector.onrender.com",
+    # Vercel deployments — main + preview URLs
     "https://rutasmart-data-collector.vercel.app",
+    "https://rutas-frontend.vercel.app",
 ]
+
+# Also allow any origin set via env var (paste your exact Vercel URL here)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "")
+if FRONTEND_URL and FRONTEND_URL not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append(FRONTEND_URL)
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,11 +77,3 @@ def get_all_trips(db: Session = Depends(get_db)):
 @app.get("/admin/stats", tags=["Admin"])
 def get_system_stats(db: Session = Depends(get_db)):
     from app.models.trip import TripStatusEnum
-    total_logs   = db.query(GPSLog).count()
-    total_trips  = db.query(Trip).count()
-    active_trips = db.query(Trip).filter(Trip.status == TripStatusEnum.ACTIVE).count()
-    total_users  = db.query(User).filter(User.is_active == True).count()
-    active_jeeps = db.query(Trip.jeep_code).filter(Trip.status == TripStatusEnum.ACTIVE).distinct().all()
-    return {"total_logs": total_logs, "total_trips": total_trips,
-            "active_trips": active_trips, "total_users": total_users,
-            "active_jeeps": [j[0] for j in active_jeeps]}
