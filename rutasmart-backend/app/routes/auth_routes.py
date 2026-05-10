@@ -103,7 +103,63 @@ def login_conductor(
     )
 
 
-# ── Seed default users (dev / demo) ───────────────────────────────────────
+
+# ── Create user (public signup) ────────────────────────────────────────────
+
+@router.post("/create", tags=["Authentication"])
+@limiter.limit("5/minute")
+def create_user(
+    body: dict,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Public signup endpoint. Creates ANALYST or CONDUCTOR accounts.
+    ADMIN accounts cannot be self-registered — seeded manually only.
+    """
+    import uuid as _uuid
+
+    role_str = body.get("role", "").upper()
+    if role_str not in ("ANALYST", "CONDUCTOR"):
+        raise HTTPException(status_code=400, detail="Role must be ANALYST or CONDUCTOR.")
+
+    display_name = (body.get("display_name") or "").strip()
+    if not display_name:
+        raise HTTPException(status_code=400, detail="Display name is required.")
+
+    role = UserRole.ANALYST if role_str == "ANALYST" else UserRole.CONDUCTOR
+    user_id = "USR-" + _uuid.uuid4().hex[:6].upper()
+
+    if role == UserRole.ANALYST:
+        email = (body.get("email") or "").strip().lower()
+        password = body.get("password") or ""
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required.")
+        if len(password) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+        if db.query(User).filter(User.email == email).first():
+            raise HTTPException(status_code=409, detail="Email already registered.")
+        user = User(user_id=user_id, role=role, display_name=display_name,
+                    email=email, password_hash=User.hash_password(password), is_active=True)
+
+    else:  # CONDUCTOR
+        employee_id = (body.get("employee_id") or "").strip()
+        pin = body.get("pin") or ""
+        jeep_code = (body.get("jeep_code") or "").strip()
+        if not employee_id:
+            raise HTTPException(status_code=400, detail="Employee ID is required.")
+        if len(pin) < 4:
+            raise HTTPException(status_code=400, detail="PIN must be at least 4 digits.")
+        if db.query(User).filter(User.employee_id == employee_id).first():
+            raise HTTPException(status_code=409, detail="Employee ID already registered.")
+        user = User(user_id=user_id, role=role, display_name=display_name,
+                    employee_id=employee_id, pin_hash=User.hash_password(pin),
+                    jeep_code=jeep_code or None, is_active=True)
+
+    db.add(user)
+    db.commit()
+    return {"message": "Account created successfully.", "user_id": user_id, "role": role_str}
+
 
 @router.post("/seed", tags=["Dev"])
 def seed_users(db: Session = Depends(get_db)):

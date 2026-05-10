@@ -51,13 +51,13 @@ export default function Login() {
         <div className="login-header">
           <h1>RutaSmart</h1>
           <p>Malanday – Recto Corridor</p>
-          <span className="login-institute">FEU Institute of Technology · 2026</span>
+          <span className="login-institute">Devion · FEU Institute of Technology · 2026</span>
         </div>
 
         {/* Role tabs */}
         <div className="login-tabs">
           {[
-            { key: "STAFF",     label: "Staff"     },
+            { key: "STAFF",     label: "Admin"     },
             { key: "CONDUCTOR", label: "Conductor" },
           ].map(({ key, label }) => (
             <button
@@ -149,6 +149,19 @@ export default function Login() {
         <div className="login-role-desc">
           {role === "STAFF"     && "Admin → full access · Analyst → read + export"}
           {role === "CONDUCTOR" && "Collect only · Own trips · PWA mobile"}
+        </div>
+
+        <div className="login-role-desc" style={{ marginTop: 10 }}>
+          No account?{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/signup")}
+            style={{ background: "none", border: "none", color: "#1565c0", fontSize: 12,
+                     fontWeight: 600, cursor: "pointer", padding: 0,
+                     textDecoration: "underline", fontFamily: "inherit" }}
+          >
+            Create one
+          </button>
         </div>
 
       </div>

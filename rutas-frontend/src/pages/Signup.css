@@ -1,0 +1,60 @@
+/* ── Signup-specific styles (Login.css handles shared elements) ──────────── */
+
+/* Success screen */
+.signup-success {
+  text-align: center;
+  padding: 40px 28px;
+}
+
+.signup-success-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  border: 2px solid #c8e6c9;
+}
+
+.signup-success h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.signup-success p {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* Back to login link */
+.signup-login-link {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+}
+
+.signup-link-btn {
+  background: none;
+  border: none;
+  color: #1565c0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  text-decoration: underline;
+}
+
+.signup-link-btn:hover {
+  color: #1251a3;
+}

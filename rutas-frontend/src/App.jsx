@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { authService } from "./services/authService";
 
 import Login           from "./pages/Login";
+import Signup          from "./pages/Signup";
 import Dashboard       from "./pages/Dashboard";
 import TripSetup       from "./pages/TripSetup";
 import Recording       from "./pages/Recording";
@@ -41,8 +42,9 @@ export default function App() {
     <Router>
       <Routes>
         {/* Public */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/"      element={<RootRedirect />} />
+        <Route path="/login"  element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/"       element={<RootRedirect />} />
 
         {/* Conductor */}
         <Route path="/dashboard"   element={<RequireConductor><Dashboard /></RequireConductor>} />
