@@ -350,6 +350,9 @@ function Recording() {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
 
+      // Capture BEFORE any async calls — ref survives but want a stable snapshot
+      const finalLogsSent = logsSentRef.current;
+
       addDebug("Trip ending — final flush...");
       await flushQueue();
       clearQueue();
@@ -362,13 +365,13 @@ function Recording() {
 
       const completedTrip = tripService.endTrip({
         finalOccupancy: occupancy,
-        logsSent: logsSentRef.current,
+        logsSent: finalLogsSent,
         queueRemaining: 0,
       });
 
       navigate("/summary", {
         replace: true,
-        state: { trip: completedTrip, logsSent: logsSentRef.current },
+        state: { trip: completedTrip, logsSent: finalLogsSent },
       });
     } catch (err) {
       console.error(err);
