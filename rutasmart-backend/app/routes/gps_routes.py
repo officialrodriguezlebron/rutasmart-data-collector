@@ -36,18 +36,20 @@ def create_gps_log(request: Request, log: GPSLogCreate, db: Session = Depends(ge
             detail="Cannot log data. Trip is not ACTIVE."
         )
 
-    # ── GPS bounding box — Malanday-Recto corridor ±0.05° buffer ────────────
-    # Rejects logs with coordinates outside Metro Manila / North Manila area.
-    # Prevents accidental or malicious pollution of DBSCAN with off-corridor data.
-    LAT_MIN, LAT_MAX =  14.55,  14.75
-    LON_MIN, LON_MAX = 120.95, 121.05
-    if not (LAT_MIN <= log.latitude  <= LAT_MAX and
-            LON_MIN <= log.longitude <= LON_MAX):
-        raise HTTPException(
-            status_code=422,
-            detail=f"Coordinates ({log.latitude:.4f}, {log.longitude:.4f}) are outside "
-                   f"the Malanday-Recto corridor bounding box."
-        )
+    # ── GPS bounding box ──────────────────────────────────────────────────────
+    # Production: 14.55–14.75°N, 120.95–121.05°E (Malanday-Recto corridor)
+    # Testing: set DISABLE_BBOX=true in env to skip this check
+    import os as _os
+    if not _os.getenv("DISABLE_BBOX", "").lower() == "true":
+        LAT_MIN, LAT_MAX =  14.55,  14.75
+        LON_MIN, LON_MAX = 120.95, 121.05
+        if not (LAT_MIN <= log.latitude  <= LAT_MAX and
+                LON_MIN <= log.longitude <= LON_MAX):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Coordinates ({log.latitude:.4f}, {log.longitude:.4f}) are outside "
+                       f"the Malanday-Recto corridor bounding box."
+            )
 
     # ── GPS quality classification ───────────────────────────────────────────
     if log.accuracy <= 20:
@@ -87,19 +89,3 @@ def create_gps_log(request: Request, log: GPSLogCreate, db: Session = Depends(ge
         trip_id=log.trip_id,
         device_id=log.device_id,
         latitude=log.latitude,
-        longitude=log.longitude,
-        accuracy=log.accuracy,
-        occupancy_count=log.occupancy_count,
-        over_capacity_flag=over_capacity,
-        gps_quality_flag=gps_quality,
-        gps_timestamp=gps_ts,
-        client_seq=log.client_seq,
-        client_online_event_at=online_at,
-        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
-    )
-
-    db.add(new_log)
-    db.commit()
-    db.refresh(new_log)
-
-    return new_log
