@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService } from "../services/authService";
+import TripMap from "./TripMap";
 import "./AnalyticsEngine.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -69,6 +70,7 @@ export default function AnalyticsEngine() {
   const navigate    = useNavigate();
   const [searchParams] = useSearchParams();
   const [tripId, setTripId]       = useState(searchParams.get("trip") || "");
+  const [showMap, setShowMap]     = useState(false);
   const [epsM, setEpsM]           = useState(50);
   const [minPts, setMinPts]       = useState(5);
   const [data, setData]           = useState(null);
@@ -174,6 +176,14 @@ export default function AnalyticsEngine() {
                 ? <><span className="ae-spinner" aria-hidden="true" /> Running…</>
                 : "▶  Run all algorithms"
               }
+            </button>
+            <button
+              className="ae-run-btn"
+              style={{ background: "#0288d1", marginTop: 8 }}
+              onClick={() => setShowMap(true)}
+              disabled={!tripId.trim()}
+            >
+              🗺  View Heatmap
             </button>
           </div>
 
@@ -497,6 +507,15 @@ export default function AnalyticsEngine() {
           )}
         </main>
       </div>
+
+      {/* Heatmap modal */}
+      {showMap && tripId.trim() && (
+        <TripMap
+          tripId={tripId.trim()}
+          onClose={() => setShowMap(false)}
+        />
+      )}
+
     </div>
   );
 }

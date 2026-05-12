@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAdminStats, getAdminTrips, seedUsers } from "../services/api";
+import {
+  getAdminStats, getAdminTrips, seedUsers,
+  deleteTrip, importTripCSV,
+} from "../services/api";
 import { authService } from "../services/authService";
+import TripMap from "./TripMap";
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
@@ -13,6 +17,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab]       = useState("overview");
   const [seeded, setSeeded] = useState(false);
+
+  // Manage Trips state
+  const [importing, setImporting]         = useState(false);
+  const [importMessage, setImportMessage] = useState(null);
+  const [deletingId, setDeletingId]       = useState(null);
+  const [mapTripId, setMapTripId]         = useState(null);
 
   useEffect(() => {
     if (!authService.isAdmin()) {
@@ -53,6 +63,51 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDelete = async (tripId) => {
+    if (!window.confirm(`Delete trip ${tripId}?\n\nThis permanently removes the trip AND all its GPS logs. Cannot be undone.`)) {
+      return;
+    }
+    setDeletingId(tripId);
+    try {
+      const res = await deleteTrip(tripId);
+      setImportMessage({
+        type: "success",
+        text: `Deleted ${tripId} (${res.data.logs_removed} logs removed).`,
+      });
+      fetchData();
+    } catch (e) {
+      setImportMessage({
+        type: "error",
+        text: e.response?.data?.detail || "Delete failed.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const res = await importTripCSV(file);
+      setImportMessage({
+        type: "success",
+        text: `Imported "${res.data.imported}" — ${res.data.logs_imported} logs added${res.data.logs_skipped ? `, ${res.data.logs_skipped} skipped` : ""}.`,
+      });
+      fetchData();
+    } catch (err) {
+      setImportMessage({
+        type: "error",
+        text: err.response?.data?.detail || "Import failed.",
+      });
+    } finally {
+      setImporting(false);
+      e.target.value = "";  // reset file input
+    }
+  };
+
   const statusColor = (status) => {
     if (status === "ACTIVE")    return "#2e7d32";
     if (status === "COMPLETED") return "#1565c0";
@@ -60,6 +115,7 @@ export default function AdminDashboard() {
   };
 
   return (
+    <>
     <div className="admin-page">
 
       {/* Sidebar */}
@@ -84,6 +140,7 @@ export default function AdminDashboard() {
           {[
             { key: "overview",  label: "Overview"        },
             { key: "trips",     label: "All Trips"       },
+            { key: "manage",    label: "Manage Trips"    },
             { key: "analytics", label: "Analytics Engine"},
           ].map(({ key, label }) => (
             <button
@@ -125,6 +182,7 @@ export default function AdminDashboard() {
           <h1>
             {tab === "overview"  && "Overview"}
             {tab === "trips"     && "All Trips"}
+            {tab === "manage"    && "Manage Trips"}
             {tab === "seed"      && "Seed Users"}
           </h1>
           <button className="admin-refresh" onClick={fetchData}>
@@ -275,6 +333,15 @@ export default function AdminDashboard() {
                             Analyse
                           </button>
                         )}
+                        {t.status === "COMPLETED" && (
+                          <button
+                            className="admin-action-btn"
+                            style={{ background: "#e3f2fd", color: "#0288d1", marginLeft: 4 }}
+                            onClick={() => setMapTripId(t.trip_id)}
+                          >
+                            🗺 Map
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -282,6 +349,111 @@ export default function AdminDashboard() {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Manage Trips — import + delete */}
+        {!loading && tab === "manage" && (
+          <>
+            {/* Import CSV card */}
+            <div className="admin-card" style={{ maxWidth: 720, marginBottom: 16 }}>
+              <div className="admin-card-title">Import Trip from CSV</div>
+              <p style={{ fontSize: 13, color: "#666", marginBottom: 16, lineHeight: 1.6 }}>
+                Upload a CSV exported from a previous trip. The system reconstructs the trip with all its GPS logs.
+                CSV must include columns: <code style={{ fontFamily: "monospace", fontSize: 12, background: "#f4f6f8", padding: "1px 6px", borderRadius: 4 }}>
+                latitude, longitude, accuracy, occupancy_count, timestamp</code>.
+              </p>
+              <label htmlFor="csv-import-input" className="admin-seed-btn"
+                     style={{ display: "block", textAlign: "center", cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.6 : 1 }}>
+                {importing ? "Importing…" : "Choose CSV file"}
+              </label>
+              <input
+                id="csv-import-input"
+                type="file"
+                accept=".csv"
+                style={{ display: "none" }}
+                onChange={handleImport}
+                disabled={importing}
+              />
+              {importMessage && (
+                <div style={{
+                  marginTop: 12, padding: "10px 14px", borderRadius: 10, fontSize: 13,
+                  background:   importMessage.type === "success" ? "#e8f5e9" : "#ffebee",
+                  color:        importMessage.type === "success" ? "#2e7d32" : "#c62828",
+                  border: `1px solid ${importMessage.type === "success" ? "#c8e6c9" : "#ffcdd2"}`,
+                }}>
+                  {importMessage.text}
+                </div>
+              )}
+            </div>
+
+            {/* Trip inventory table */}
+            <div className="admin-card" style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{ padding: "16px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="admin-card-title" style={{ marginBottom: 0 }}>Trip Inventory ({trips.length})</div>
+              </div>
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Trip ID</th>
+                      <th>Jeep</th>
+                      <th>Status</th>
+                      <th>Start</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trips.map(t => (
+                      <tr key={t.trip_id}>
+                        <td className="admin-mono" style={{ fontSize: 11 }}>{t.trip_id}</td>
+                        <td>{t.jeep_code}</td>
+                        <td>
+                          <span className="admin-status-badge"
+                            style={{ background: statusColor(t.status) + "22",
+                                     color: statusColor(t.status) }}>
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="admin-mono" style={{ fontSize: 11, color: "#888" }}>
+                          {t.start_time?.slice(0, 16)}
+                        </td>
+                        <td style={{ display: "flex", gap: 6 }}>
+                          {t.status === "COMPLETED" && (
+                            <button className="admin-action-btn"
+                                    onClick={() => navigate(`/analytics?trip=${t.trip_id}`)}>
+                              Analyse
+                            </button>
+                          )}
+                          {t.status === "COMPLETED" && (
+                            <button className="admin-action-btn"
+                                    style={{ background: "#e3f2fd", color: "#0288d1" }}
+                                    onClick={() => setMapTripId(t.trip_id)}>
+                              🗺 Map
+                            </button>
+                          )}
+                          <button
+                            className="admin-action-btn"
+                            style={{ background: "#ffebee", color: "#c62828" }}
+                            onClick={() => handleDelete(t.trip_id)}
+                            disabled={deletingId === t.trip_id}
+                          >
+                            {deletingId === t.trip_id ? "Deleting…" : "Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {trips.length === 0 && (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: "center", padding: 24, color: "#888" }}>
+                          No trips yet. Run a field ride or import a CSV above.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
 
         {/* Seed users */}
@@ -324,5 +496,11 @@ export default function AdminDashboard() {
 
       </main>
     </div>
+
+    {/* Heatmap modal */}
+    {mapTripId && (
+      <TripMap tripId={mapTripId} onClose={() => setMapTripId(null)} />
+    )}
+  </>
   );
 }

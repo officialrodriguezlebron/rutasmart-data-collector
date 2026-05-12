@@ -30,9 +30,19 @@ export const runSensitivity   = (tripId) =>
   API.get(`/analytics/${tripId}/sensitivity`);
 export const runOverlap       = (tripAId, tripBId, eps = 75, minPts = 20) =>
   API.get(`/analytics/overlap/${tripAId}/${tripBId}?eps_m=${eps}&min_samples=${minPts}`);
+export const getRawLogs       = (tripId, quality = "all") =>
+  API.get(`/analytics/${tripId}/logs?quality=${quality}`);
 
 // ── Admin ──────────────────────────────────────────────────────────────────
 export const getAdminTrips = () => API.get("/admin/trips");
 export const getAdminStats = () => API.get("/admin/stats");
+export const deleteTrip    = (tripId) => API.delete(`/admin/trip/${tripId}`);
+export const importTripCSV = (file) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return API.post("/admin/import", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export default API;

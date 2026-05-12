@@ -104,6 +104,47 @@ def _fetch_points(trip_id: str, db: Session) -> list[GPSPoint]:
     ]
 
 
+# ── Raw GPS logs (for heatmap visualization) ──────────────────────────────
+
+@router.get("/{trip_id}/logs", tags=["Analytics"])
+@limiter.limit("20/minute")
+def get_raw_logs(
+    trip_id: str,
+    request: Request,
+    quality: str = Query(default="all", description="Filter: all | good | poor"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns all GPS logs for a trip as lightweight lat/lon/occupancy/quality tuples.
+    Used by the heatmap visualization in the Analytics Engine.
+    Includes ALL quality levels (GOOD, ACCEPTABLE, POOR) unless filtered.
+    Trip must be COMPLETED.
+    """
+    _get_completed_trip(trip_id, db)
+    q = db.query(GPSLog).filter(GPSLog.trip_id == trip_id)
+
+    if quality == "good":
+        q = q.filter(GPSLog.gps_quality_flag.in_(["GOOD", "ACCEPTABLE"]))
+    elif quality == "poor":
+        q = q.filter(GPSLog.gps_quality_flag == "POOR")
+
+    logs = q.order_by(GPSLog.timestamp.asc()).all()
+
+    return [
+        {
+            "lat":       log.latitude,
+            "lon":       log.longitude,
+            "accuracy":  log.accuracy,
+            "occupancy": log.occupancy_count,
+            "quality":   str(log.gps_quality_flag.value
+                             if hasattr(log.gps_quality_flag, "value")
+                             else log.gps_quality_flag),
+            "over_cap":  log.over_capacity_flag,
+        }
+        for log in logs
+    ]
+
+
 # ── 0. Data Pre-processing Pipeline Documentation ────────────────────────────
 
 @router.get("/{trip_id}/pipeline", tags=["Analytics"])
