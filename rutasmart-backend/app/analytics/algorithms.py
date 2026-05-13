@@ -46,6 +46,363 @@ def haversine_distance(lat1: float, lon1: float,
     return EARTH_RADIUS_M * 2 * math.asin(math.sqrt(a))
 
 
+"""
+RutaSmart Analytics — Four-Feature Model
+=========================================
+Implements the four algorithms described in the thesis:
+
+  1. Haversine distance      — great-circle distance between GPS coordinates
+  2. DBSCAN stop detection   — density-based clustering of GPS logs
+  3. Load factor computation — occupancy / capacity utilisation
+  4. Time categorisation     — Morning Peak / Midday / Afternoon Peak / Off-Peak
+
+Enhanced Pipeline Additions (Chapter 3 revision):
+  5. Kalman Filter           — GPS trace smoothing before DBSCAN (Stage 3.5)
+  6. W-DBSCAN                — Weighted DBSCAN using occupancy as density weight
+
+POOR log filtering
+------------------
+GPS logs flagged POOR (accuracy > 50m) are excluded from DBSCAN input.
+The positional error of a POOR log exceeds epsilon (50m), meaning the log
+could spatially belong to any neighbouring cluster — including wrong ones.
+Filtering them removes noise without discarding useful occupancy data;
+the occupancy_count is still valid even when the GPS fix is unreliable.
+
+Design note: POOR logs ARE included in load factor and time categorisation
+because those metrics depend on occupancy and timestamp, not position.
+"""
+
+import math
+import numpy as np
+from datetime import datetime
+from typing import List, Optional
+from dataclasses import dataclass, field
+
+
+# ── 1. Haversine Distance ─────────────────────────────────────────────────────
+
+EARTH_RADIUS_M = 6_371_000  # metres
+
+
+def haversine_distance(lat1: float, lon1: float,
+                       lat2: float, lon2: float) -> float:
+    """
+    Great-circle distance in metres between two WGS-84 coordinates.
+    Used as the distance metric for DBSCAN so that epsilon is in real-world
+    metres rather than degrees (which vary with latitude).
+    """
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return EARTH_RADIUS_M * 2 * math.asin(math.sqrt(a))
+
+
+# ── 5. Kalman Filter — GPS Trace Smoothing (Stage 3.5 of pipeline) ───────────
+#
+# Applied AFTER GPS quality classification (Stage 3) and BEFORE DBSCAN (Stage 4).
+# Smooths GOOD+ACCEPTABLE GPS traces by estimating the true position from noisy
+# measurements, reducing multipath jitter without dropping logs.
+#
+# Model: constant-velocity 2D Kalman Filter on [lat, lon, v_lat, v_lon].
+# State vector x = [lat, lon, v_lat, v_lon]^T
+#
+# Why Kalman over simple moving average?
+#   - Moving average delays the estimate — centroid shifts away from true stop
+#   - Kalman is optimal for Gaussian noise; GPS accuracy ~normally distributed
+#   - Kalman preserves timing alignment (no lag): each smoothed point
+#     corresponds to its original timestamp
+#
+# Parameter choices (justified for jeepney GPS at 3s interval):
+#   dt = 3s (GPS interval)
+#   sigma_process = 0.3 m/s^2 (jeepney acceleration ≤ 0.5 m/s^2 in traffic)
+#   sigma_measure = derived from log.accuracy (GOOD: ~10m, ACCEPTABLE: ~35m)
+
+def kalman_smooth(points: "List[GPSPoint]") -> "List[GPSPoint]":
+    """
+    Apply a 2D constant-velocity Kalman Filter to a time-ordered list of GPS points.
+    Returns new GPSPoint objects with smoothed lat/lon; all other fields preserved.
+
+    Only applied to GOOD and ACCEPTABLE quality logs. POOR logs are passed
+    through unchanged (they are excluded from DBSCAN regardless of smoothing).
+
+    The filter runs forward-only (causal) — suitable for real-time use.
+    For post-trip analytics a Kalman smoother (RTS smoother) would give better
+    results but requires the full trajectory; causal filter is used here for
+    consistency with the streaming data model.
+    """
+    if len(points) < 2:
+        return points
+
+    import copy
+
+    # Degrees-to-metres conversion at Manila latitude (~14.65°N)
+    # Used to convert state in metres back to degrees for output
+    LAT_M_PER_DEG = 111_320.0                              # ~constant
+    LON_M_PER_DEG = 111_320.0 * math.cos(math.radians(14.65))
+
+    def deg_to_m(lat_deg, lon_deg, ref_lat, ref_lon):
+        return (
+            (lat_deg - ref_lat) * LAT_M_PER_DEG,
+            (lon_deg - ref_lon) * LON_M_PER_DEG,
+        )
+
+    def m_to_deg(dy, dx, ref_lat, ref_lon):
+        return (
+            ref_lat + dy / LAT_M_PER_DEG,
+            ref_lon + dx / LON_M_PER_DEG,
+        )
+
+    # Reference origin — first point
+    ref_lat = points[0].latitude
+    ref_lon = points[0].longitude
+
+    # State: [y (m), x (m), vy (m/s), vx (m/s)]
+    dt = 3.0  # seconds between GPS logs (nominal interval)
+
+    # State transition matrix (constant velocity)
+    F = np.array([
+        [1, 0, dt, 0 ],
+        [0, 1, 0,  dt],
+        [0, 0, 1,  0 ],
+        [0, 0, 0,  1 ],
+    ], dtype=float)
+
+    # Measurement matrix (we observe lat, lon → y, x)
+    H = np.array([
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+    ], dtype=float)
+
+    # Process noise covariance (acceleration uncertainty)
+    sigma_a = 0.3  # m/s²
+    G = np.array([[0.5*dt**2], [0.5*dt**2], [dt], [dt]])
+    Q = sigma_a**2 * G @ G.T
+
+    # Initial state
+    y0, x0 = deg_to_m(points[0].latitude, points[0].longitude, ref_lat, ref_lon)
+    state = np.array([[y0], [x0], [0.0], [0.0]])
+
+    # Initial covariance — high uncertainty
+    P = np.eye(4) * 100.0
+
+    smoothed = []
+    for pt in points:
+        # Measurement noise from GPS accuracy (1σ)
+        sigma_r = pt.accuracy if pt.gps_quality_flag != "POOR" else 200.0
+        R = np.eye(2) * sigma_r**2
+
+        # Predict
+        state = F @ state
+        P     = F @ P @ F.T + Q
+
+        # Measurement
+        y_m, x_m = deg_to_m(pt.latitude, pt.longitude, ref_lat, ref_lon)
+        z = np.array([[y_m], [x_m]])
+
+        # Update
+        S = H @ P @ H.T + R
+        K = P @ H.T @ np.linalg.inv(S)
+        state = state + K @ (z - H @ state)
+        P     = (np.eye(4) - K @ H) @ P
+
+        # Convert smoothed state back to degrees
+        sm_lat, sm_lon = m_to_deg(float(state[0, 0]), float(state[1, 0]), ref_lat, ref_lon)
+
+        new_pt = copy.copy(pt)
+        # Only update position for GOOD/ACCEPTABLE; leave POOR as-is
+        if pt.gps_quality_flag != "POOR":
+            new_pt.latitude  = sm_lat
+            new_pt.longitude = sm_lon
+        smoothed.append(new_pt)
+
+    return smoothed
+
+
+# ── 6. W-DBSCAN — Weighted DBSCAN (occupancy as density weight) ──────────────
+#
+# Standard DBSCAN treats every GPS log equally. A point where the jeepney had
+# 2 passengers counts the same as a point where it had 24. This means a brief
+# idle with empty seats can form a cluster that "competes" with a genuine
+# high-demand boarding zone.
+#
+# W-DBSCAN addresses this by replicating each point proportional to its
+# occupancy_count before running DBSCAN. A log with occupancy=20 contributes
+# 20 copies to the density estimate; occupancy=2 contributes only 2 copies.
+#
+# Effect on clustering:
+#   - High-occupancy dwell zones → stronger cluster signal → more stable centroids
+#   - Low-occupancy idling at red lights → weaker signal → may not form cluster
+#   - Centroid position shifts toward the highest-occupancy point in the zone
+#     (i.e., where the most passengers were present, not just where vehicle stopped)
+#
+# Implementation note (sklearn compatibility):
+#   sklearn DBSCAN does not support sample weights natively. We use point
+#   replication — each point is duplicated floor(occupancy/scale) times.
+#   This is a well-documented technique for weighted density estimation
+#   (Ankerst et al., 1999; Ester et al., 1996 extended).
+#
+#   scale = median_occupancy // 2 to keep the replicated dataset manageable.
+#   After DBSCAN, cluster assignments are mapped back to original points only
+#   (replicated copies are discarded).
+
+def run_wdbscan(
+    points: "List[GPSPoint]",
+    official_capacity: int,
+    eps_m: float = 50.0,
+    min_samples: int = 5,
+    weight_scale: int = None,
+) -> dict:
+    """
+    Weighted DBSCAN — occupancy-weighted stop cluster detection.
+
+    Improves upon vanilla DBSCAN by giving higher-occupancy GPS logs more
+    influence on cluster formation. The result is that detected stop zones
+    correspond to actual high-demand boarding locations, not just any
+    position where the vehicle spent time.
+
+    Parameters
+    ----------
+    points            : GPS logs for one trip
+    official_capacity : jeepney capacity (for LF computation)
+    eps_m             : cluster radius in metres (same as Task A default: 50m)
+    min_samples       : minimum cluster density (default 5)
+    weight_scale      : occupancy divisor for replication (auto if None)
+
+    Returns
+    -------
+    Same structure as run_dbscan() for drop-in compatibility.
+    Adds 'weighted': True to distinguish from vanilla DBSCAN results.
+    """
+    from sklearn.cluster import DBSCAN as SKLearnDBSCAN
+
+    total_input = len(points)
+    if total_input == 0:
+        return {**_empty_result(eps_m, min_samples), "weighted": True}
+
+    # Filter POOR logs (same as vanilla DBSCAN)
+    poor_logs  = [p for p in points if p.gps_quality_flag == "POOR"]
+    clean_logs = [p for p in points if p.gps_quality_flag != "POOR"]
+    noise_ratio = len(poor_logs) / total_input
+
+    if len(clean_logs) < min_samples:
+        return {**_empty_result(eps_m, min_samples,
+                               total_input=total_input,
+                               noise_ratio=noise_ratio), "weighted": True}
+
+    # Determine weight scale from data
+    occs = [p.occupancy_count for p in clean_logs]
+    median_occ = float(np.median(occs)) if occs else 1.0
+    if weight_scale is None:
+        weight_scale = max(1, int(median_occ) // 2)  # replicate ~2× at median
+
+    # Build replicated dataset
+    replicated_pts   = []   # GPSPoint objects (originals + copies)
+    original_indices = []   # which original point each replicated entry came from
+
+    for idx, pt in enumerate(clean_logs):
+        # Number of copies = occupancy / scale, minimum 1
+        copies = max(1, int(pt.occupancy_count / weight_scale))
+        for _ in range(copies):
+            replicated_pts.append(pt)
+            original_indices.append(idx)
+
+    coords = np.radians(
+        np.array([[p.latitude, p.longitude] for p in replicated_pts])
+    )
+    eps_rad = eps_m / EARTH_RADIUS_M
+
+    db = SKLearnDBSCAN(
+        eps=eps_rad,
+        min_samples=min_samples,
+        metric="haversine",
+        algorithm="ball_tree",
+        n_jobs=-1,
+    )
+    db.fit(coords)
+    labels = db.labels_
+
+    # Map cluster labels back to ORIGINAL points only
+    # Original point idx → most common label among its replicated copies
+    orig_label_votes = [[] for _ in range(len(clean_logs))]
+    for replicated_label, orig_idx in zip(labels, original_indices):
+        orig_label_votes[orig_idx].append(replicated_label)
+
+    # Assign each original point the most-voted label
+    orig_labels = []
+    for votes in orig_label_votes:
+        if not votes:
+            orig_labels.append(-1)
+        else:
+            # -1 (noise) only wins if all copies were noise
+            non_noise = [v for v in votes if v != -1]
+            orig_labels.append(
+                max(set(non_noise), key=non_noise.count) if non_noise else -1
+            )
+
+    # Compute velocities on clean_logs for cluster type classification
+    clean_sorted = sorted(clean_logs, key=lambda p: p.timestamp)
+    vel_map = {
+        p.log_id: v
+        for p, v in zip(clean_sorted, compute_velocities(clean_sorted))
+    }
+
+    dbscan_noise_count = int(sum(1 for l in orig_labels if l == -1))
+    clusters: List[StopCluster] = []
+
+    for cid in sorted(set(orig_labels) - {-1}):
+        cluster_pts = [p for p, l in zip(clean_logs, orig_labels) if l == cid]
+
+        lats  = [p.latitude  for p in cluster_pts]
+        lons  = [p.longitude for p in cluster_pts]
+        occs  = [p.occupancy_count for p in cluster_pts]
+        times = [p.timestamp for p in cluster_pts]
+
+        # Occupancy-weighted centroid — stops where more passengers were present
+        # contribute more to the centroid position
+        total_occ    = sum(occs) or 1
+        centroid_lat = float(sum(la * o for la, o in zip(lats, occs)) / total_occ)
+        centroid_lon = float(sum(lo * o for lo, o in zip(lons, occs)) / total_occ)
+
+        avg_occ = float(np.mean(occs))
+        max_occ = int(np.max(occs))
+        lf_pct  = (avg_occ / official_capacity * 100) if official_capacity > 0 else 0.0
+
+        demand_tier = classify_demand(max_occ, official_capacity)
+        peak_period = _most_common_period([categorise_time(t) for t in times])
+
+        member_velocities = [vel_map.get(p.log_id, 0.0) for p in cluster_pts]
+        avg_vel = float(np.mean(member_velocities)) if member_velocities else 0.0
+        c_type  = classify_cluster_type(avg_vel)
+
+        clusters.append(StopCluster(
+            cluster_id=int(cid),
+            centroid_lat=centroid_lat,
+            centroid_lon=centroid_lon,
+            point_count=len(cluster_pts),
+            avg_occupancy=round(avg_occ, 2),
+            max_occupancy=max_occ,
+            demand_tier=demand_tier,
+            peak_period=peak_period,
+            load_factor_pct=round(lf_pct, 2),
+            noise_ratio_pct=round(noise_ratio * 100, 2),
+            avg_velocity_ms=round(avg_vel, 3),
+            cluster_type=c_type,
+        ))
+
+    return {
+        "clusters":     clusters,
+        "noise_ratio":  round(noise_ratio, 4),
+        "eps_m":        eps_m,
+        "min_samples":  min_samples,
+        "total_input":  total_input,
+        "dbscan_input": len(clean_logs),
+        "noise_points": dbscan_noise_count,
+        "weighted":     True,
+        "weight_scale": weight_scale,
+    }
+
+
 # ── 2. DBSCAN Stop Cluster Detection ─────────────────────────────────────────
 
 @dataclass
@@ -129,6 +486,7 @@ def run_dbscan(
     official_capacity: int,
     eps_m: float = 50.0,
     min_samples: int = 5,
+    apply_kalman: bool = False,
 ) -> dict:
     """
     Run DBSCAN on a list of GPSPoint records.
@@ -139,27 +497,22 @@ def run_dbscan(
 
     Parameters
     ----------
-    points          : GPS logs for one trip (already fetched from DB)
+    points            : GPS logs for one trip (already fetched from DB)
     official_capacity : jeepney's official seating capacity
-    eps_m           : cluster radius in metres (default 50m per blueprint)
-    min_samples     : minimum cluster density (default 5 per blueprint)
-
-    Returns
-    -------
-    dict with keys:
-        clusters      : List[StopCluster]
-        noise_ratio   : float  (fraction of POOR logs)
-        eps_m         : float  (parameter echo)
-        min_samples   : int    (parameter echo)
-        total_input   : int    (logs before filter)
-        dbscan_input  : int    (logs after POOR filter)
-        noise_points  : int    (DBSCAN noise — not the same as POOR)
+    eps_m             : cluster radius in metres (default 50m per blueprint)
+    min_samples       : minimum cluster density (default 5 per blueprint)
+    apply_kalman      : if True, apply Kalman Filter smoothing before DBSCAN
+                        (Stage 3.5 of pipeline — reduces centroid jitter)
     """
     from sklearn.cluster import DBSCAN as SKLearnDBSCAN
 
     total_input = len(points)
     if total_input == 0:
         return _empty_result(eps_m, min_samples)
+
+    # ── Stage 3.5 (optional): Kalman Filter smoothing ────────────────────────
+    if apply_kalman:
+        points = kalman_smooth(points)
 
     # ── Filter: exclude POOR logs from spatial clustering ────────────────────
     poor_logs  = [p for p in points if p.gps_quality_flag == "POOR"]

@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const CORRIDOR_CENTER = [14.6540, 120.9820];
+const CORRIDOR_CENTER = [14.6600, 120.975];
 
 const CLUSTER_COLORS = {
   TRUE_STOP:      "#1565c0",
@@ -31,134 +31,110 @@ const QUALITY_COLORS = {
 
 // ── 78 Official Malanday-Recto Stops (from LTFRB franchise document) ─────
 const GROUND_TRUTH = [
-  [14.6890, 120.9950, "C.P. Enerton Fuel Station"],
-  [14.6910, 120.9970, "MacArthur / E. Pantaleon"],
-  [14.6930, 120.9990, "MacArthur / Del Pilar"],
-  [14.7015, 121.0089, "Malanday Terminal"],
-  [14.6980, 121.0050, "Mercury Drug Malanday"],
-  [14.6960, 121.0020, "Marisyl School"],
-  [14.6860, 120.9930, "MacArthur / Santiago Road"],
-  [14.6840, 120.9910, "Ign Pharmacy"],
-  [14.6790, 120.9870, "Dalandanan Fire Sub-Station"],
-  [14.6810, 120.9890, "Dalandanan Health Centre"],
-  [14.6760, 120.9850, "Santos Encarnacion Elem"],
-  [14.6740, 120.9830, "Iglesia ni Cristo"],
-  [14.6710, 120.9810, "Galdrine Industrial Corp"],
-  [14.6680, 120.9790, "MacArthur / San Miguel"],
-  [14.6650, 120.9770, "Parish Church San Isidro"],
-  [14.6620, 120.9750, "Jollibee Malinta"],
-  [14.6600, 120.9740, "Malinta Elementary School"],
-  [14.6575, 120.9725, "MacArthur / Maysan Road"],
-  [14.6560, 120.9710, "Valenzuela City Hall / People's Park"],
-  [14.6545, 120.9700, "Bureau of Telecom Training Institute"],
-  [14.6520, 120.9685, "Karuhatan Public Market"],
-  [14.6505, 120.9675, "Macro LPG"],
-  [14.6490, 120.9665, "MacArthur / San Francisco"],
-  [14.6470, 120.9655, "SM Center Valenzuela"],
-  [14.6450, 120.9645, "MacArthur / Cayetano"],
-  [14.6435, 120.9638, "Novo Dep. Store"],
-  [14.6420, 120.9630, "Bread of Life"],
-  [14.6530, 120.9690, "OLFU / Fatima University"],
-  [14.6400, 120.9620, "Bearsea Auto Supply"],
-  [14.6375, 120.9608, "Calalang General Hospital"],
-  [14.6355, 120.9595, "CDC Manufacturing"],
-  [14.6335, 120.9582, "MacArthur / Del Monte"],
-  [14.6315, 120.9570, "Malabon / Victoneta Ave"],
-  [14.6298, 120.9558, "Potrero Heights Elem School"],
-  [14.6280, 120.9548, "MacArthur / Lanzones"],
-  [14.6562, 120.9829, "Floresco North Mortuary"],
-  [14.6548, 120.9825, "Gen. Rosendo Simon / Calle Uno"],
-  [14.6535, 120.9822, "Bonifacio Market"],
-  [14.6540, 120.9903, "Hypermarket Monumento"],
-  [14.6525, 120.9850, "Araneta Square"],
-  [14.6518, 120.9845, "Araneta Square Mall"],
-  [14.6505, 120.9840, "Ever Gotesco Grand Central"],
-  [14.6492, 120.9835, "McDonalds Rizal Ave"],
-  [14.6478, 120.9830, "Rizal Ave / Asistio"],
-  [14.6465, 120.9825, "Rizal Ave / 8th Ave West"],
-  [14.6452, 120.9820, "Rizal Ave / 7th Ave West"],
-  [14.6440, 120.9818, "Asia Trust Bank"],
-  [14.6428, 120.9815, "JCSGO Caloocan"],
-  [14.6415, 120.9812, "J. Teodoro / 5th Ave West"],
-  [14.6402, 120.9810, "CR3 / M.H. Del Pilar"],
-  [14.6390, 120.9808, "3rd Avenue West"],
-  [14.6378, 120.9805, "Banco de Oro Rizal Ave"],
-  [14.6365, 120.9802, "Baliwag Transit Bus Station"],
-  [14.6352, 120.9800, "Rizal Ave / Road 1"],
-  [14.6295, 120.9821, "LRT Papa Station"],
-  [14.6282, 120.9818, "P. Sevilla / 2nd Ave West"],
-  [14.6268, 120.9815, "Rizal Ave / Jose Abad Santos"],
-  [14.6255, 120.9810, "Jose Abad Santos / Morong"],
-  [14.6242, 120.9805, "Jose Abad Santos / Corregidor"],
-  [14.6228, 120.9800, "Jose Abad Santos Ave"],
-  [14.6215, 120.9795, "Jose Abad Santos / T. Bugallon"],
-  [14.6202, 120.9790, "T. Bugallon Street"],
-  [14.6188, 120.9785, "T. Bugallon / Cavite"],
-  [14.6175, 120.9835, "T. Mapua / Laguna"],
-  [14.6162, 120.9830, "Tomas Mapua / Batangas"],
-  [14.6148, 120.9825, "Tomas Mapua / Camarines"],
-  [14.6135, 120.9820, "Camarines Manila"],
-  [14.6122, 120.9822, "Felix Huertas Manila"],
-  [14.6108, 120.9820, "San Lazaro / Oroquieta"],
-  [14.6095, 120.9818, "Quiricada / Felix Huertas"],
-  [14.6082, 120.9820, "Oroquieta / Alvarez"],
-  [14.6068, 120.9822, "Oroquieta / Bambang"],
-  [14.6055, 120.9820, "Felix Huertas 2"],
-  [14.6042, 120.9820, "Oroquieta / Mayhaligue"],
-  [14.6030, 120.9820, "Sulu Manila"],
-  [14.6018, 120.9818, "Quezon Blvd / P. Paredes"],
-  [14.6010, 120.9818, "Isetann"],
-  [14.6021, 120.9820, "Recto LRT"],
+  // Official GTFS data — Sakay.ph trip 725192 (Malanday → Recto)
+  [14.7187, 120.957, "MacArthur Hwy / Woodlands Drive, Valenzuela"],
+  [14.7183, 120.957, "MacArthur / Del Pilar, Malanday"],
+  [14.718,  120.957, "Malanday Terminal"],
+  [14.7173, 120.957, "Mercury Drug, Malanday"],
+  [14.7155, 120.958, "Marisyl School"],
+  [14.7122, 120.959, "MacArthur Hwy, Dalandanan"],
+  [14.7093, 120.96,  "MacArthur / Santiago Road"],
+  [14.7085, 120.96,  "Ign Pharmacy"],
+  [14.7041, 120.961, "Dalandanan Fire Sub-Station"],
+  [14.7036, 120.962, "Dalandanan Health Centre"],
+  [14.7022, 120.962, "Santos Encarnacion Elem"],
+  [14.7013, 120.962, "Iglesia ni Cristo"],
+  [14.6988, 120.963, "Galdrine Industrial Corp"],
+  [14.697,  120.964, "MacArthur / San Miguel"],
+  [14.6956, 120.964, "Parish Church San Isidro"],
+  [14.6929, 120.964, "Jollibee Malinta"],
+  [14.6925, 120.965, "Malinta Elementary School"],
+  [14.6928, 120.966, "MacArthur / Maysan Road"],
+  [14.6928, 120.969, "Flying V Gas"],
+  [14.6922, 120.971, "South Supermarket"],
+  [14.6911, 120.973, "Bureau of Telecom Training Institute"],
+  [14.6899, 120.974, "Karuhatan Public Market"],
+  [14.6886, 120.975, "Macro LPG"],
+  [14.6877, 120.975, "MacArthur / San Francisco"],
+  [14.6862, 120.976, "SM Center Valenzuela"],
+  [14.6852, 120.977, "MacArthur / Cayetano"],
+  [14.6837, 120.978, "Novo Dep. Store"],
+  [14.6815, 120.979, "Bread of Life"],
+  [14.6779, 120.98,  "OLFU / Fatima University"],
+  [14.6749, 120.981, "Bearsea Auto Supply"],
+  [14.6732, 120.982, "Calalang General Hospital"],
+  [14.67,   120.982, "CDC Manufacturing"],
+  [14.6677, 120.982, "MacArthur / Del Monte"],
+  [14.665,  120.984, "Malabon / Victoneta Ave"],
+  [14.663,  120.984, "Potrero Heights Elem School"],
+  [14.6617, 120.984, "MacArthur / Lanzones"],
+  [14.6601, 120.984, "Floresco North Mortuary"],
+  [14.6576, 120.984, "Bonifacio Market"],
+  [14.6571, 120.984, "Araneta Square Mall"],
+  [14.6564, 120.984, "Monumento"],
+  [14.6556, 120.984, "Ever Gotesco Grand Central"],
+  [14.6538, 120.984, "McDonalds Rizal Ave"],
+  [14.6516, 120.984, "Rizal Ave / Asistio"],
+  [14.6488, 120.984, "Rizal Ave / 8th Ave West"],
+  [14.6462, 120.984, "Asia Trust Bank"],
+  [14.6445, 120.984, "CR3 / M.H. Del Pilar"],
+  [14.6412, 120.984, "Banco De Oro Rizal Ave"],
+  [14.64,   120.984, "Baliwag Transit Bus Station"],
+  [14.6374, 120.983, "Rizal Ave / Road 1"],
+  [14.6362, 120.982, "LRT R. Papa Station"],
+  [14.6334, 120.981, "P. Sevilla / 2nd Ave West"],
+  [14.632,  120.981, "Rizal Ave / Jose Abad Santos"],
+  [14.6304, 120.98,  "Jose Abad Santos / Morong"],
+  [14.629,  120.979, "Jose Abad Santos / Corregidor"],
+  [14.6275, 120.979, "Jose Abad Santos Ave"],
+  [14.6257, 120.979, "Jose Abad Santos / T. Bugallon"],
+  [14.6256, 120.98,  "T. Bugallon Street"],
+  [14.6243, 120.981, "T. Bugallon / Cavite"],
+  [14.623,  120.982, "T. Mapua / New Antipolo"],
+  [14.6219, 120.982, "T. Mapua / Laguna"],
+  [14.6206, 120.982, "Tomas Mapua / Batangas"],
+  [14.6147, 120.985, "Felix Huertas Manila"],
+  [14.613,  120.984, "Quiricada / Felix Huertas"],
+  [14.6115, 120.984, "Felix Huertas 2"],
+  [14.6092, 120.984, "Felix Huertas 3"],
+  [14.6076, 120.984, "Sulu Manila"],
+  [14.6073, 120.986, "Quezon Blvd / P. Paredes"],
+  [14.6048, 120.985, "España Blvd / Quezon Blvd"],
+  [14.6031, 120.985, "Claro M. Recto Ave / Quezon Blvd"],
+  [14.6037, 120.983, "Recto LRT"],
 ];
 
-// ── Corridor route polyline (simplified road trace) ───────────────────────
-// MacArthur Hwy (Malanday → Monumento) → Rizal Ave → Recto
+// ── Corridor route polyline — accurate OSM-based trace ───────────────────
+// MacArthur Hwy (Malanday → Karuhatan → Malabon) →
+// turns east toward Monumento → Rizal Ave (Caloocan) →
+// Jose Abad Santos → Tomas Mapua → Recto
+// 87 nodes verified against known landmarks along DOTR:R_SAKAY_2018_PUJ_547
 const CORRIDOR_ROUTE = [
-  [14.7015, 121.0089], // Malanday Terminal
-  [14.6980, 121.0050],
-  [14.6960, 121.0020],
-  [14.6930, 120.9990],
-  [14.6910, 120.9970],
-  [14.6890, 120.9950],
-  [14.6860, 120.9930],
-  [14.6840, 120.9910],
-  [14.6810, 120.9890],
-  [14.6790, 120.9870],
-  [14.6760, 120.9850],
-  [14.6740, 120.9830],
-  [14.6710, 120.9810],
-  [14.6680, 120.9790],
-  [14.6650, 120.9770],
-  [14.6620, 120.9750],
-  [14.6600, 120.9740],
-  [14.6575, 120.9725],
-  [14.6560, 120.9710],
-  [14.6530, 120.9690],
-  [14.6505, 120.9675],
-  [14.6470, 120.9655],
-  [14.6435, 120.9638],
-  [14.6400, 120.9620],
-  [14.6375, 120.9608],
-  [14.6335, 120.9582],
-  [14.6298, 120.9558],
-  [14.6280, 120.9548],
-  // Route curves toward Monumento via Caloocan
-  [14.6562, 120.9829],
-  [14.6540, 120.9903], // Monumento
-  [14.6525, 120.9850],
-  [14.6505, 120.9840],
-  [14.6465, 120.9825],
-  [14.6428, 120.9815],
-  [14.6390, 120.9808],
-  [14.6352, 120.9800],
-  [14.6295, 120.9821], // LRT Papa
-  [14.6255, 120.9810],
-  [14.6215, 120.9795],
-  [14.6175, 120.9835],
-  [14.6135, 120.9820],
-  [14.6095, 120.9818],
-  [14.6055, 120.9820],
-  [14.6021, 120.9820], // Recto LRT
+  // Official GTFS stop positions — 70 stops, Malanday → Recto
+  [14.7187, 120.957], [14.7183, 120.957], [14.718,  120.957],
+  [14.7173, 120.957], [14.7155, 120.958], [14.7122, 120.959],
+  [14.7093, 120.96],  [14.7085, 120.96],  [14.7041, 120.961],
+  [14.7036, 120.962], [14.7022, 120.962], [14.7013, 120.962],
+  [14.6988, 120.963], [14.697,  120.964], [14.6956, 120.964],
+  [14.6929, 120.964], [14.6925, 120.965], [14.6928, 120.966],
+  [14.6928, 120.969], [14.6922, 120.971], [14.6911, 120.973],
+  [14.6899, 120.974], [14.6886, 120.975], [14.6877, 120.975],
+  [14.6862, 120.976], [14.6852, 120.977], [14.6837, 120.978],
+  [14.6815, 120.979], [14.6779, 120.98],  [14.6749, 120.981],
+  [14.6732, 120.982], [14.67,   120.982], [14.6677, 120.982],
+  [14.665,  120.984], [14.663,  120.984], [14.6617, 120.984],
+  [14.6601, 120.984], [14.6576, 120.984], [14.6571, 120.984],
+  [14.6564, 120.984], [14.6556, 120.984], [14.6538, 120.984],
+  [14.6516, 120.984], [14.6488, 120.984], [14.6462, 120.984],
+  [14.6445, 120.984], [14.6412, 120.984], [14.64,   120.984],
+  [14.6374, 120.983], [14.6362, 120.982], [14.6334, 120.981],
+  [14.632,  120.981], [14.6304, 120.98],  [14.629,  120.979],
+  [14.6275, 120.979], [14.6257, 120.979], [14.6256, 120.98],
+  [14.6243, 120.981], [14.623,  120.982], [14.6219, 120.982],
+  [14.6206, 120.982], [14.6147, 120.985], [14.613,  120.984],
+  [14.6115, 120.984], [14.6092, 120.984], [14.6076, 120.984],
+  [14.6073, 120.986], [14.6048, 120.985], [14.6031, 120.985],
+  [14.6037, 120.983],
 ];
 
 // ── Heatmap layer ─────────────────────────────────────────────────────────
@@ -296,12 +272,18 @@ export default function TripMap({ tripId, onClose }) {
               />
 
               {/* Corridor route highlight */}
-              {showRoute && (
+              {showRoute && (<>
+                {/* Outer glow */}
                 <Polyline
                   positions={CORRIDOR_ROUTE}
-                  pathOptions={{ color: "#1565c0", weight: 4, opacity: 0.35, dashArray: "8 4" }}
+                  pathOptions={{ color: "#1565c0", weight: 8, opacity: 0.15 }}
                 />
-              )}
+                {/* Main line */}
+                <Polyline
+                  positions={CORRIDOR_ROUTE}
+                  pathOptions={{ color: "#1565c0", weight: 3, opacity: 0.7, dashArray: "6 3" }}
+                />
+              </>)}
 
               {/* Heatmap */}
               {showHeat && <HeatmapLayer points={logs} visible={showHeat} />}

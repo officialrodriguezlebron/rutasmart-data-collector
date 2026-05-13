@@ -66,6 +66,251 @@ function SectionHeader({ title, badge }) {
   );
 }
 
+
+// ── Algorithm Comparison Dashboard ─────────────────────────────────────────
+function AlgorithmComparison({ comparing, compareData, compareError }) {
+  if (comparing) return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+                  justifyContent:"center", padding:60, gap:16 }}>
+      <span className="ae-spinner" style={{ width:32, height:32, borderWidth:3 }} />
+      <p style={{ color:"#555", fontSize:14 }}>
+        Running Vanilla DBSCAN · Kalman+DBSCAN · W-DBSCAN · ML Evaluation…
+      </p>
+    </div>
+  );
+
+  if (compareError) return (
+    <div className="ae-error" style={{ margin:"20px 0" }}>{compareError}</div>
+  );
+
+  if (!compareData) return (
+    <div style={{ padding:40, textAlign:"center", color:"#aaa", fontSize:14 }}>
+      Click <strong>📊 Compare Algorithms</strong> to run all three methods and
+      view the statistical comparison.
+    </div>
+  );
+
+  const { vanilla, kalman, weighted, evalData, shiftKalman, shiftWeighted } = compareData;
+
+  const avgShift = (arr) => arr?.length
+    ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2) : "—";
+
+  const typeCount = (clusters, type) =>
+    clusters?.filter(c => c.cluster_type === type).length ?? 0;
+
+  const methods = [
+    { label:"Vanilla DBSCAN",  key:"vanilla",  data:vanilla,  color:"#1565c0", shift:null,          icon:"①" },
+    { label:"Kalman + DBSCAN", key:"kalman",   data:kalman,   color:"#2e7d32", shift:shiftKalman,   icon:"②" },
+    { label:"W-DBSCAN",        key:"weighted", data:weighted, color:"#ef6c00", shift:shiftWeighted, icon:"③" },
+  ];
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+      {/* Method summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:12 }}>
+        {methods.map(m => (
+          <div key={m.key} style={{
+            background:"white", borderRadius:14, padding:18, boxShadow:"0 4px 16px rgba(0,0,0,.06)",
+            borderTop:`4px solid ${m.color}`
+          }}>
+            <div style={{ fontSize:13, fontWeight:700, color:m.color, marginBottom:12 }}>
+              {m.icon} {m.label}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {[
+                ["Clusters",   m.data?.clusters?.length ?? "—"],
+                ["TRUE_STOP",  typeCount(m.data?.clusters,"TRUE_STOP")],
+                ["CREEP",      typeCount(m.data?.clusters,"CREEPING_QUEUE")],
+                ["MOVING",     typeCount(m.data?.clusters,"MOVING")],
+              ].map(([label, value]) => (
+                <div key={label} style={{ background:"#f8fafc", borderRadius:8, padding:"8px 10px" }}>
+                  <div style={{ fontSize:18, fontWeight:700, color:m.color, fontFamily:"monospace" }}>{value}</div>
+                  <div style={{ fontSize:10, color:"#aaa", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em" }}>{label}</div>
+                </div>
+              ))}
+              {m.shift && (
+                <div style={{ gridColumn:"1/-1", background:"#f3e5f5", borderRadius:8, padding:"8px 10px" }}>
+                  <div style={{ fontSize:18, fontWeight:700, color:"#6200ea", fontFamily:"monospace" }}>
+                    {avgShift(m.shift)}m
+                  </div>
+                  <div style={{ fontSize:10, color:"#9c27b0", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                    Avg Centroid Shift vs Vanilla
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ML Evaluation table */}
+      {evalData && (
+        <div style={{ background:"white", borderRadius:14, padding:20, boxShadow:"0 4px 16px rgba(0,0,0,.06)" }}>
+          <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase",
+                        letterSpacing:"0.06em", color:"#888", marginBottom:14 }}>
+            ML Evaluation Metrics (Vanilla DBSCAN · eps={evalData.eps_m}m · minPts={evalData.min_samples})
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {[
+              { label:"Silhouette Coefficient",  value:evalData.silhouette?.score?.toFixed(4),             target:"≥ 0.5",  pass: evalData.silhouette?.score >= 0.5 },
+              { label:"Davies-Bouldin Index",    value:evalData.davies_bouldin?.index?.toFixed(4),         target:"< 1.0",  pass: evalData.davies_bouldin?.index < 1.0 },
+              { label:"MAE (matched stops)",     value:evalData.mae_m != null ? evalData.mae_m.toFixed(2)+"m":"—", target:"≤ 50m", pass: evalData.mae_m <= 50 },
+              { label:"Precision",               value:evalData.precision?.toFixed(4),                     target:"≥ 0.70", pass: evalData.precision >= 0.7 },
+              { label:"Recall",                  value:evalData.recall?.toFixed(4),                        target:"—",      pass: null },
+              { label:"F1-score",                value:evalData.f1_score?.toFixed(4),                      target:"≥ 0.70", pass: evalData.f1_score >= 0.7 },
+              { label:"True Positives (TP)",     value:evalData.true_positives,                            target:"—",      pass: null },
+              { label:"False Positives (FP)",    value:evalData.false_positives,                           target:"—",      pass: null },
+              { label:"False Negatives (FN)",    value:evalData.false_negatives,                           target:"—",      pass: null },
+            ].map(({ label, value, target, pass }) => (
+              <div key={label} style={{
+                display:"grid", gridTemplateColumns:"2fr 1fr 80px 60px",
+                gap:8, alignItems:"center", padding:"8px 12px",
+                background:"#f8fafc", borderRadius:8,
+              }}>
+                <span style={{ fontSize:13, color:"#1f2937" }}>{label}</span>
+                <span style={{
+                  fontSize:14, fontWeight:700, fontFamily:"monospace",
+                  color: pass===true?"#2e7d32": pass===false?"#c62828":"#1565c0"
+                }}>{value ?? "—"}</span>
+                <span style={{ fontSize:11, color:"#aaa" }}>{target}</span>
+                <span style={{
+                  fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:20,
+                  textAlign:"center",
+                  background: pass===true?"#e8f5e9": pass===false?"#ffebee":"#f4f6f8",
+                  color: pass===true?"#2e7d32": pass===false?"#c62828":"#888",
+                }}>
+                  {pass===true?"PASS": pass===false?"FAIL":"—"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize:11, color:"#aaa", marginTop:10 }}>
+            {evalData.silhouette?.interpretation} · {evalData.davies_bouldin?.interpretation}
+          </p>
+        </div>
+      )}
+
+      {/* Centroid comparison table */}
+      {vanilla?.clusters?.length > 0 && (
+        <div style={{ background:"white", borderRadius:14, overflow:"hidden",
+                      boxShadow:"0 4px 16px rgba(0,0,0,.06)" }}>
+          <div style={{ padding:"16px 20px 0" }}>
+            <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase",
+                          letterSpacing:"0.06em", color:"#888", marginBottom:12 }}>
+              Centroid Positions — Vanilla vs Kalman vs W-DBSCAN
+            </div>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr style={{ background:"#f8fafc", borderBottom:"1px solid #e5e7eb" }}>
+                  {["Cluster","Type","Vanilla (lat,lon)","Kalman (lat,lon)","Δ Kalman","W-DBSCAN (lat,lon)","Δ W","LF%"]
+                    .map(h => <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontSize:10,
+                                                    fontWeight:700, textTransform:"uppercase",
+                                                    letterSpacing:"0.05em", color:"#888",
+                                                    whiteSpace:"nowrap" }}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {vanilla.clusters.map((c,i) => {
+                  const kc = kalman?.clusters?.[i];
+                  const wc = weighted?.clusters?.[i];
+                  const typeColors = {
+                    TRUE_STOP:      { bg:"#e8f0fe", color:"#1565c0" },
+                    CREEPING_QUEUE: { bg:"#fff3e0", color:"#ef6c00" },
+                    MOVING:         { bg:"#ffebee", color:"#c62828" },
+                  };
+                  const tc = typeColors[c.cluster_type] || { bg:"#f4f6f8", color:"#888" };
+                  return (
+                    <tr key={c.cluster_id} style={{ borderBottom:"1px solid #f0f2f5" }}>
+                      <td style={{ padding:"10px 14px", fontFamily:"monospace", fontWeight:700 }}>C-{c.cluster_id}</td>
+                      <td style={{ padding:"10px 14px" }}>
+                        <span style={{ fontSize:10, fontWeight:700, padding:"2px 6px",
+                                       borderRadius:4, background:tc.bg, color:tc.color }}>
+                          {c.cluster_type.replace(/_/g," ")}
+                        </span>
+                      </td>
+                      <td style={{ padding:"10px 14px", fontFamily:"monospace", color:"#1565c0", fontSize:11 }}>
+                        {c.centroid_lat.toFixed(5)}, {c.centroid_lon.toFixed(5)}
+                      </td>
+                      <td style={{ padding:"10px 14px", fontFamily:"monospace", color:"#2e7d32", fontSize:11 }}>
+                        {kc ? `${kc.centroid_lat.toFixed(5)}, ${kc.centroid_lon.toFixed(5)}` : "—"}
+                      </td>
+                      <td style={{ padding:"10px 14px", fontWeight:700, color:"#2e7d32" }}>
+                        {shiftKalman?.[i] != null ? shiftKalman[i].toFixed(1)+"m" : "—"}
+                      </td>
+                      <td style={{ padding:"10px 14px", fontFamily:"monospace", color:"#ef6c00", fontSize:11 }}>
+                        {wc ? `${wc.centroid_lat.toFixed(5)}, ${wc.centroid_lon.toFixed(5)}` : "—"}
+                      </td>
+                      <td style={{ padding:"10px 14px", fontWeight:700, color:"#ef6c00" }}>
+                        {shiftWeighted?.[i] != null ? shiftWeighted[i].toFixed(1)+"m" : "—"}
+                      </td>
+                      <td style={{ padding:"10px 14px", fontWeight:700, color:"#1565c0" }}>
+                        {c.load_factor_pct?.toFixed(1)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ fontSize:11, color:"#aaa", padding:"8px 20px 14px" }}>
+            Δ = Haversine distance from Vanilla centroid. Larger values indicate stronger smoothing / weighting effect.
+          </p>
+        </div>
+      )}
+
+      {/* GT match detail */}
+      {evalData?.matches?.length > 0 && (
+        <div style={{ background:"white", borderRadius:14, overflow:"hidden",
+                      boxShadow:"0 4px 16px rgba(0,0,0,.06)" }}>
+          <div style={{ padding:"16px 20px 0" }}>
+            <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase",
+                          letterSpacing:"0.06em", color:"#888", marginBottom:12 }}>
+              Ground Truth Match Detail · {evalData.match_threshold_m}m threshold · 23 GT stops
+            </div>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr style={{ background:"#f8fafc", borderBottom:"1px solid #e5e7eb" }}>
+                  {["Cluster","Nearest GT Stop","Offset (m)","Result"]
+                    .map(h => <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontSize:10,
+                                                    fontWeight:700, textTransform:"uppercase",
+                                                    letterSpacing:"0.05em", color:"#888" }}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {evalData.matches.map(m => (
+                  <tr key={m.cluster_id} style={{ borderBottom:"1px solid #f0f2f5" }}>
+                    <td style={{ padding:"10px 14px", fontFamily:"monospace", fontWeight:700 }}>C-{m.cluster_id}</td>
+                    <td style={{ padding:"10px 14px", color:"#555" }}>{m.nearest_stop}</td>
+                    <td style={{ padding:"10px 14px", fontWeight:700, fontFamily:"monospace",
+                                 color: m.matched ? "#2e7d32":"#c62828" }}>
+                      {m.offset_m.toFixed(1)}m
+                    </td>
+                    <td style={{ padding:"10px 14px" }}>
+                      <span style={{
+                        fontSize:10, fontWeight:700, padding:"2px 10px", borderRadius:20,
+                        background: m.matched?"#e8f5e9":"#ffebee",
+                        color: m.matched?"#2e7d32":"#c62828",
+                      }}>
+                        {m.matched ? "✓  TRUE POSITIVE" : "✗  FALSE POSITIVE"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
 export default function AnalyticsEngine() {
   const navigate    = useNavigate();
   const [searchParams] = useSearchParams();
@@ -77,6 +322,9 @@ export default function AnalyticsEngine() {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [comparing,    setComparing]    = useState(false);
+  const [compareData,  setCompareData]  = useState(null);
+  const [compareError, setCompareError] = useState(null);
 
   const runAnalysis = useCallback(async () => {
     const id = tripId.trim();
@@ -114,6 +362,50 @@ export default function AnalyticsEngine() {
   }, [data, epsM, minPts]);
 
   const q   = data?.gps_quality;
+  const runComparison = useCallback(async () => {
+    const id = tripId.trim();
+    if (!id) return;
+    setComparing(true);
+    setCompareError(null);
+    setCompareData(null);
+    setActiveTab("compare");
+    try {
+      const eps = epsM; const mp = minPts;
+      const [vanillaRes, kalmanRes, wRes, evalRes] = await Promise.all([
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan?eps_m=${eps}&min_samples=${mp}`),
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan-kalman?eps_m=${eps}&min_samples=${mp}`),
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/wdbscan?eps_m=${eps}&min_samples=${mp}`),
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/evaluate?eps_m=${eps}&min_samples=${mp}`),
+      ]);
+      const [vanilla, kalman, weighted, evalData] = await Promise.all([
+        vanillaRes.json(), kalmanRes.json(), wRes.json(), evalRes.json(),
+      ]);
+      if (vanilla.detail) throw new Error(vanilla.detail);
+
+      // Compute centroid shifts: vanilla → kalman and vanilla → weighted
+      const calcShift = (clusters1, clusters2) => {
+        if (!clusters1?.length || !clusters2?.length) return null;
+        const shifts = clusters1.map((c1, i) => {
+          const c2 = clusters2[i];
+          if (!c2) return 0;
+          const dlat = (c1.centroid_lat - c2.centroid_lat) * 111320;
+          const dlon = (c1.centroid_lon - c2.centroid_lon) * 111320;
+          return Math.sqrt(dlat * dlat + dlon * dlon);
+        });
+        return shifts;
+      };
+
+      setCompareData({
+        vanilla, kalman, weighted, evalData,
+        shiftKalman:   calcShift(vanilla.clusters, kalman.clusters),
+        shiftWeighted: calcShift(vanilla.clusters, weighted.clusters),
+      });
+    } catch (e) {
+      setCompareError(e.message || "Comparison failed.");
+    } finally {
+      setComparing(false);
+    }
+  }, [tripId, epsM, minPts]);
   const db  = data?.dbscan;
   const lf  = data?.load_factor;
   const dem = data?.demand;
@@ -125,6 +417,7 @@ export default function AnalyticsEngine() {
     { key: "load factor",  label: "Load Factor"  },
     { key: "demand",       label: "Demand"       },
     { key: "time",         label: "Time"         },
+    { key: "compare",      label: "📊 Compare"   },
   ];
 
   return (
@@ -184,6 +477,17 @@ export default function AnalyticsEngine() {
               disabled={!tripId.trim()}
             >
               🗺  View Heatmap
+            </button>
+            <button
+              className="ae-run-btn"
+              style={{ background: "#6200ea", marginTop: 8 }}
+              onClick={runComparison}
+              disabled={comparing || !tripId.trim()}
+            >
+              {comparing
+                ? <><span className="ae-spinner" aria-hidden="true" /> Comparing…</>
+                : "📊  Compare Algorithms"
+              }
             </button>
           </div>
 
@@ -502,6 +806,15 @@ export default function AnalyticsEngine() {
                     </p>
                   </div>
                 </>
+              )}
+
+
+              {activeTab === "compare" && (
+                <AlgorithmComparison
+                  comparing={comparing}
+                  compareData={compareData}
+                  compareError={compareError}
+                />
               )}
             </>
           )}
