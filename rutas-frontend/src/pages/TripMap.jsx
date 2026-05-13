@@ -271,17 +271,15 @@ export default function TripMap({ tripId, onClose }) {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
-              {/* Corridor route highlight */}
+              {/* Corridor route — bold blue line */}
               {showRoute && (<>
-                {/* Outer glow */}
                 <Polyline
                   positions={CORRIDOR_ROUTE}
-                  pathOptions={{ color: "#1565c0", weight: 8, opacity: 0.15 }}
+                  pathOptions={{ color: "#0d47a1", weight: 10, opacity: 0.12 }}
                 />
-                {/* Main line */}
                 <Polyline
                   positions={CORRIDOR_ROUTE}
-                  pathOptions={{ color: "#1565c0", weight: 3, opacity: 0.7, dashArray: "6 3" }}
+                  pathOptions={{ color: "#1565c0", weight: 4, opacity: 0.85 }}
                 />
               </>)}
 
