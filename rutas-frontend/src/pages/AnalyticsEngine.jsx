@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService } from "../services/authService";
 import TripMap from "./TripMap";
@@ -362,6 +362,12 @@ export default function AnalyticsEngine() {
   }, [data, epsM, minPts]);
 
   const q   = data?.gps_quality;
+  // Clear comparison results when trip ID changes
+  useEffect(() => {
+    setCompareData(null);
+    setCompareError(null);
+  }, [tripId]);
+
   const runComparison = useCallback(async () => {
     const id = tripId.trim();
     if (!id) return;

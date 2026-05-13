@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { tripService } from "../services/tripService.js";
+import { exportTrip } from "../services/api";
 import "./SavedTrips.css";
 
 function SavedTrips() {
@@ -15,46 +16,22 @@ function SavedTrips() {
     setTrips(tripService.getAllTrips());
   };
 
-  const handleExport = (trip) => {
-    if (!trip.logs || trip.logs.length === 0) {
-      alert("No logs available.");
-      return;
+  const handleExport = async (trip) => {
+    if (!trip.tripId) { alert("No trip ID found."); return; }
+    try {
+      const response = await exportTrip(trip.tripId);
+      const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `trip_${trip.tripId}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Export failed. Trip must be completed with GPS logs.");
     }
-
-    const headers = [
-      "timestamp",
-      "latitude",
-      "longitude",
-      "accuracy",
-      "occupancy",
-    ];
-
-    const rows = trip.logs.map((log) =>
-      [
-        log.timestamp,
-        log.latitude,
-        log.longitude,
-        log.accuracy,
-        log.occupancy,
-      ].join(",")
-    );
-
-    const csvContent =
-      headers.join(",") + "\n" + rows.join("\n");
-
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `trip_${trip.tripId}.csv`;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (

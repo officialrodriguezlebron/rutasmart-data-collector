@@ -16,6 +16,10 @@ L.Icon.Default.mergeOptions({
 });
 
 const CORRIDOR_CENTER = [14.6600, 120.975];
+const TILE_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_LIGHT = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const ATTR_DARK  = '&copy; <a href="https://carto.com/">CARTO</a>';
+const ATTR_LIGHT = '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>';
 
 const CLUSTER_COLORS = {
   TRUE_STOP:      "#1565c0",
@@ -167,6 +171,7 @@ function HeatmapLayer({ points, visible }) {
 // ── Main component ─────────────────────────────────────────────────────────
 export default function TripMap({ tripId, onClose }) {
   const [logs,     setLogs]     = useState([]);
+  const [clusterErr,setClusterErr]= useState(null);
   const [clusters, setClusters] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
@@ -174,25 +179,31 @@ export default function TripMap({ tripId, onClose }) {
 
   const [showHeat,    setShowHeat]    = useState(true);
   const [showCluster, setShowCluster] = useState(true);
-  const [showGT,      setShowGT]      = useState(true);
+  const [showGT,      setShowGT]      = useState(false);
   const [showRoute,   setShowRoute]   = useState(true);
+  const [darkMode,    setDarkMode]    = useState(false);
   const [qualFilter,  setQualFilter]  = useState("all");
 
   useEffect(() => {
     if (!tripId) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true); setError(null);
-    Promise.all([getRawLogs(tripId, qualFilter), runAllAnalytics(tripId)])
+    setLoading(true); setError(null); setClusterErr(null);
+    const analyticsPromise = runAllAnalytics(tripId).catch(e => {
+      setClusterErr(e.response?.data?.detail || "Analytics failed — trip may not have enough logs.");
+      return null;
+    });
+    Promise.all([getRawLogs(tripId, qualFilter), analyticsPromise])
       .then(([logsRes, analyticsRes]) => {
         const raw = logsRes.data;
         setLogs(raw);
-        setClusters(analyticsRes.data.dbscan?.clusters || []);
+        const clusterList = analyticsRes?.data?.dbscan?.clusters || [];
+        setClusters(clusterList);
         const good = raw.filter(l => l.quality === "GOOD").length;
         const acc  = raw.filter(l => l.quality === "ACCEPTABLE").length;
         const poor = raw.filter(l => l.quality === "POOR").length;
         const maxOcc = Math.max(...raw.map(l => l.occupancy), 0);
         setStats({ total: raw.length, good, acc, poor, maxOcc,
-                   clusters: analyticsRes.data.dbscan?.clusters?.length || 0 });
+                   clusters: clusterList.length });
       })
       .catch(e => setError(e.response?.data?.detail || "Failed to load map data."))
       .finally(() => setLoading(false));
@@ -200,7 +211,7 @@ export default function TripMap({ tripId, onClose }) {
 
   return (
     <div className="tripmap-overlay">
-      <div className="tripmap-container">
+      <div className={`tripmap-container ${darkMode ? "dark" : ""}`}>
 
         <div className="tripmap-header">
           <div>
@@ -216,7 +227,8 @@ export default function TripMap({ tripId, onClose }) {
               { key: "heat",    label: "Heatmap",   state: showHeat,    setter: setShowHeat    },
               { key: "route",   label: "Corridor",  state: showRoute,   setter: setShowRoute   },
               { key: "cluster", label: "Clusters",  state: showCluster, setter: setShowCluster },
-              { key: "gt",      label: "78 Stops",  state: showGT,      setter: setShowGT      },
+              { key: "gt",      label: "70 Stops",  state: showGT,      setter: setShowGT      },
+              { key: "dark",    label: "🌙 Dark",    state: darkMode,    setter: setDarkMode    },
             ].map(({ key, label, state, setter }) => (
               <button key={key}
                 className={`tripmap-toggle ${state ? "active" : ""}`}
@@ -255,6 +267,12 @@ export default function TripMap({ tripId, onClose }) {
           </div>
         )}
 
+        {clusterErr && (
+          <div style={{background:"#fff3e0",borderBottom:"1px solid #ffe0b2",
+            padding:"6px 16px",fontSize:12,color:"#e65100",flexShrink:0}}>
+            ⚠️ {clusterErr}
+          </div>
+        )}
         <div className="tripmap-map-wrap">
           {loading && (
             <div className="tripmap-loading">
@@ -267,8 +285,8 @@ export default function TripMap({ tripId, onClose }) {
             <MapContainer center={CORRIDOR_CENTER} zoom={13}
               style={{ width: "100%", height: "100%" }}>
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution={darkMode ? ATTR_DARK : ATTR_LIGHT}
+                url={darkMode ? TILE_DARK : TILE_LIGHT}
               />
 
               {/* Corridor route — bold blue line */}

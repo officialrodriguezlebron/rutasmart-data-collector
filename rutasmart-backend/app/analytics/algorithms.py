@@ -84,39 +84,6 @@ from dataclasses import dataclass, field
 EARTH_RADIUS_M = 6_371_000  # metres
 
 
-def haversine_distance(lat1: float, lon1: float,
-                       lat2: float, lon2: float) -> float:
-    """
-    Great-circle distance in metres between two WGS-84 coordinates.
-    Used as the distance metric for DBSCAN so that epsilon is in real-world
-    metres rather than degrees (which vary with latitude).
-    """
-    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    return EARTH_RADIUS_M * 2 * math.asin(math.sqrt(a))
-
-
-# ── 5. Kalman Filter — GPS Trace Smoothing (Stage 3.5 of pipeline) ───────────
-#
-# Applied AFTER GPS quality classification (Stage 3) and BEFORE DBSCAN (Stage 4).
-# Smooths GOOD+ACCEPTABLE GPS traces by estimating the true position from noisy
-# measurements, reducing multipath jitter without dropping logs.
-#
-# Model: constant-velocity 2D Kalman Filter on [lat, lon, v_lat, v_lon].
-# State vector x = [lat, lon, v_lat, v_lon]^T
-#
-# Why Kalman over simple moving average?
-#   - Moving average delays the estimate — centroid shifts away from true stop
-#   - Kalman is optimal for Gaussian noise; GPS accuracy ~normally distributed
-#   - Kalman preserves timing alignment (no lag): each smoothed point
-#     corresponds to its original timestamp
-#
-# Parameter choices (justified for jeepney GPS at 3s interval):
-#   dt = 3s (GPS interval)
-#   sigma_process = 0.3 m/s^2 (jeepney acceleration ≤ 0.5 m/s^2 in traffic)
-#   sigma_measure = derived from log.accuracy (GOOD: ~10m, ACCEPTABLE: ~35m)
 
 def kalman_smooth(points: "List[GPSPoint]") -> "List[GPSPoint]":
     """
