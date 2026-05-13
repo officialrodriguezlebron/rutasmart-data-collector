@@ -390,3 +390,104 @@
   .admin-nav-item { font-size: 0; }
   .admin-nav-item.active { background: rgba(255,255,255,0.2); }
 }
+
+/* ── Action group in table rows ─────────────────────────────────────────── */
+.admin-action-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Mobile responsive overrides ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .admin-page {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    min-height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  .admin-logo {
+    flex: 1;
+  }
+
+  .admin-logo span { display: none; }
+
+  .admin-user-info {
+    display: none;
+  }
+
+  .admin-nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .admin-nav-section { display: none; }
+
+  .admin-nav-item {
+    padding: 6px 10px;
+    font-size: 12px;
+    flex: 0 0 auto;
+  }
+
+  .admin-signout {
+    padding: 6px 10px;
+    font-size: 12px;
+    margin-top: 0;
+  }
+
+  .admin-main {
+    padding: 16px;
+  }
+
+  .admin-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .admin-metric-card {
+    padding: 12px;
+  }
+
+  .admin-metric-value {
+    font-size: 22px;
+  }
+
+  .admin-table thead th:nth-child(3),
+  .admin-table tbody td:nth-child(3) {
+    display: none;
+  }
+
+  .admin-cred-row {
+    grid-template-columns: 70px 1fr;
+    gap: 4px;
+  }
+
+  .admin-cred-pass,
+  .admin-cred-jeep {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .admin-table thead th:nth-child(4),
+  .admin-table tbody td:nth-child(4),
+  .admin-table thead th:nth-child(5),
+  .admin-table tbody td:nth-child(5) {
+    display: none;
+  }
+}
