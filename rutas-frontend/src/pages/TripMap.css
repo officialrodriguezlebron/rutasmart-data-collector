@@ -236,3 +236,41 @@
   height: 100%;
   z-index: 1;
 }
+
+/* ── Cluster tooltip ─────────────────────────────────────────────────────── */
+.tripmap-cluster-tooltip {
+  background: rgba(255,255,255,0.97) !important;
+  border: 1.5px solid #e0e0e0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;
+  padding: 6px 10px !important;
+  min-width: 80px !important;
+}
+
+.tripmap-cluster-tooltip::before {
+  display: none !important;
+}
+
+/* Override leaflet tooltip arrow */
+.leaflet-tooltip-top.tripmap-cluster-tooltip::before {
+  border-top-color: rgba(255,255,255,0.97) !important;
+}
+
+/* ── Dark mode map adjustments ───────────────────────────────────────────── */
+.tripmap-container.dark .tripmap-header,
+.tripmap-container.dark .tripmap-controls,
+.tripmap-container.dark .tripmap-stats,
+.tripmap-container.dark .tripmap-legend {
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+.tripmap-container.dark .tripmap-title { color: #90caf9; }
+.tripmap-container.dark .tripmap-subtitle { color: #aaa; }
+.tripmap-container.dark .tripmap-stat-label { color: #777; }
+.tripmap-container.dark .tripmap-toggle { background: #2a2a3e; border-color: #3a3a5e; color: #ccc; }
+.tripmap-container.dark .tripmap-toggle.active { background: #1565c0; border-color: #1565c0; color: #fff; }
+.tripmap-container.dark .tripmap-legend { border-top: 1px solid #333; }
+.tripmap-container.dark .tripmap-legend-title { color: #777; }
+.tripmap-container.dark .tripmap-legend-item { color: #ccc; }
+.tripmap-container.dark .tripmap-close { background: #2a2a3e; border-color: #3a3a5e; color: #ccc; }
