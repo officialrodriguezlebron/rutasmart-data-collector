@@ -167,10 +167,9 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
     )
 
     if db.query(Trip).filter(Trip.trip_id == trip_id).first():
-        raise HTTPException(
-            status_code=409,
-            detail=f"Trip {trip_id} already exists. Delete it first or use a different file."
-        )
+        # Auto-suffix with timestamp instead of hard failing
+        from datetime import datetime as _dt
+        trip_id = f"{trip_id}_{_dt.utcnow().strftime('%H%M%S')}"
 
     jeep_code = first.get("jeep_code", "IMPORT")
     capacity  = int(first.get("official_capacity", 25))
@@ -212,6 +211,14 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
         else:
             quality = GPSQualityEnum.POOR
 
+        # Parse timestamp
+        ts_str = row.get("timestamp") or row.get("gps_timestamp")
+        try:
+            from datetime import datetime as _dt
+            ts = _dt.fromisoformat(ts_str.replace("Z","")) if ts_str else None
+        except Exception:
+            ts = None
+
         log_objects.append(GPSLog(
             trip_id=trip_id,
             device_id=row.get("device_id", "IMPORTED"),
@@ -221,6 +228,8 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
             occupancy_count=occ,
             over_capacity_flag=(occ > capacity),
             gps_quality_flag=quality,
+            gps_timestamp=ts,
+            client_seq=int(row["client_seq"]) if row.get("client_seq") else None,
         ))
 
     db.bulk_save_objects(log_objects)
