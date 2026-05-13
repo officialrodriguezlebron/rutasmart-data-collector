@@ -220,6 +220,7 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
             ts = None
 
         log_objects.append(GPSLog(
+            log_id=str(uuid.uuid4()),
             trip_id=trip_id,
             device_id=row.get("device_id", "IMPORTED"),
             latitude=lat,
@@ -228,6 +229,7 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
             occupancy_count=occ,
             over_capacity_flag=(occ > capacity),
             gps_quality_flag=quality,
+            timestamp=ts or datetime.utcnow(),
             gps_timestamp=ts,
             client_seq=int(row["client_seq"]) if row.get("client_seq") else None,
         ))
