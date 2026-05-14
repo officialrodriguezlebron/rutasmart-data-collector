@@ -58,10 +58,6 @@ export const authService = {
     return this.getRole() === "ADMIN";
   },
 
-  isAnalyst() {
-    return this.getRole() === "ANALYST";
-  },
-
   isConductor() {
     return this.getRole() === "CONDUCTOR";
   },
@@ -70,7 +66,6 @@ export const authService = {
   getHomeRoute() {
     const role = this.getRole();
     if (role === "ADMIN")     return "/admin";
-    if (role === "ANALYST")   return "/analytics";
     if (role === "CONDUCTOR") return "/dashboard";
     return "/login";
   },

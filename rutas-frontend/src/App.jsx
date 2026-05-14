@@ -1,15 +1,16 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { authService } from "./services/authService";
 
-import Login           from "./pages/Login";
-import Signup          from "./pages/Signup";
-import Dashboard       from "./pages/Dashboard";
-import TripSetup       from "./pages/TripSetup";
-import Recording       from "./pages/Recording";
-import TripSummary     from "./pages/TripSummary";
-import SavedTrips      from "./pages/SavedTrips";
-import AnalyticsEngine from "./pages/AnalyticsEngine";
-import AdminDashboard  from "./pages/AdminDashboard";
+import Login            from "./pages/Login";
+import Signup           from "./pages/Signup";
+import PublicDashboard  from "./pages/PublicDashboard";
+import Dashboard        from "./pages/Dashboard";
+import TripSetup        from "./pages/TripSetup";
+import Recording        from "./pages/Recording";
+import TripSummary      from "./pages/TripSummary";
+import SavedTrips       from "./pages/SavedTrips";
+import AnalyticsEngine  from "./pages/AnalyticsEngine";
+import AdminDashboard   from "./pages/AdminDashboard";
 
 // Must be logged in
 function RequireAuth({ children }) {
@@ -41,10 +42,12 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* Public */}
-        <Route path="/login"  element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/"       element={<RootRedirect />} />
+        {/* Public — no login required */}
+        <Route path="/route/:routeId" element={<PublicDashboard />} />
+        <Route path="/route"          element={<PublicDashboard />} />
+        <Route path="/login"          element={<Login />} />
+        <Route path="/signup"         element={<Signup />} />
+        <Route path="/"               element={<RootRedirect />} />
 
         {/* Conductor */}
         <Route path="/dashboard"   element={<RequireConductor><Dashboard /></RequireConductor>} />

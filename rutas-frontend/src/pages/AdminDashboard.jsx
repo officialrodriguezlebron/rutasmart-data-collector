@@ -145,7 +145,13 @@ export default function AdminDashboard() {
               </div>
 
               <div className="admin-card">
-                <div className="admin-card-title">Active Jeeps</div>
+                <div className="admin-card-title">Active Jeeps
+                  <a href="/route/MR-001" target="_blank" rel="noreferrer"
+                     style={{ fontSize:11, fontWeight:600, color:"#1565c0",
+                              marginLeft:10, textDecoration:"underline" }}>
+                    🔗 Public Dashboard
+                  </a>
+                </div>
                 {stats.active_jeeps.length === 0
                   ? <p className="admin-empty">No jeeps currently active.</p>
                   : <div className="admin-jeep-list">

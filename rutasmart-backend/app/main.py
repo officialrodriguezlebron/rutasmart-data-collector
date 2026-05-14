@@ -66,6 +66,90 @@ def read_root():
     return {"message": "RutaSmart Backend Connected to Database"}
 
 
+# ── Public live route dashboard endpoint ──────────────────────────────────
+
+@app.get("/public/route/{route_id}", tags=["Public"])
+def get_live_route(route_id: str, db: Session = Depends(get_db)):
+    """
+    Public read-only endpoint — no authentication required.
+    Returns all ACTIVE jeepneys on a given route with their last known
+    GPS position and occupancy status. Polled every 5 seconds by the
+    passenger-facing dashboard at /route/{route_id}.
+
+    Occupancy tiers:
+      EMPTY    — 0–40% of official capacity
+      MODERATE — 41–75%
+      FULL     — 76–100%
+      OVERCAP  — over official capacity
+    """
+    from sqlalchemy import desc
+
+    active_trips = (
+        db.query(Trip)
+        .filter(Trip.route_id == route_id, Trip.status == TripStatusEnum.ACTIVE)
+        .all()
+    )
+
+    jeepneys = []
+    for trip in active_trips:
+        # Get the most recent GPS log for this trip
+        last_log = (
+            db.query(GPSLog)
+            .filter(GPSLog.trip_id == trip.trip_id)
+            .order_by(desc(GPSLog.timestamp))
+            .first()
+        )
+
+        if not last_log:
+            continue
+
+        occ = last_log.occupancy_count
+        cap = trip.official_capacity or 26
+        pct = (occ / cap * 100) if cap > 0 else 0
+
+        if occ > cap:
+            tier = "OVERCAP"
+            color = "#c62828"
+        elif pct > 75:
+            tier = "FULL"
+            color = "#ef6c00"
+        elif pct > 40:
+            tier = "MODERATE"
+            color = "#f9a825"
+        else:
+            tier = "AVAILABLE"
+            color = "#2e7d32"
+
+        jeepneys.append({
+            "trip_id":          trip.trip_id,
+            "jeep_code":        trip.jeep_code,
+            "direction":        trip.direction,
+            "occupancy":        occ,
+            "capacity":         cap,
+            "occupancy_pct":    round(pct, 1),
+            "tier":             tier,
+            "color":            color,
+            "last_lat":         last_log.latitude,
+            "last_lon":         last_log.longitude,
+            "last_accuracy":    last_log.accuracy,
+            "last_updated":     last_log.timestamp.isoformat() if last_log.timestamp else None,
+            "gps_quality":      str(last_log.gps_quality_flag.value
+                                    if hasattr(last_log.gps_quality_flag, "value")
+                                    else last_log.gps_quality_flag),
+        })
+
+    # Sort: most crowded first so passengers see the worst situation upfront
+    jeepneys.sort(key=lambda j: j["occupancy_pct"], reverse=True)
+
+    return {
+        "route_id":    route_id,
+        "route_name":  "Malanday – Recto" if route_id == "MR-001" else route_id,
+        "active_count": len(jeepneys),
+        "jeepneys":    jeepneys,
+        "polled_at":   __import__("datetime").datetime.utcnow().isoformat() + "Z",
+    }
+
+
 # ── Admin endpoints ────────────────────────────────────────────────────────
 
 @app.get("/admin/trips", tags=["Admin"])

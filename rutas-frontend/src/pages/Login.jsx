@@ -6,11 +6,11 @@ import "./Login.css";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [role, setRole] = useState("CONDUCTOR"); // STAFF or CONDUCTOR
+  const [role, setRole]         = useState("CONDUCTOR");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
 
-  // Admin / Analyst fields
+  // Admin fields
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
 
@@ -27,7 +27,6 @@ export default function Login() {
       if (role === "CONDUCTOR") {
         res = await loginConductor({ employee_id: empId, pin });
       } else {
-        // STAFF tab — backend returns actual role (ADMIN or ANALYST)
         res = await loginAdmin({ email, password });
       }
       authService.setSession(res.data);
@@ -126,15 +125,13 @@ export default function Login() {
                 />
               </div>
               <div className="login-pwa-note">
-                Works offline · PWA installed
+                Works offline · PWA mobile
               </div>
             </>
           )}
 
           {error && (
-            <div className="login-error" role="alert">
-              {error}
-            </div>
+            <div className="login-error" role="alert">{error}</div>
           )}
 
           <button type="submit" className="login-btn" disabled={loading}>
@@ -146,22 +143,18 @@ export default function Login() {
 
         </form>
 
+        {/* Role description */}
         <div className="login-role-desc">
-          {role === "STAFF"     && "Admin → full access · Analyst → read + export"}
+          {role === "STAFF"     && "Admin — full access to analytics and trip management"}
           {role === "CONDUCTOR" && "Collect only · Own trips · PWA mobile"}
         </div>
 
-        <div className="login-role-desc" style={{ marginTop: 10 }}>
-          No account?{" "}
-          <button
-            type="button"
-            onClick={() => navigate("/signup")}
-            style={{ background: "none", border: "none", color: "#1565c0", fontSize: 12,
-                     fontWeight: 600, cursor: "pointer", padding: 0,
-                     textDecoration: "underline", fontFamily: "inherit" }}
-          >
-            Create one
-          </button>
+        {/* Public dashboard link */}
+        <div className="login-public-link">
+          <a href="/route/MR-001">
+            🚌 View Live Route Status
+          </a>
+          <span className="login-public-note">No login needed · Open to all passengers</span>
         </div>
 
       </div>
