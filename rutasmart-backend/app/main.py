@@ -28,6 +28,8 @@ ALLOWED_ORIGINS = [
     "https://rutasmart-data-collector.onrender.com",
     "https://rutasmart-data-collector.vercel.app",
     "https://rutas-frontend.vercel.app",
+    "https://rutasmart-data-collector-2asmhbpm.vercel.app",
+    "https://rutasmart-data-collector-7dnn1rvqq.vercel.app",
 ]
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "")
