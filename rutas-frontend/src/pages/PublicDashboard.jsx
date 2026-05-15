@@ -1,0 +1,208 @@
+import { useEffect, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import "./PublicDashboard.css";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const POLL_MS = 5000;
+
+const TIER_CONFIG = {
+  AVAILABLE: { label: "Available",    emoji: "🟢", bg: "#e8f5e9", border: "#2e7d32", text: "#1b5e20", bar: "#2e7d32" },
+  MODERATE:  { label: "Filling Up",   emoji: "🟡", bg: "#fffde7", border: "#f9a825", text: "#e65100", bar: "#f9a825" },
+  FULL:      { label: "Almost Full",  emoji: "🟠", bg: "#fff3e0", border: "#ef6c00", text: "#bf360c", bar: "#ef6c00" },
+  OVERCAP:   { label: "OVERCROWDED",  emoji: "🔴", bg: "#ffebee", border: "#c62828", text: "#b71c1c", bar: "#c62828" },
+};
+
+const DIRECTION_LABEL = {
+  "MALANDAY-RECTO": "Malanday → Recto",
+  "RECTO-MALANDAY": "Recto → Malanday",
+};
+
+function timeAgo(isoStr) {
+  if (!isoStr) return "—";
+  const diff = Math.floor((Date.now() - new Date(isoStr + (isoStr.endsWith("Z") ? "" : "Z"))) / 1000);
+  if (diff < 5)  return "just now";
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+function OccupancyBar({ pct, color }) {
+  return (
+    <div style={{ background: "#e0e0e0", borderRadius: 99, height: 8, overflow: "hidden", margin: "6px 0" }}>
+      <div style={{
+        width: `${Math.min(100, pct)}%`, height: "100%",
+        background: color, borderRadius: 99,
+        transition: "width 0.5s ease",
+      }} />
+    </div>
+  );
+}
+
+function JeepCard({ j }) {
+  const cfg = TIER_CONFIG[j.tier] || TIER_CONFIG.AVAILABLE;
+  return (
+    <div className="pd-jeep-card" style={{ borderLeft: `5px solid ${cfg.border}`, background: cfg.bg }}>
+      <div className="pd-jeep-header">
+        <div className="pd-jeep-code">{j.jeep_code}</div>
+        <div className="pd-tier-badge" style={{ background: cfg.border, color: "#fff" }}>
+          {cfg.emoji} {cfg.label}
+        </div>
+      </div>
+
+      <div className="pd-jeep-direction">
+        {DIRECTION_LABEL[j.direction] || j.direction}
+      </div>
+
+      <OccupancyBar pct={j.occupancy_pct} color={cfg.bar} />
+
+      <div className="pd-jeep-counts">
+        <span style={{ color: cfg.text, fontWeight: 700, fontSize: 22 }}>
+          {j.occupancy}
+        </span>
+        <span style={{ color: "#888", fontSize: 14 }}>
+          {" "}/ {j.capacity} passengers
+          {j.occupancy > j.capacity && (
+            <span style={{ color: "#c62828", fontWeight: 700 }}>
+              {" "}(+{j.occupancy - j.capacity} over)
+            </span>
+          )}
+        </span>
+      </div>
+
+      <div className="pd-jeep-meta">
+        <span>📍 {j.gps_quality} GPS</span>
+        <span>🕐 Updated {timeAgo(j.last_updated)}</span>
+      </div>
+    </div>
+  );
+}
+
+export default function PublicDashboard() {
+  const { routeId = "MR-001" } = useParams();
+  const [data,    setData]    = useState(null);
+  const [error,   setError]   = useState(null);
+  const [lastPoll,setLastPoll]= useState(null);
+  const [pulse,   setPulse]   = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/public/route/${routeId}`);
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const json = await res.json();
+      setData(json);
+      setError(null);
+      setLastPoll(new Date());
+      setPulse(p => !p); // trigger pulse animation
+    } catch (e) {
+      setError(e.message);
+    }
+  }, [routeId]);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, POLL_MS);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const total     = data?.active_count || 0;
+  const available = data?.jeepneys?.filter(j => j.tier === "AVAILABLE").length || 0;
+  const full      = data?.jeepneys?.filter(j => j.tier === "FULL" || j.tier === "OVERCAP").length || 0;
+
+  return (
+    <div className="pd-page">
+
+      {/* Header */}
+      <div className="pd-header">
+        <div className="pd-header-top">
+          <div>
+            <h1 className="pd-title">RutaSmart</h1>
+            <p className="pd-subtitle">
+              {data?.route_name || "Malanday – Recto"} · Live Jeepney Status
+            </p>
+          </div>
+          <div className={`pd-live-dot ${pulse ? "pulse" : ""}`}>
+            <span className="pd-live-ring" />
+            LIVE
+          </div>
+        </div>
+
+        {/* Summary strip */}
+        {data && (
+          <div className="pd-summary">
+            {[
+              { label: "Active Jeepneys", value: total,     color: "#1565c0" },
+              { label: "Available Seats", value: available, color: "#2e7d32" },
+              { label: "Full / Crowded",  value: full,      color: "#c62828" },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="pd-summary-item">
+                <div className="pd-summary-value" style={{ color }}>{value}</div>
+                <div className="pd-summary-label">{label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="pd-content">
+
+        {error && (
+          <div className="pd-error">
+            ⚠️ Could not reach server — retrying…<br />
+            <small>{error}</small>
+          </div>
+        )}
+
+        {!data && !error && (
+          <div className="pd-loading">
+            <div className="pd-spinner" />
+            <p>Loading live data…</p>
+          </div>
+        )}
+
+        {data && data.jeepneys.length === 0 && (
+          <div className="pd-empty">
+            <div className="pd-empty-icon">🚌</div>
+            <h3>No active jeepneys right now</h3>
+            <p>
+              No conductor is currently recording a trip on this route.<br />
+              Data appears here when conductors use the RutaSmart app.
+            </p>
+          </div>
+        )}
+
+        {data && data.jeepneys.length > 0 && (
+          <>
+            <p className="pd-hint">
+              Tap any jeepney card to see its last known position on the route.
+              Data updates every 5 seconds from conductor devices.
+            </p>
+            <div className="pd-cards">
+              {data.jeepneys.map(j => (
+                <JeepCard key={j.trip_id} j={j} />
+              ))}
+            </div>
+          </>
+        )}
+
+      </div>
+
+      {/* Footer */}
+      <div className="pd-footer">
+        <div className="pd-legend">
+          {Object.entries(TIER_CONFIG).map(([key, cfg]) => (
+            <span key={key} className="pd-legend-item">
+              {cfg.emoji} {cfg.label}
+            </span>
+          ))}
+        </div>
+        <p className="pd-footer-note">
+          Last checked: {lastPoll ? lastPoll.toLocaleTimeString() : "—"} ·
+          Refreshes every 5 seconds ·
+          Data from conductor PWA · <strong>RutaSmart 2026</strong>
+        </p>
+      </div>
+
+    </div>
+  );
+}

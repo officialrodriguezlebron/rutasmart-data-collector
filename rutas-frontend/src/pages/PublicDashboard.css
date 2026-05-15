@@ -1,0 +1,251 @@
+/* ── Public Dashboard — passenger-facing live occupancy ─────────────────── */
+.pd-page {
+  min-height: 100vh;
+  background: #f0f4f8;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.pd-header {
+  background: #1565c0;
+  color: white;
+  padding: 20px 20px 0;
+  box-shadow: 0 4px 20px rgba(21,101,192,0.4);
+}
+
+.pd-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.pd-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.pd-subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* Live badge */
+.pd-live-dot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  background: rgba(255,255,255,0.15);
+  padding: 6px 12px;
+  border-radius: 99px;
+  position: relative;
+}
+
+.pd-live-ring {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #69f0ae;
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(105,240,174,0.7);
+  animation: pd-ring 1.5s ease-out infinite;
+}
+
+@keyframes pd-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(105,240,174,0.7); }
+  70%  { box-shadow: 0 0 0 8px rgba(105,240,174,0); }
+  100% { box-shadow: 0 0 0 0 rgba(105,240,174,0); }
+}
+
+/* Summary strip */
+.pd-summary {
+  display: flex;
+  background: rgba(0,0,0,0.2);
+  margin: 0 -20px;
+  padding: 12px 20px;
+}
+
+.pd-summary-item {
+  flex: 1;
+  text-align: center;
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+
+.pd-summary-item:last-child { border-right: none; }
+
+.pd-summary-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: white;
+  line-height: 1;
+}
+
+.pd-summary-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.7);
+  margin-top: 3px;
+}
+
+/* Content */
+.pd-content {
+  flex: 1;
+  padding: 16px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.pd-hint {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.pd-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Jeep card */
+.pd-jeep-card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.pd-jeep-card:active {
+  transform: scale(0.98);
+}
+
+.pd-jeep-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.pd-jeep-code {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+  font-family: monospace;
+}
+
+.pd-tier-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 99px;
+  letter-spacing: 0.04em;
+}
+
+.pd-jeep-direction {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.pd-jeep-counts {
+  margin: 4px 0 6px;
+  line-height: 1;
+}
+
+.pd-jeep-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 6px;
+}
+
+/* States */
+.pd-loading, .pd-empty, .pd-error {
+  text-align: center;
+  padding: 60px 20px;
+  color: #555;
+}
+
+.pd-empty-icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+}
+
+.pd-empty h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #333;
+}
+
+.pd-empty p {
+  font-size: 14px;
+  color: #888;
+  line-height: 1.6;
+}
+
+.pd-error {
+  background: #ffebee;
+  border-radius: 12px;
+  color: #c62828;
+  padding: 20px;
+  font-size: 13px;
+}
+
+.pd-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #1565c0;
+  border-radius: 50%;
+  animation: pd-spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes pd-spin { to { transform: rotate(360deg); } }
+
+/* Footer */
+.pd-footer {
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 12px 20px;
+  text-align: center;
+}
+
+.pd-legend {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.pd-legend-item {
+  font-size: 11px;
+  color: #666;
+}
+
+.pd-footer-note {
+  font-size: 10px;
+  color: #aaa;
+  margin: 0;
+}
+
+/* Mobile optimized */
+@media (max-width: 480px) {
+  .pd-title { font-size: 22px; }
+  .pd-summary-value { font-size: 22px; }
+  .pd-jeep-code { font-size: 16px; }
+}
