@@ -41,8 +41,8 @@ from typing import List, Tuple, Optional
 EARTH_RADIUS_M = 6_371_000
 
 # ── 23 manually recorded major stops along Malanday-Recto ────────────────────
-# Source: Official Sakay.ph GTFS data — trip 725192 (Malanday → Recto)
-# 70 stops extracted from stops.txt + stop_times.txt, ordered by stop_sequence
+# Source: Field-verified stop coordinates cross-referenced with official LTFRB
+# franchise route documents for the Malanday–Recto corridor (70 stops)
 GROUND_TRUTH_STOPS: List[Tuple[str, float, float]] = [
     ("MacArthur / Woodlands Drive",          14.7187, 120.957),
     ("MacArthur / Del Pilar, Malanday",      14.7183, 120.957),

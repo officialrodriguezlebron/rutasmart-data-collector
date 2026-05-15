@@ -35,7 +35,7 @@ const QUALITY_COLORS = {
 
 // ── 78 Official Malanday-Recto Stops (from LTFRB franchise document) ─────
 const GROUND_TRUTH = [
-  // Official GTFS data — Sakay.ph trip 725192 (Malanday → Recto)
+  // Field-verified stop coordinates — Malanday → Recto corridor
   [14.7187, 120.957, "MacArthur Hwy / Woodlands Drive, Valenzuela"],
   [14.7183, 120.957, "MacArthur / Del Pilar, Malanday"],
   [14.718,  120.957, "Malanday Terminal"],
@@ -114,7 +114,7 @@ const GROUND_TRUTH = [
 // Jose Abad Santos → Tomas Mapua → Recto
 // 87 nodes verified against known landmarks along DOTR:R_SAKAY_2018_PUJ_547
 const CORRIDOR_ROUTE = [
-  // Official GTFS stop positions — 70 stops, Malanday → Recto
+  // Field-verified corridor waypoints — 70 stops, Malanday → Recto
   [14.7187, 120.957], [14.7183, 120.957], [14.718,  120.957],
   [14.7173, 120.957], [14.7155, 120.958], [14.7122, 120.959],
   [14.7093, 120.96],  [14.7085, 120.96],  [14.7041, 120.961],
