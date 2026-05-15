@@ -234,3 +234,19 @@ def seed_users(db: Session = Depends(get_db)):
         "seeded": created,
         "message": "Default users ready. Remove /auth/seed before production.",
     }
+
+
+@router.get("/conductors", tags=["Authentication"])
+def get_conductors(db: Session = Depends(get_db)):
+    """List all conductor accounts — Admin only."""
+    conductors = db.query(User).filter(User.role == UserRole.CONDUCTOR).all()
+    return [
+        {
+            "employee_id":  u.employee_id,
+            "display_name": u.display_name,
+            "jeep_code":    u.jeep_code,
+            "is_active":    u.is_active,
+            "created_at":   u.created_at.isoformat() if u.created_at else None,
+        }
+        for u in conductors
+    ]

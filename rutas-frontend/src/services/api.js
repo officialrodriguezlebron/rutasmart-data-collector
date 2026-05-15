@@ -14,6 +14,7 @@ export const loginAdmin     = (data) => API.post("/auth/login/admin", data);
 export const loginConductor = (data) => API.post("/auth/login/conductor", data);
 export const seedUsers      = ()     => API.post("/auth/seed");
 export const createUser     = (data) => API.post("/auth/create", data);
+export const getConductors  = ()     => API.get("/auth/conductors");
 
 // ── Trip management ────────────────────────────────────────────────────────
 export const startTrip = (data)   => API.post("/trip/start-trip", data);

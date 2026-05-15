@@ -213,3 +213,26 @@
   color: #aaa;
   text-align: center;
 }
+
+/* ── Conductor signup link ─────────────────────────────────── */
+.login-signup-link {
+  text-align: center;
+  font-size: 12px;
+  color: #8e9ab0;
+  padding: 0 24px 4px;
+}
+
+.login-signup-btn {
+  background: none;
+  border: none;
+  color: var(--b500);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-signup-btn:hover { color: var(--b700); }

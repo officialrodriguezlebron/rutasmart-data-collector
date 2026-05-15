@@ -1,165 +1,197 @@
+@import "./Dashboard.css";
 
-.app-container {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #eef2f7, #dbe5f1);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-  font-family: "Inter", "Segoe UI", sans-serif;
-}
-
-.app-card {
-  width: 100%;
-  max-width: 420px;
-  background: white;
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
-}
-
+/* ── Record header — REPLACES the dashboard .header style ───── */
 .record-header {
+  background: linear-gradient(150deg,
+    rgba(5,16,40,0.96)   0%,
+    rgba(16,68,163,0.92) 50%,
+    rgba(0,109,119,0.88) 100%
+  );
+  padding: 24px 24px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.record-header::before {
+  content: "";
+  position: absolute;
+  top: -50px; right: -30px;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,180,216,0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.record-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+}
+
+.record-header h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: white;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+
+/* Trip ID — centered, wraps nicely */
+.record-header .trip-id {
+  font-size: 9.5px;
+  font-family: var(--mono);
+  color: rgba(255,255,255,0.45);
+  word-break: break-all;
+  line-height: 1.5;
   text-align: center;
-  margin-bottom: 20px;
+  display: block;
+  width: 100%;
 }
 
-.trip-id {
-  font-size: 13px;
-  color: #888;
-}
-
+/* ── Status row ──────────────────────────────────────────────── */
 .status-row {
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
 }
 
-.status-badge {
-  padding: 6px 14px;
-  border-radius: 50px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.status-badge.online {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-badge.offline {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.status-badge.queue {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.occupancy-display {
-  background: #f8fafc;
-  border-radius: 20px;
-  padding: 30px;
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.capacity-label {
-  font-size: 14px;
-  color: #777;
-}
-
-.occupancy-display h1 {
-  font-size: 64px;
-  margin: 10px 0;
-  transition: 0.15s ease;
-}
-
-.occupancy-display h1.over {
-  color: #c62828;
-}
-
-.over-text {
-  color: #c62828;
-  font-weight: 600;
-}
-
-.gps-card {
-  background: #f8fafc;
-  padding: 18px;
-  border-radius: 16px;
-  margin-bottom: 18px;
-  font-size: 14px;
-}
-
-.good { color: #2e7d32; font-weight: 600; }
-.medium { color: #ef6c00; font-weight: 600; }
-.bad { color: #c62828; font-weight: 600; }
-
-.control-row {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.btn {
-  flex: 1;
-  padding: 16px;
-  border-radius: 16px;
-  border: none;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.15s ease;
-}
-
-.btn-success {
-  background: #2e7d32;
-  color: white;
-}
-
-.btn-secondary {
-  background: #1565c0;
-  color: white;
-}
-
-.btn-danger {
-  background: #c62828;
-  color: white;
-}
-
-.btn.full {
-  width: 100%;
-}
-
-.btn:hover {
-  opacity: 0.95;
-}
-
-.btn:active {
-  transform: scale(0.97);
-}
-
-/* ── Wake Lock status banner ─────────────────────────────────────────────── */
+/* ── Wake lock banners ───────────────────────────────────────── */
 .wakelock-banner {
-  margin: 8px 0;
-  padding: 8px 12px;
-  border-radius: 10px;
+  margin: 12px 24px 0;
+  padding: 10px 16px;
+  border-radius: var(--r-sm);
   font-size: 12px;
-  font-weight: 500;
-  line-height: 1.4;
+  font-weight: 600;
+  line-height: 1.5;
   text-align: center;
 }
 
 .wakelock-ok {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid #c8e6c9;
+  background: rgba(48,209,88,0.10);
+  color: #1a6630;
+  border: 1px solid rgba(48,209,88,0.22);
 }
 
 .wakelock-warn {
-  background: #fff8e1;
-  color: #5d4037;
-  border: 1px solid #ffe082;
+  background: rgba(255,159,10,0.10);
+  color: #7d4a00;
+  border: 1px solid rgba(255,159,10,0.22);
 }
+
+/* ── Occupancy hero ──────────────────────────────────────────── */
+.occupancy-display {
+  margin: 16px 24px 0;
+  background: linear-gradient(145deg,
+    rgba(255,255,255,0.72) 0%,
+    rgba(255,255,255,0.52) 100%
+  );
+  border: 1.5px solid rgba(255,255,255,0.78);
+  border-radius: 24px;
+  padding: 24px 24px 20px;
+  text-align: center;
+  box-shadow: var(--s-section);
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+  overflow: hidden;
+}
+
+.occupancy-display::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: rgba(255,255,255,0.95);
+}
+
+.occupancy-display.over {
+  background: linear-gradient(145deg, rgba(255,69,58,0.10), rgba(255,69,58,0.05));
+  border-color: rgba(255,69,58,0.32);
+  box-shadow: 0 4px 24px rgba(255,69,58,0.18), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.capacity-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #8e9ab0;
+  margin: 0 0 6px;
+}
+
+.occupancy-display h1 {
+  font-size: 96px;
+  font-weight: 800;
+  color: var(--b500);
+  line-height: 0.95;
+  letter-spacing: -6px;
+  margin: 0;
+  font-family: var(--font);
+  transition: color 0.3s;
+}
+
+.occupancy-display h1.over { color: var(--red); }
+
+.over-text {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 8px 0 0;
+}
+
+/* ── GPS card ────────────────────────────────────────────────── */
+.gps-card {
+  margin: 12px 24px 0;
+  background: rgba(255,255,255,0.45);
+  border: 1px solid rgba(255,255,255,0.62);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  box-shadow: var(--s-section);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 16px;
+}
+
+.gps-card p {
+  margin: 3px 0;
+  font-size: 11.5px;
+  color: #5a6a85;
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+/* ── Controls ────────────────────────────────────────────────── */
+.control-row {
+  margin: 12px 24px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.control-row .btn {
+  padding: 20px 12px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+/* ── End trip ────────────────────────────────────────────────── */
+.actions {
+  padding: 12px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Queue badge ─────────────────────────────────────────────── */
+.status-badge.queue {
+  background: rgba(255,159,10,0.12);
+  color: #7d4a00;
+  border: 1px solid rgba(255,159,10,0.25);
+}
+.status-badge.queue::before { background: var(--orange); }

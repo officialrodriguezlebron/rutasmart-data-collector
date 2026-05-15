@@ -1,51 +1,110 @@
+@import "./Dashboard.css";
+
 .saved-header {
+  padding: 22px 24px 0;
   text-align: center;
-  margin-bottom: 20px;
+}
+
+.saved-header h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a2744;
+  margin: 0 0 3px;
+  letter-spacing: -0.5px;
 }
 
 .sub-text {
-  font-size: 13px;
-  color: #777;
-}
-
-.empty-text {
-  text-align: center;
-  color: #777;
-  margin: 20px 0;
+  font-size: 12px;
+  color: #8e9ab0;
 }
 
 .trip-list {
+  padding: 14px 24px 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-bottom: 25px;
+  gap: 10px;
 }
 
 .trip-item {
-  background: #f8fafc;
-  padding: 18px;
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  background: linear-gradient(145deg,
+    rgba(255,255,255,0.68) 0%,
+    rgba(255,255,255,0.48) 100%
+  );
+  border: 1.5px solid rgba(255,255,255,0.72);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  box-shadow: var(--s-section);
+  position: relative;
+  overflow: hidden;
 }
 
-.trip-main .trip-id {
-  font-weight: 600;
-  font-size: 15px;
+.trip-item::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: rgba(255,255,255,0.9);
+}
+
+.trip-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.trip-id {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: #8e9ab0;
+  word-break: break-all;
+  line-height: 1.4;
 }
 
 .trip-meta {
-  font-size: 13px;
-  color: #777;
+  font-size: 11px;
+  color: #8e9ab0;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .trip-stats {
-  font-size: 14px;
-  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.trip-stats span {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(21,101,192,0.08);
+  color: var(--b500);
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid rgba(21,101,192,0.14);
 }
 
 .trip-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+}
+
+.trip-actions .btn {
+  flex: 1;
+  padding: 10px;
+  font-size: 13px;
+  border-radius: var(--r-sm);
+}
+
+.empty-text {
+  text-align: center;
+  color: #8e9ab0;
+  font-size: 14px;
+  padding: 48px 24px;
+  line-height: 1.6;
+}
+
+.actions {
+  padding: 14px 24px 28px;
 }

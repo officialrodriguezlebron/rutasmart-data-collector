@@ -1,60 +1,54 @@
-/* ── Signup-specific styles (Login.css handles shared elements) ──────────── */
+@import "./Login.css";
 
-/* Success screen */
 .signup-success {
+  padding: 44px 28px;
   text-align: center;
-  padding: 40px 28px;
 }
 
 .signup-success-icon {
-  width: 56px;
-  height: 56px;
+  width: 68px; height: 68px;
   border-radius: 50%;
-  background: #e8f5e9;
-  color: #2e7d32;
-  font-size: 28px;
+  background: linear-gradient(135deg, #1a6630, var(--green));
+  color: white;
+  font-size: 32px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 16px;
-  border: 2px solid #c8e6c9;
+  margin: 0 auto 18px;
+  box-shadow: 0 6px 24px rgba(48,209,88,0.40);
 }
 
 .signup-success h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a2744;
   margin: 0 0 8px;
-  font-size: 20px;
-  font-weight: 700;
-  color: #1f2937;
+  letter-spacing: -0.6px;
 }
 
 .signup-success p {
-  margin: 0 0 24px;
   font-size: 14px;
-  color: #666;
+  color: #8e9ab0;
+  margin: 0 0 24px;
   line-height: 1.5;
 }
 
-/* Back to login link */
 .signup-login-link {
-  margin-top: 16px;
+  padding: 12px 24px 24px;
   text-align: center;
   font-size: 13px;
-  color: #888;
+  color: #8e9ab0;
 }
 
 .signup-link-btn {
   background: none;
   border: none;
-  color: #1565c0;
+  color: var(--b500);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   padding: 0;
-  font-family: inherit;
+  font-family: var(--font);
   text-decoration: underline;
-}
-
-.signup-link-btn:hover {
-  color: #1251a3;
 }

@@ -149,6 +149,17 @@ export default function Login() {
           {role === "CONDUCTOR" && "Collect only · Own trips · PWA mobile"}
         </div>
 
+        {/* Conductor signup link */}
+        {role === "CONDUCTOR" && (
+          <div className="login-signup-link">
+            No account yet?{" "}
+            <button type="button" onClick={() => navigate("/signup")}
+              className="login-signup-btn">
+              Create conductor account
+            </button>
+          </div>
+        )}
+
         {/* Public dashboard link */}
         <div className="login-public-link">
           <a href="/route/MR-001">

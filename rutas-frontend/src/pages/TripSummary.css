@@ -1,38 +1,103 @@
+@import "./Dashboard.css";
+
+/* ── Summary header ──────────────────────────────────────────── */
 .summary-header {
+  padding: 28px 24px 0;
   text-align: center;
-  margin-bottom: 25px;
 }
 
+.summary-header h2 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1a2744;
+  margin: 0 0 8px;
+  letter-spacing: -0.7px;
+}
+
+/* Trip ID — centered, wraps properly */
 .trip-id {
-  font-size: 13px;
-  color: #888;
+  font-size: 9.5px;
+  font-family: var(--mono);
+  color: #a0aec0;
+  word-break: break-all;
+  line-height: 1.6;
+  text-align: center;
+  display: block;
+  max-width: 100%;
+  padding: 0 8px;
 }
 
+/* ── Completion badge ────────────────────────────────────────── */
+.summary-header::before {
+  content: "✓";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a6630, var(--green));
+  color: white;
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 auto 16px;
+  box-shadow: 0 6px 20px rgba(48,209,88,0.38);
+}
+
+/* ── Stats grid ──────────────────────────────────────────────── */
 .summary-grid {
+  padding: 20px 24px 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-bottom: 30px;
+  gap: 10px;
+}
+
+.summary-grid > div {
+  background: linear-gradient(145deg,
+    rgba(255,255,255,0.74) 0%,
+    rgba(255,255,255,0.52) 100%
+  );
+  border: 1.5px solid rgba(255,255,255,0.78);
+  border-radius: var(--r-md);
+  padding: 15px 16px;
+  box-shadow: var(--s-section);
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-grid > div::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: rgba(255,255,255,0.95);
 }
 
 .summary-grid label {
-  font-size: 12px;
-  color: #777;
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #8e9ab0;
+  margin-bottom: 5px;
 }
 
 .summary-grid p {
-  margin: 6px 0 0;
-  font-weight: 600;
-  font-size: 15px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a2744;
+  margin: 0;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
 }
 
-.danger {
-  color: #c62828;
-  font-weight: 600;
-}
+.summary-grid p.danger { color: var(--red); }
 
+/* ── Actions ─────────────────────────────────────────────────── */
 .summary-actions {
+  padding: 18px 24px 30px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
