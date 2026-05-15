@@ -1,53 +1,33 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import "./PublicDashboard.css";
 
-const API      = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const POLL_MS  = 5000;
-const ROUTE_ID = "MR-001";
+const API     = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const POLL_MS = 5000;
 
-const TIER = {
-  AVAILABLE: {
-    label: "Available",
-    sub:   "Seats open — hop in!",
-    emoji: "🟢",
-    color: "#00c853",
-    bg:    "#e8f5e9",
-    dark:  "#1b5e20",
-    glow:  "rgba(0,200,83,0.25)",
-  },
-  MODERATE: {
-    label: "Filling Up",
-    sub:   "Getting crowded",
-    emoji: "🟡",
-    color: "#ffd600",
-    bg:    "#fffde7",
-    dark:  "#f57f17",
-    glow:  "rgba(255,214,0,0.25)",
-  },
-  FULL: {
-    label: "Almost Full",
-    sub:   "Limited space left",
-    emoji: "🟠",
-    color: "#ff6d00",
-    bg:    "#fff3e0",
-    dark:  "#bf360c",
-    glow:  "rgba(255,109,0,0.25)",
-  },
-  OVERCAP: {
-    label: "Overcrowded",
-    sub:   "Wait for next jeep",
-    emoji: "🔴",
-    color: "#f44336",
-    bg:    "#ffebee",
-    dark:  "#b71c1c",
-    glow:  "rgba(244,67,54,0.3)",
+// Route config — extend here when new routes are added
+const ROUTE_CONFIG = {
+  "MR-001": {
+    name:    "Malanday – Recto",
+    desc:    "MacArthur Highway · Rizal Avenue · 22km",
+    stops:   70,
+    from:    "Malanday Terminal",
+    to:      "Recto LRT",
   },
 };
 
-const DIR = {
-  "MALANDAY-RECTO": { from: "Malanday", to: "Recto LRT",  arrow: "→" },
-  "RECTO-MALANDAY": { from: "Recto LRT", to: "Malanday", arrow: "→" },
+const DEFAULT_ROUTE = "MR-001";
+
+const TIER = {
+  AVAILABLE: { label: "Available",   sub: "Seats open!",          emoji: "🟢", color: "#00c853", bg: "#e8f5e9", dark: "#1b5e20" },
+  MODERATE:  { label: "Filling Up",  sub: "Getting crowded",      emoji: "🟡", color: "#ffd600", bg: "#fffde7", dark: "#f57f17" },
+  FULL:      { label: "Almost Full", sub: "Very limited space",   emoji: "🟠", color: "#ff6d00", bg: "#fff3e0", dark: "#bf360c" },
+  OVERCAP:   { label: "Overcrowded", sub: "Wait for next jeepney",emoji: "🔴", color: "#f44336", bg: "#ffebee", dark: "#b71c1c" },
+};
+
+const DIR_LABEL = {
+  "MALANDAY-RECTO": "Malanday → Recto",
+  "RECTO-MALANDAY": "Recto → Malanday",
 };
 
 function timeAgo(iso) {
@@ -55,82 +35,79 @@ function timeAgo(iso) {
   const s = Math.floor((Date.now() - new Date(iso.endsWith("Z") ? iso : iso + "Z")) / 1000);
   if (s < 5)    return "just now";
   if (s < 60)   return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s/60)}m ago`;
-  return `${Math.floor(s/3600)}h ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  return `${Math.floor(s / 3600)}h ago`;
 }
 
-function OccBar({ pct, color }) {
+function OccupancyBar({ pct, color }) {
   return (
-    <div className="pd2-bar-track">
-      <div className="pd2-bar-fill"
-        style={{ width: `${Math.min(100, pct)}%`, background: color }} />
+    <div className="pd-bar-track">
+      <div className="pd-bar-fill"
+        style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color }} />
     </div>
+  );
+}
+
+function LiveDot() {
+  return (
+    <span className="pd-live-wrap">
+      <span className="pd-live-ring" />
+      <span className="pd-live-core" />
+    </span>
   );
 }
 
 function JeepCard({ j, idx }) {
   const t   = TIER[j.tier] || TIER.AVAILABLE;
-  const dir = DIR[j.direction];
+  const dir = DIR_LABEL[j.direction] || j.direction;
+  const isOld = j.last_updated &&
+    ((Date.now() - new Date(j.last_updated.endsWith("Z") ? j.last_updated : j.last_updated + "Z")) > 30000);
+
   return (
-    <div className="pd2-card"
-      style={{
-        "--card-color": t.color,
-        "--card-glow":  t.glow,
-        animationDelay: `${idx * 0.07}s`,
-      }}>
+    <div className="pd-card" style={{ animationDelay: `${idx * 0.06}s` }}>
+      <div className="pd-card-stripe" style={{ background: t.color }} />
+      <div className="pd-card-inner">
 
-      {/* Left accent bar */}
-      <div className="pd2-card-accent" style={{ background: t.color }} />
-
-      <div className="pd2-card-body">
-
-        {/* Top row */}
-        <div className="pd2-card-top">
-          <div className="pd2-jeep-code">{j.jeep_code}</div>
-          <div className="pd2-tier-pill"
-            style={{ background: t.bg, color: t.dark }}>
+        {/* Top */}
+        <div className="pd-card-top">
+          <span className="pd-jeep-code">{j.jeep_code}</span>
+          <span className="pd-tier-pill" style={{ background: t.bg, color: t.dark }}>
             {t.emoji} {t.label}
-          </div>
+          </span>
         </div>
 
         {/* Direction */}
-        {dir && (
-          <div className="pd2-direction">
-            <span className="pd2-dir-from">{dir.from}</span>
-            <span className="pd2-dir-arrow">{dir.arrow}</span>
-            <span className="pd2-dir-to">{dir.to}</span>
-          </div>
-        )}
+        <div className="pd-direction">{dir}</div>
 
-        {/* Occupancy bar */}
-        <OccBar pct={j.occupancy_pct} color={t.color} />
+        {/* Bar */}
+        <OccupancyBar pct={j.occupancy_pct} color={t.color} />
 
-        {/* Count row */}
-        <div className="pd2-count-row">
-          <div className="pd2-count-left">
-            <span className="pd2-count-num" style={{ color: t.dark }}>
+        {/* Count */}
+        <div className="pd-count-row">
+          <div>
+            <span className="pd-count-big" style={{ color: t.dark }}>
               {j.occupancy}
             </span>
-            <span className="pd2-count-cap">/{j.capacity}</span>
-            <span className="pd2-count-label"> passengers</span>
+            <span className="pd-count-small">/{j.capacity} passengers</span>
             {j.occupancy > j.capacity && (
-              <span className="pd2-overcap-flag">
-                +{j.occupancy - j.capacity} over
-              </span>
+              <span className="pd-over-badge">+{j.occupancy - j.capacity} over</span>
             )}
           </div>
-          <div className="pd2-pct" style={{ color: t.dark }}>
+          <span className="pd-pct" style={{ color: t.dark }}>
             {j.occupancy_pct.toFixed(0)}%
-          </div>
+          </span>
         </div>
 
-        {/* Sub-label */}
-        <div className="pd2-sub" style={{ color: t.dark }}>{t.sub}</div>
+        {/* Sub message */}
+        <div className="pd-sub" style={{ color: t.dark }}>{t.sub}</div>
 
         {/* Meta */}
-        <div className="pd2-meta">
+        <div className="pd-meta">
           <span>📡 {j.gps_quality}</span>
-          <span>🕐 {timeAgo(j.last_updated)}</span>
+          <span style={{ color: isOld ? "#e65100" : undefined }}>
+            🕐 {timeAgo(j.last_updated)}
+            {isOld && " ⚠️"}
+          </span>
         </div>
 
       </div>
@@ -138,158 +115,163 @@ function JeepCard({ j, idx }) {
   );
 }
 
-function PulsingDot() {
-  return (
-    <span className="pd2-dot-wrap">
-      <span className="pd2-dot-ring" />
-      <span className="pd2-dot-core" />
-    </span>
-  );
-}
-
 export default function PublicDashboard() {
-  const { routeId = ROUTE_ID } = useParams();
+  const { routeId }   = useParams();
+  const navigate      = useNavigate();
+  const activeRoute   = routeId || DEFAULT_ROUTE;
+  const routeInfo     = ROUTE_CONFIG[activeRoute];
+
   const [data,      setData]      = useState(null);
   const [error,     setError]     = useState(null);
   const [lastPoll,  setLastPoll]  = useState(null);
-  const [tick,      setTick]      = useState(0);
-  const timerRef = useRef(null);
+  const [countdown, setCountdown] = useState(POLL_MS / 1000);
+  const timerRef  = useRef(null);
+  const countRef  = useRef(null);
+
+  // If unknown route, redirect to default
+  useEffect(() => {
+    if (routeId && !ROUTE_CONFIG[routeId]) {
+      navigate(`/route/${DEFAULT_ROUTE}`, { replace: true });
+    }
+  }, [routeId, navigate]);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/public/route/${routeId}`);
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      setData(await res.json());
+      const res = await fetch(`${API}/public/route/${activeRoute}`);
+      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+      const json = await res.json();
+      setData(json);
       setError(null);
       setLastPoll(new Date());
+      setCountdown(POLL_MS / 1000);
     } catch (e) {
       setError(e.message);
     }
-  }, [routeId]);
+  }, [activeRoute]);
 
-  // Poll every 5 seconds
   useEffect(() => {
     fetchData();
     timerRef.current = setInterval(fetchData, POLL_MS);
     return () => clearInterval(timerRef.current);
   }, [fetchData]);
 
-  // Countdown tick every second
+  // Countdown tick
   useEffect(() => {
-    const id = setInterval(() => setTick(t => (t + 1) % (POLL_MS / 1000)), 1000);
-    return () => clearInterval(id);
+    countRef.current = setInterval(() => {
+      setCountdown(c => c <= 1 ? POLL_MS / 1000 : c - 1);
+    }, 1000);
+    return () => clearInterval(countRef.current);
   }, []);
 
   const jeepneys  = data?.jeepneys || [];
   const available = jeepneys.filter(j => j.tier === "AVAILABLE").length;
   const moderate  = jeepneys.filter(j => j.tier === "MODERATE").length;
-  const full      = jeepneys.filter(j => j.tier === "FULL" || j.tier === "OVERCAP").length;
-  const secToNext = POLL_MS / 1000 - (tick % (POLL_MS / 1000));
+  const crowded   = jeepneys.filter(j => j.tier === "FULL" || j.tier === "OVERCAP").length;
 
   return (
-    <div className="pd2-page">
+    <div className="pd-page">
 
-      {/* ── HERO HEADER ─────────────────────────────────────────────── */}
-      <header className="pd2-header">
-        <div className="pd2-header-bg" />
+      {/* ── HEADER ──────────────────────────────────────────── */}
+      <header className="pd-header">
+        <div className="pd-header-glow" />
 
-        <div className="pd2-header-content">
-          <div className="pd2-brand">
-            <span className="pd2-brand-name">RutaSmart</span>
-            <span className="pd2-brand-tag">Passenger View</span>
+        <div className="pd-topbar">
+          <div>
+            <div className="pd-brand">RutaSmart</div>
+            <div className="pd-brand-sub">Passenger Dashboard</div>
           </div>
-
-          <div className="pd2-live-badge">
-            <PulsingDot />
-            <span>LIVE</span>
-          </div>
-        </div>
-
-        <div className="pd2-route-label">
-          <div className="pd2-route-chip">
-            <span className="pd2-route-id">{routeId}</span>
-          </div>
-          <div className="pd2-route-name">
-            Malanday — Recto Corridor
-          </div>
-          <div className="pd2-route-sub">
-            MacArthur Highway · Rizal Avenue · 22km
+          <div className="pd-live-badge">
+            <LiveDot />
+            LIVE
           </div>
         </div>
 
-        {/* Summary pills */}
-        <div className="pd2-summary">
+        <div className="pd-route-info">
+          <div className="pd-route-chip">
+            <span>{activeRoute}</span>
+          </div>
+          <div className="pd-route-name">
+            {routeInfo?.name || activeRoute}
+          </div>
+          {routeInfo && (
+            <div className="pd-route-desc">{routeInfo.desc}</div>
+          )}
+          {routeInfo && (
+            <div className="pd-route-endpoints">
+              <span>📍 {routeInfo.from}</span>
+              <span className="pd-route-arrow">→</span>
+              <span>🏁 {routeInfo.to}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Summary row */}
+        <div className="pd-summary">
           {[
             { v: data?.active_count ?? "—", l: "Active",    c: "#90caf9" },
             { v: available,                  l: "Available", c: "#a5d6a7" },
             { v: moderate,                   l: "Moderate",  c: "#fff59d" },
-            { v: full,                       l: "Full",      c: "#ef9a9a" },
+            { v: crowded,                    l: "Crowded",   c: "#ef9a9a" },
           ].map(({ v, l, c }) => (
-            <div key={l} className="pd2-pill" style={{ "--pill-color": c }}>
-              <span className="pd2-pill-val">{v}</span>
-              <span className="pd2-pill-lbl">{l}</span>
+            <div key={l} className="pd-pill">
+              <div className="pd-pill-top" style={{ borderTopColor: c }}></div>
+              <div className="pd-pill-val" style={{ color: c }}>{v}</div>
+              <div className="pd-pill-lbl">{l}</div>
             </div>
           ))}
         </div>
       </header>
 
-      {/* ── CONTENT ─────────────────────────────────────────────────── */}
-      <main className="pd2-main">
+      {/* ── MAIN ────────────────────────────────────────────── */}
+      <main className="pd-main">
 
-        {/* Refresh indicator */}
-        <div className="pd2-refresh-bar">
-          <span>
-            {lastPoll ? `Updated ${timeAgo(lastPoll.toISOString())}` : "Loading…"}
-          </span>
-          <span className="pd2-countdown">
-            Next refresh in {secToNext}s
-          </span>
+        {/* Refresh bar */}
+        <div className="pd-refresh">
+          <span>{lastPoll ? `Updated ${timeAgo(lastPoll.toISOString())}` : "Connecting…"}</span>
+          <span className="pd-countdown">↻ {countdown}s</span>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="pd2-error">
+          <div className="pd-error">
             <span>⚠️</span>
             <div>
-              <strong>Connection issue</strong>
-              <p>Retrying automatically… ({error})</p>
+              <strong>Connection issue — retrying…</strong>
+              <p>{error}</p>
             </div>
           </div>
         )}
 
         {/* Loading */}
         {!data && !error && (
-          <div className="pd2-loading">
-            <div className="pd2-spinner" />
+          <div className="pd-loading">
+            <div className="pd-spinner" />
             <p>Connecting to live data…</p>
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty */}
         {data && jeepneys.length === 0 && (
-          <div className="pd2-empty">
-            <div className="pd2-empty-icon">🚌</div>
+          <div className="pd-empty">
+            <div className="pd-empty-icon">🚌</div>
             <h3>No Active Jeepneys</h3>
             <p>
-              No jeepney is currently being tracked on this route.
-              Live status appears here when conductors are using
-              the RutaSmart app during their shift.
+              No jeepney is being tracked on this route right now.
+              Live data appears here during conductor shifts.
             </p>
-            <div className="pd2-empty-hint">
-              Try again during morning or afternoon peak hours
-              (6–9 AM · 4–7 PM)
+            <div className="pd-empty-tip">
+              Peak hours: 6–9 AM · 4–7 PM
             </div>
           </div>
         )}
 
-        {/* Jeepney cards */}
+        {/* Cards */}
         {jeepneys.length > 0 && (
           <>
-            <p className="pd2-hint">
-              Showing {jeepneys.length} active jeepne{jeepneys.length === 1 ? "y" : "ys"} ·
-              Sorted by occupancy
+            <p className="pd-cards-label">
+              {jeepneys.length} jeepne{jeepneys.length === 1 ? "y" : "ys"} active · sorted by occupancy
             </p>
-            <div className="pd2-cards">
+            <div className="pd-cards">
               {jeepneys.map((j, i) => (
                 <JeepCard key={j.trip_id} j={j} idx={i} />
               ))}
@@ -299,32 +281,28 @@ export default function PublicDashboard() {
 
       </main>
 
-      {/* ── LEGEND ──────────────────────────────────────────────────── */}
-      <div className="pd2-legend-section">
-        <div className="pd2-legend-title">Occupancy Guide</div>
-        <div className="pd2-legend-grid">
+      {/* ── LEGEND ──────────────────────────────────────────── */}
+      <section className="pd-legend">
+        <div className="pd-legend-title">Occupancy Guide</div>
+        <div className="pd-legend-grid">
           {Object.entries(TIER).map(([key, t]) => (
-            <div key={key} className="pd2-legend-item"
-              style={{ background: t.bg, borderColor: t.color }}>
-              <span className="pd2-legend-emoji">{t.emoji}</span>
+            <div key={key} className="pd-legend-item"
+              style={{ background: t.bg, border: `1.5px solid ${t.color}` }}>
+              <span>{t.emoji}</span>
               <div>
-                <div className="pd2-legend-label" style={{ color: t.dark }}>
-                  {t.label}
-                </div>
-                <div className="pd2-legend-sub">{t.sub}</div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: t.dark }}>{t.label}</div>
+                <div style={{ fontSize: 10, color: "#888" }}>{t.sub}</div>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* ── FOOTER ──────────────────────────────────────────────────── */}
-      <footer className="pd2-footer">
-        <p>Data collected by jeepney conductors via RutaSmart PWA</p>
-        <p>Refreshes every 5 seconds · No login required</p>
-        <p className="pd2-footer-brand">
-          RutaSmart · Devion · FEU Institute of Technology · 2026
-        </p>
+      {/* ── FOOTER ──────────────────────────────────────────── */}
+      <footer className="pd-footer">
+        <p>Data collected by conductors via RutaSmart PWA</p>
+        <p>Updates every 5 seconds · No login required</p>
+        <p><strong>RutaSmart · Devion · FEU-IT · 2026</strong></p>
       </footer>
 
     </div>
