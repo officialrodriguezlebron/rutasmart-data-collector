@@ -61,6 +61,7 @@ function JeepCard({ j, idx }) {
   const t   = TIER[j.tier] || TIER.AVAILABLE;
   const dir = DIR_LABEL[j.direction] || j.direction;
   const isOld = j.last_updated &&
+    // eslint-disable-next-line react-hooks/purity
     ((Date.now() - new Date(j.last_updated.endsWith("Z") ? j.last_updated : j.last_updated + "Z")) > 30000);
 
   return (
