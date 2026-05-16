@@ -84,13 +84,27 @@ def get_live_route(route_id: str, db: Session = Depends(get_db)):
       FULL     — 76–100%
       OVERCAP  — over official capacity
     """
-    from sqlalchemy import desc
+    from sqlalchemy import desc, func
 
-    active_trips = (
-        db.query(Trip)
-        .filter(Trip.route_id == route_id, Trip.status == TripStatusEnum.ACTIVE)
-        .all()
-    )
+    # Normalize route_id — strip whitespace, uppercase, remove dashes for comparison
+    # This catches "mr-001", "MR001", " MR-001 " etc. so they all match MR-001.
+    normalized = route_id.strip().upper().replace(" ", "")
+    if normalized in ("MR-001", "MR001", "MR_001"):
+        # Match all common variants in the database for the Malanday-Recto corridor
+        active_trips = (
+            db.query(Trip)
+            .filter(
+                Trip.status == TripStatusEnum.ACTIVE,
+                func.replace(func.replace(func.upper(Trip.route_id), "_", ""), "-", "").in_(["MR001"])
+            )
+            .all()
+        )
+    else:
+        active_trips = (
+            db.query(Trip)
+            .filter(Trip.route_id == route_id, Trip.status == TripStatusEnum.ACTIVE)
+            .all()
+        )
 
     jeepneys = []
     for trip in active_trips:

@@ -7,7 +7,7 @@ import "./TripSetup.css";
 function TripSetup() {
   const navigate = useNavigate();
 
-  const [routeId, setRouteId] = useState("");
+  const [routeId] = useState("MR-001");
   const [direction, setDirection] = useState("MALANDAY-RECTO");
   const [jeepCode, setJeepCode] = useState("");
   const [capacity, setCapacity] = useState("");
@@ -102,14 +102,11 @@ function TripSetup() {
 
         <div className="form">
           <div>
-            <label>Route ID *</label>
-            <input
-              className="input"
-              type="text"
-              value={routeId}
-              onChange={(e) => setRouteId(e.target.value)}
-              placeholder="e.g., R-MR-01"
-            />
+            <label>Route ID</label>
+            <div className="route-locked">
+              <span className="route-locked-value">MR-001</span>
+              <span className="route-locked-label">Malanday – Recto</span>
+            </div>
           </div>
 
           <div>
