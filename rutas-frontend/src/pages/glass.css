@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════
+   RutaSmart — Apple-quality Glassmorphism Design System v2
+   Deep, rich, layered. Not flat. Not plain.
+═══════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --font:        "DM Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --mono:        "DM Mono", "SF Mono", "Fira Code", monospace;
+
+  /* Blues */
+  --b900:  #0a1f4e;
+  --b700:  #1044a3;
+  --b500:  #1565c0;
+  --b300:  #42a5f5;
+  --b100:  #bbdefb;
+
+  /* Teal accent */
+  --t500:  #006d77;
+  --t300:  #00b4d8;
+
+  /* Status */
+  --green:  #30d158;
+  --yellow: #ffd60a;
+  --orange: #ff9f0a;
+  --red:    #ff453a;
+
+  /* Glass */
+  --g-ultra:  rgba(255,255,255,0.78);
+  --g-heavy:  rgba(255,255,255,0.60);
+  --g-mid:    rgba(255,255,255,0.40);
+  --g-soft:   rgba(255,255,255,0.18);
+  --g-border: rgba(255,255,255,0.50);
+  --g-blur:   saturate(200%) blur(32px);
+
+  /* Shadows */
+  --s-card:    0 32px 80px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.6);
+  --s-section: 0 4px 20px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.7);
+  --s-btn:     0 4px 16px rgba(16,68,163,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+  --s-green:   0 4px 16px rgba(48,209,88,0.40), inset 0 1px 0 rgba(255,255,255,0.25);
+  --s-red:     0 4px 16px rgba(255,69,58,0.40), inset 0 1px 0 rgba(255,255,255,0.2);
+
+  /* Radii */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-2xl:36px;
+}
+
+/* ── Rich layered background ─────────────────────────────────── */
+.app-container,
+.login-page {
+  min-height: 100dvh;
+  font-family: var(--font);
+  position: relative;
+  overflow: hidden;
+  background: #05101f;
+}
+
+/* Layer 1: deep base */
+.app-container::before,
+.login-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 70% at 15%  5%, rgba(16,68,163,0.75) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 85% 90%, rgba(0,109,119,0.60) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 50% 45%, rgba(0,180,216,0.20) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 70% at  5% 85%, rgba(5, 16, 31,0.90) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 80% 15%, rgba(66,165,245,0.25) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Layer 2: moving shimmer orbs */
+.app-container::after,
+.login-page::after {
+  content: "";
+  position: fixed;
+  width: 600px; height: 600px;
+  top: -200px; right: -150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,180,216,0.18) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+  animation: orb-drift 12s ease-in-out infinite alternate;
+}
+
+@keyframes orb-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-60px, 80px) scale(1.15); }
+}
