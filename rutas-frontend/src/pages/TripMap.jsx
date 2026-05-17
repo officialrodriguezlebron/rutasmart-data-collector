@@ -43,7 +43,11 @@ const CORRIDOR_CENTER = [14.6600, 120.975];
 const CORRIDOR_BOUNDS = [[14.55, 120.95], [14.75, 121.05]];
 
 const TILE_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const TILE_LIGHT = "https://{s}.basemaps.cartocdn.com/voyager/{z}/{x}/{y}{r}.png";
+// Positron: minimal light tile with very low visual noise — dots and
+// route lines stay visible because the background is nearly white.
+// Voyager (previous) was too detailed and "busy", causing colored dots
+// to blend into road/label colors at zoom 13–15.
+const TILE_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const ATTR_DARK  = '&copy; <a href="https://carto.com/">CARTO</a>';
 const ATTR_LIGHT = '&copy; <a href="https://carto.com/">CARTO</a> · <a href="https://www.openstreetmap.org/">OSM</a>';
 
@@ -526,36 +530,52 @@ export default function TripMap({ tripId, onClose }) {
                 fitTrigger={fitTrigger}
               />
 
-              {/* Corridor bbox */}
+              {/* Corridor bbox — purple dashed rectangle showing the backend
+                  in-corridor bounding box. Increased fill opacity so it's
+                  actually visible on the light tile (not just dark). */}
               {showBBox && (
                 <Rectangle
                   bounds={CORRIDOR_BOUNDS}
                   pathOptions={{
-                    color: "#7b1fa2", weight: 2, fillOpacity: 0.03, dashArray: "8,8",
+                    color: "#7b1fa2",
+                    weight: 2.5,
+                    fillOpacity: darkMode ? 0.04 : 0.06,
+                    fillColor: "#7b1fa2",
+                    dashArray: "10,8",
                   }}
                 />
               )}
 
-              {/* Corridor route */}
+              {/* Corridor route — two-layer line so it reads on both tiles.
+                  Dark mode: thin bright blue on dark bg.
+                  Light mode: wider navy line with visible glow. */}
               {showRoute && (<>
                 <Polyline
                   positions={CORRIDOR_ROUTE}
-                  pathOptions={{ color: "#0d47a1", weight: 12, opacity: 0.10 }}
+                  pathOptions={{
+                    color: "#0d47a1",
+                    weight: darkMode ? 12 : 14,
+                    opacity: darkMode ? 0.10 : 0.18,
+                  }}
                 />
                 <Polyline
                   positions={CORRIDOR_ROUTE}
-                  pathOptions={{ color: "#1565c0", weight: 4, opacity: 0.85 }}
+                  pathOptions={{
+                    color: darkMode ? "#42a5f5" : "#1044a3",
+                    weight: darkMode ? 4 : 5,
+                    opacity: 0.90,
+                  }}
                 />
               </>)}
 
-              {/* Trip path */}
+              {/* Trip path — dashed orange line, thicker on light mode */}
               {showTrace && filteredLogs.length > 1 && (
                 <Polyline
                   positions={filteredLogs.map(l => [l.lat, l.lon])}
                   pathOptions={{
                     color: "#ff6f00",
-                    weight: 3,
-                    opacity: 0.85,
+                    weight: darkMode ? 3 : 3.5,
+                    opacity: 0.90,
                     dashArray: "6,8",
                   }}
                 />
@@ -570,19 +590,21 @@ export default function TripMap({ tripId, onClose }) {
                 />
               )}
 
-              {/* Raw log dots */}
+              {/* Raw log dots — white stroke + solid fill so they pop
+                  on both dark tile and light tile backgrounds */}
               {showDots && filteredLogs.map((log, i) => {
                 const isPoor = log.quality === "POOR";
+                const fill   = QUALITY_COLORS[log.quality] || "#888";
                 return (
                   <CircleMarker
                     key={i}
                     center={[log.lat, log.lon]}
-                    radius={isPoor ? 5 : 3}
+                    radius={isPoor ? 6 : 5}
                     pathOptions={{
-                      color: QUALITY_COLORS[log.quality] || "#888",
-                      fillColor: QUALITY_COLORS[log.quality] || "#888",
-                      fillOpacity: isPoor ? 0.45 : 0.7,
-                      weight: isPoor ? 1.5 : 0,
+                      color: "#ffffff",
+                      fillColor: fill,
+                      fillOpacity: isPoor ? 0.65 : 0.92,
+                      weight: 1.5,
                     }}
                   >
                     <Tooltip sticky>
@@ -595,7 +617,8 @@ export default function TripMap({ tripId, onClose }) {
                 );
               })}
 
-              {/* Clusters — three concentric circles for depth */}
+              {/* Clusters — three concentric circles for depth.
+                  Higher opacity values so they remain visible on light tiles. */}
               {showCluster && filteredClusters.map((c) => {
                 const tierColor = DEMAND_COLORS[c.demand_tier] || "#555";
                 const typeColor = CLUSTER_COLORS[c.cluster_type] || "#555";
@@ -607,19 +630,23 @@ export default function TripMap({ tripId, onClose }) {
                     {/* Outer glow ring — demand tier color */}
                     <CircleMarker
                       center={[c.centroid_lat, c.centroid_lon]}
-                      radius={radius + 4}
+                      radius={radius + 6}
                       pathOptions={{
-                        color: tierColor, fillColor: tierColor,
-                        fillOpacity: 0.10, weight: 0,
+                        color: tierColor,
+                        fillColor: tierColor,
+                        fillOpacity: darkMode ? 0.12 : 0.18,
+                        weight: 0,
                       }}
                     />
-                    {/* Mid ring — cluster type color */}
+                    {/* Mid ring — cluster type color with solid stroke */}
                     <CircleMarker
                       center={[c.centroid_lat, c.centroid_lon]}
                       radius={radius}
                       pathOptions={{
-                        color: typeColor, fillColor: typeColor,
-                        fillOpacity: 0.25, weight: 2.5,
+                        color: typeColor,
+                        fillColor: typeColor,
+                        fillOpacity: darkMode ? 0.28 : 0.35,
+                        weight: darkMode ? 2.5 : 3,
                       }}
                     >
                       <Tooltip
@@ -641,15 +668,18 @@ export default function TripMap({ tripId, onClose }) {
                 );
               })}
 
-              {/* Ground truth stops */}
+              {/* Ground truth stops — dark purple border so they're visible
+                  on light tiles, white fill ring keeps them distinct */}
               {showGT && GROUND_TRUTH.map(([lat, lon, name], i) => (
                 <CircleMarker
                   key={`gt-${i}`}
                   center={[lat, lon]}
-                  radius={5}
+                  radius={6}
                   pathOptions={{
-                    color: "#ffffff", fillColor: "#6200ea",
-                    fillOpacity: 0.9, weight: 1.5,
+                    color: "#4a148c",
+                    fillColor: "#9c27b0",
+                    fillOpacity: 0.85,
+                    weight: 1.5,
                   }}
                 >
                   <Tooltip direction="top">
@@ -658,33 +688,38 @@ export default function TripMap({ tripId, onClose }) {
                 </CircleMarker>
               ))}
 
-              {/* Start marker */}
+              {/* Start marker — green circle with dark-green border
+                  so it stays visible on both light and dark tiles */}
               {filteredLogs.length > 0 && (
                 <CircleMarker
                   center={[filteredLogs[0].lat, filteredLogs[0].lon]}
-                  radius={10}
+                  radius={11}
                   pathOptions={{
-                    color: "#ffffff", fillColor: "#2e7d32",
-                    fillOpacity: 1, weight: 3,
+                    color: "#1b5e20",
+                    fillColor: "#2e7d32",
+                    fillOpacity: 1,
+                    weight: 2.5,
                   }}
                 >
-                  <Tooltip permanent direction="top" offset={[0, -10]}>
+                  <Tooltip permanent direction="top" offset={[0, -12]}>
                     <strong style={{ color: "#2e7d32" }}>▶ START</strong>
                   </Tooltip>
                 </CircleMarker>
               )}
 
-              {/* End marker */}
+              {/* End marker — red circle with dark-red border */}
               {filteredLogs.length > 1 && (
                 <CircleMarker
                   center={[filteredLogs[filteredLogs.length - 1].lat, filteredLogs[filteredLogs.length - 1].lon]}
-                  radius={10}
+                  radius={11}
                   pathOptions={{
-                    color: "#ffffff", fillColor: "#c62828",
-                    fillOpacity: 1, weight: 3,
+                    color: "#7f0000",
+                    fillColor: "#c62828",
+                    fillOpacity: 1,
+                    weight: 2.5,
                   }}
                 >
-                  <Tooltip permanent direction="top" offset={[0, -10]}>
+                  <Tooltip permanent direction="top" offset={[0, -12]}>
                     <strong style={{ color: "#c62828" }}>■ END</strong>
                   </Tooltip>
                 </CircleMarker>
