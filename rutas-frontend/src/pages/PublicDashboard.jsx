@@ -2,7 +2,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import "./PublicDashboard.css";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API = import.meta.env.VITE_API_URL;
+if (!API && typeof window !== "undefined") {
+  console.error(
+    "RutaSmart: VITE_API_URL is not set. The public dashboard cannot " +
+    "reach the backend. Configure VITE_API_URL in your hosting provider's " +
+    "environment variables."
+  );
+}
 const POLL_MS = 5000;
 
 const TIER_CONFIG = {

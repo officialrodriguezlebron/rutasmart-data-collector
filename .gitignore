@@ -1,14 +1,17 @@
-# Python
-venv/
-__pycache__/
-*.pyc
-.env
-
-# Node
-node_modules/
-dist/
-build/
-
 # OS
 .DS_Store
 Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Claude worktrees
+.claude/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local

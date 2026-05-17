@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { authService } from "./services/authService";
+import ErrorBoundary  from "./components/ErrorBoundary";
 
 import Login            from "./pages/Login";
 import Signup           from "./pages/Signup";
@@ -40,8 +41,9 @@ function RootRedirect() {
 
 export default function App() {
   return (
-    <Router>
-      <Routes>
+    <ErrorBoundary>
+      <Router>
+        <Routes>
         {/* Public — no login required */}
         <Route path="/route/:routeId" element={<PublicDashboard />} />
         <Route path="/route"          element={<PublicDashboard />} />
@@ -65,5 +67,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
+    </ErrorBoundary>
   );
 }

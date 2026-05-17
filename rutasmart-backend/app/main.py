@@ -343,3 +343,41 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
         "logs_skipped":  skipped,
         "message": f"Imported {len(log_objects)} logs into trip {trip_id}",
     }
+
+
+# ── Stale trip cleanup ──────────────────────────────────────────────────
+# Field-readiness: if a conductor's phone dies or the End-Trip call fails
+# permanently, the trip stays ACTIVE and pollutes the public dashboard.
+# An admin can call this endpoint to auto-end trips older than the
+# threshold so the dashboard stays accurate.
+
+@app.post("/admin/clean-stale-trips", tags=["Admin"])
+def clean_stale_trips(hours: int = 8, db: Session = Depends(get_db)):
+    """
+    Auto-end any ACTIVE trip whose start_time is older than `hours`.
+    Default threshold is 8 hours — longer than any reasonable jeepney shift.
+    Returns the list of trip_ids that were closed.
+    """
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+
+    stale = (
+        db.query(Trip)
+        .filter(Trip.status == TripStatusEnum.ACTIVE, Trip.start_time < cutoff)
+        .all()
+    )
+
+    closed = []
+    for trip in stale:
+        trip.status   = TripStatusEnum.COMPLETED
+        trip.end_time = datetime.utcnow()
+        closed.append(trip.trip_id)
+
+    db.commit()
+
+    return {
+        "closed_trips": closed,
+        "threshold_hours": hours,
+        "message": f"Closed {len(closed)} stale trip(s) older than {hours}h.",
+    }
+

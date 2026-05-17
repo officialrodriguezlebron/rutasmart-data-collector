@@ -4,7 +4,13 @@ import { authService } from "../services/authService";
 import TripMap from "./TripMap";
 import "./AnalyticsEngine.css";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API = import.meta.env.VITE_API_URL;
+if (!API && typeof window !== "undefined") {
+  console.error(
+    "RutaSmart: VITE_API_URL is not set. Analytics will not load. " +
+    "Configure VITE_API_URL in your hosting provider's environment variables."
+  );
+}
 
 const COLORS = {
   good:        "#2e7d32",

@@ -2,12 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { logGPS, endTrip as endTripAPI } from "../services/api";
 import { tripService } from "../services/tripService.js";
+import { useBackendHealth } from "../hooks/useBackendHealth.js";
 import "./Recording.css";
 
 function Recording() {
   const navigate = useNavigate();
   const activeTrip = tripService.getActiveTrip();
   const deviceId = localStorage.getItem("rutasmart_device_id");
+  const backendStatus = useBackendHealth({ intervalMs: 30000 });
 
   useEffect(() => {
     if (!activeTrip) {
@@ -357,10 +359,28 @@ function Recording() {
       await flushQueue();
       clearQueue();
 
-      try {
-        await endTripAPI(activeTrip.tripId);
-      } catch {
-        console.warn("Backend endTrip failed — continuing anyway.");
+      // Retry-on-reconnect: end-trip is critical for keeping the DB in sync
+      // with the conductor's view. Try up to 3 times with backoff before
+      // giving up. Local state is updated regardless so the conductor can
+      // still proceed to the Trip Summary.
+      let endTripSucceeded = false;
+      const RETRY_DELAYS_MS = [0, 2000, 5000];
+      for (const delay of RETRY_DELAYS_MS) {
+        if (delay > 0) await new Promise(r => setTimeout(r, delay));
+        try {
+          await endTripAPI(activeTrip.tripId);
+          endTripSucceeded = true;
+          addDebug("End-trip confirmed by backend.");
+          break;
+        } catch (err) {
+          addDebug(`End-trip retry failed: ${err.message || "network error"}`);
+        }
+      }
+      if (!endTripSucceeded) {
+        console.warn(
+          "Backend endTrip failed after 3 attempts — local trip ended. " +
+          "The admin can clean stale trips via /admin/clean-stale-trips."
+        );
       }
 
       const completedTrip = tripService.endTrip({
@@ -401,6 +421,16 @@ function Recording() {
             <span className="status-badge queue">Queue: {queueCount}</span>
           )}
         </div>
+
+        {/* Backend unreachable banner — distinct from device-offline */}
+        {isOnline && backendStatus === "down" && (
+          <div className="wakelock-banner wakelock-warn" style={{ background: "#fef2f2", color: "#7f1d1d", borderColor: "#fecaca" }}>
+            ⚠ Backend server unreachable. Your phone has internet but the
+            RutaSmart server is not responding. Trip data is being saved
+            locally and will sync automatically when the server comes back.
+            Contact the office if this persists.
+          </div>
+        )}
 
         {/* Wake Lock status banner */}
         {wakeLockStatus === "unsupported" && (
