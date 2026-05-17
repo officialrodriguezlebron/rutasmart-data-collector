@@ -230,8 +230,13 @@ function Recording() {
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 15000,
+        // Accept a cached fix up to 2 seconds old. Setting this to 0 forces
+        // a fresh hardware fix every interval, which (a) drains battery
+        // significantly faster and (b) causes missed updates when the GPS
+        // chip is slow to lock. 2 s keeps the data fresh enough for a 3-second
+        // logging cadence while letting the OS cache work for us.
+        maximumAge: 2000,
       }
     );
 
@@ -464,11 +469,34 @@ function Recording() {
         </div>
 
         <div className="gps-card">
-          <p>Status: {gpsData.status}</p>
+          <p>
+            <strong>Status:</strong> {gpsData.status}
+            {gpsData.accuracy != null && (
+              <span style={{
+                marginLeft: 8,
+                padding: "2px 8px",
+                borderRadius: 99,
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#fff",
+                background:
+                  gpsData.accuracy <= 20 ? "#2e7d32" :
+                  gpsData.accuracy <= 50 ? "#f57f17" : "#c62828",
+              }}>
+                {gpsData.accuracy <= 20 ? "GOOD" :
+                 gpsData.accuracy <= 50 ? "ACCEPTABLE" : "POOR"}
+              </span>
+            )}
+          </p>
           <p>
             Accuracy:
             {gpsData.accuracy ? ` ${gpsData.accuracy.toFixed(1)}m` : " -"}
           </p>
+          {gpsData.latitude != null && gpsData.longitude != null && (
+            <p style={{ fontFamily: "monospace", fontSize: 12, color: "#555" }}>
+              {gpsData.latitude.toFixed(5)}, {gpsData.longitude.toFixed(5)}
+            </p>
+          )}
           <p>Logs Sent: {logsSent}</p>
           <p>Queue: {queueCount}</p>
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   MapContainer, TileLayer, CircleMarker,
-  Polyline, Tooltip, useMap,
+  Polyline, Rectangle, Tooltip, useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -141,6 +141,47 @@ const CORRIDOR_ROUTE = [
   [14.6037, 120.983],
 ];
 
+// ── Auto-fit map to the actual recorded GPS data ─────────────────────────
+// Without this, the map opens at a fixed center on the corridor — so a
+// conductor who recorded outside the corridor (test trip, detour, GPS
+// drift) sees an empty-looking map until they pan. With this, the map
+// always frames whatever was actually recorded plus the corridor route
+// for context.
+function FitToData({ logs, corridorRoute, fitTrigger }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const allPoints = [];
+
+    // Always include the corridor so the route stays in view as a reference
+    if (corridorRoute?.length) {
+      allPoints.push(...corridorRoute);
+    }
+
+    // Add every recorded log point
+    if (logs?.length) {
+      for (const log of logs) {
+        if (typeof log.lat === "number" && typeof log.lon === "number") {
+          allPoints.push([log.lat, log.lon]);
+        }
+      }
+    }
+
+    if (allPoints.length === 0) return;
+
+    const bounds = L.latLngBounds(allPoints);
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, {
+        padding: [40, 40],
+        maxZoom: 16,
+        animate: true,
+      });
+    }
+  }, [map, logs, corridorRoute, fitTrigger]);
+
+  return null;
+}
+
 // ── Heatmap layer ─────────────────────────────────────────────────────────
 function HeatmapLayer({ points, visible }) {
   const map = useMap();
@@ -181,8 +222,11 @@ export default function TripMap({ tripId, onClose }) {
   const [showCluster, setShowCluster] = useState(true);
   const [showGT,      setShowGT]      = useState(false);
   const [showRoute,   setShowRoute]   = useState(true);
+  const [showTrace,   setShowTrace]   = useState(true);   // actual recorded path
+  const [showBBox,    setShowBBox]    = useState(false);  // corridor bbox
   const [darkMode,    setDarkMode]    = useState(false);
   const [qualFilter,  setQualFilter]  = useState("all");
+  const [fitTrigger,  setFitTrigger]  = useState(0);      // bump to re-fit
 
   useEffect(() => {
     if (!tripId) return;
@@ -202,8 +246,22 @@ export default function TripMap({ tripId, onClose }) {
         const acc  = raw.filter(l => l.quality === "ACCEPTABLE").length;
         const poor = raw.filter(l => l.quality === "POOR").length;
         const maxOcc = Math.max(...raw.map(l => l.occupancy), 0);
-        setStats({ total: raw.length, good, acc, poor, maxOcc,
-                   clusters: clusterList.length });
+
+        // Count logs that fall outside the corridor bounding box — these
+        // were force-flagged POOR by the backend regardless of accuracy.
+        // Useful for field testing: a healthy corridor trip should be 0.
+        const LAT_MIN = 14.55, LAT_MAX = 14.75;
+        const LON_MIN = 120.95, LON_MAX = 121.05;
+        const outOfCorridor = raw.filter(
+          l => l.lat < LAT_MIN || l.lat > LAT_MAX ||
+               l.lon < LON_MIN || l.lon > LON_MAX
+        ).length;
+
+        setStats({
+          total: raw.length, good, acc, poor, maxOcc,
+          clusters: clusterList.length,
+          outOfCorridor,
+        });
       })
       .catch(e => setError(e.response?.data?.detail || "Failed to load map data."))
       .finally(() => setLoading(false));
@@ -224,11 +282,13 @@ export default function TripMap({ tripId, onClose }) {
         <div className="tripmap-controls">
           <div className="tripmap-toggles">
             {[
-              { key: "heat",    label: "Heatmap",   state: showHeat,    setter: setShowHeat    },
-              { key: "route",   label: "Corridor",  state: showRoute,   setter: setShowRoute   },
-              { key: "cluster", label: "Clusters",  state: showCluster, setter: setShowCluster },
-              { key: "gt",      label: "70 Stops",  state: showGT,      setter: setShowGT      },
-              { key: "dark",    label: "🌙 Dark",    state: darkMode,    setter: setDarkMode    },
+              { key: "heat",    label: "Heatmap",    state: showHeat,    setter: setShowHeat    },
+              { key: "route",   label: "Corridor",   state: showRoute,   setter: setShowRoute   },
+              { key: "trace",   label: "Trip Path",  state: showTrace,   setter: setShowTrace   },
+              { key: "cluster", label: "Clusters",   state: showCluster, setter: setShowCluster },
+              { key: "gt",      label: "70 Stops",   state: showGT,      setter: setShowGT      },
+              { key: "bbox",    label: "Bounds",     state: showBBox,    setter: setShowBBox    },
+              { key: "dark",    label: "🌙 Dark",     state: darkMode,    setter: setDarkMode    },
             ].map(({ key, label, state, setter }) => (
               <button key={key}
                 className={`tripmap-toggle ${state ? "active" : ""}`}
@@ -236,6 +296,14 @@ export default function TripMap({ tripId, onClose }) {
                 {label}
               </button>
             ))}
+            <button
+              className="tripmap-toggle"
+              onClick={() => setFitTrigger(t => t + 1)}
+              title="Zoom map to show all recorded GPS data"
+              style={{ background: "#1565c0", color: "#fff", fontWeight: 600 }}
+            >
+              🎯 Fit to Data
+            </button>
           </div>
           <div className="tripmap-quality-filter">
             <span>Quality:</span>
@@ -252,12 +320,13 @@ export default function TripMap({ tripId, onClose }) {
         {stats && (
           <div className="tripmap-stats">
             {[
-              ["Total Logs", stats.total,    "#1f2937"],
-              ["GOOD",       stats.good,     "#2e7d32"],
-              ["ACCEPTABLE", stats.acc,      "#f57f17"],
-              ["POOR",       stats.poor,     "#c62828"],
-              ["Clusters",   stats.clusters, "#1565c0"],
-              ["Max Occ",    stats.maxOcc,   "#1565c0"],
+              ["Total Logs",   stats.total,         "#1f2937"],
+              ["GOOD",         stats.good,          "#2e7d32"],
+              ["ACCEPTABLE",   stats.acc,           "#f57f17"],
+              ["POOR",         stats.poor,          "#c62828"],
+              ["Off-Corridor", stats.outOfCorridor, "#7b1fa2"],
+              ["Clusters",     stats.clusters,      "#1565c0"],
+              ["Max Occ",      stats.maxOcc,        "#1565c0"],
             ].map(([label, value, color]) => (
               <div key={label} className="tripmap-stat">
                 <span className="tripmap-stat-value" style={{ color }}>{value}</span>
@@ -271,6 +340,14 @@ export default function TripMap({ tripId, onClose }) {
           <div style={{background:"#fff3e0",borderBottom:"1px solid #ffe0b2",
             padding:"6px 16px",fontSize:12,color:"#e65100",flexShrink:0}}>
             ⚠️ {clusterErr}
+          </div>
+        )}
+        {stats && stats.outOfCorridor > 0 && (
+          <div style={{background:"#f3e5f5",borderBottom:"1px solid #e1bee7",
+            padding:"6px 16px",fontSize:12,color:"#4a148c",flexShrink:0}}>
+            ℹ️ <strong>{stats.outOfCorridor}</strong> log{stats.outOfCorridor === 1 ? "" : "s"} recorded outside the Malanday-Recto corridor bounds.
+            These are visible on the map but excluded from stop cluster detection (their occupancy values still count toward demand and load factor analysis).
+            Tap <strong>🎯 Fit to Data</strong> to see them.
           </div>
         )}
         <div className="tripmap-map-wrap">
@@ -289,6 +366,30 @@ export default function TripMap({ tripId, onClose }) {
                 url={darkMode ? TILE_DARK : TILE_LIGHT}
               />
 
+              {/* Auto-fit map to actual GPS data — fires once on load and
+                  every time the user taps the "Fit to Data" button. */}
+              <FitToData
+                logs={logs}
+                corridorRoute={showRoute ? CORRIDOR_ROUTE : null}
+                fitTrigger={fitTrigger}
+              />
+
+              {/* Corridor bounding box — visible outline of the backend's
+                  in-corridor rectangle. Logs outside this box are forced to
+                  POOR and excluded from spatial clustering. Useful for
+                  field testing and for explaining where the boundary lies. */}
+              {showBBox && (
+                <Rectangle
+                  bounds={[[14.55, 120.95], [14.75, 121.05]]}
+                  pathOptions={{
+                    color: "#7b1fa2",
+                    weight: 2,
+                    fillOpacity: 0.04,
+                    dashArray: "8,8",
+                  }}
+                />
+              )}
+
               {/* Corridor route — bold blue line */}
               {showRoute && (<>
                 <Polyline
@@ -301,20 +402,51 @@ export default function TripMap({ tripId, onClose }) {
                 />
               </>)}
 
+              {/* Trip path — the actual route the conductor recorded.
+                  Drawn as a dashed orange line so it stands out from the
+                  blue planned corridor and so detours / out-of-corridor
+                  segments are immediately visible. */}
+              {showTrace && logs.length > 1 && (
+                <Polyline
+                  positions={logs.map(l => [l.lat, l.lon])}
+                  pathOptions={{
+                    color: "#ff6f00",
+                    weight: 3,
+                    opacity: 0.75,
+                    dashArray: "6,6",
+                  }}
+                />
+              )}
+
               {/* Heatmap */}
               {showHeat && <HeatmapLayer points={logs} visible={showHeat} />}
 
-              {/* Raw GPS dots when heatmap off */}
-              {!showHeat && logs.map((log, i) => (
-                <CircleMarker key={i} center={[log.lat, log.lon]} radius={3}
-                  pathOptions={{ color: QUALITY_COLORS[log.quality] || "#888",
-                                 fillColor: QUALITY_COLORS[log.quality] || "#888",
-                                 fillOpacity: 0.7, weight: 0 }}>
-                  <Tooltip sticky>
-                    {log.quality} | Occ: {log.occupancy} | Acc: {log.accuracy?.toFixed(0)}m
-                  </Tooltip>
-                </CircleMarker>
-              ))}
+              {/* Raw GPS dots when heatmap off — POOR logs get larger
+                  rings so out-of-corridor / drifting points are visible
+                  rather than hidden by the heatmap intensity. */}
+              {!showHeat && logs.map((log, i) => {
+                const isPoor = log.quality === "POOR";
+                return (
+                  <CircleMarker
+                    key={i}
+                    center={[log.lat, log.lon]}
+                    radius={isPoor ? 5 : 3}
+                    pathOptions={{
+                      color: QUALITY_COLORS[log.quality] || "#888",
+                      fillColor: QUALITY_COLORS[log.quality] || "#888",
+                      fillOpacity: isPoor ? 0.45 : 0.7,
+                      weight: isPoor ? 1.5 : 0,
+                    }}
+                  >
+                    <Tooltip sticky>
+                      <strong>{log.quality}</strong>
+                      {isPoor && <> · <span style={{ color: "#c62828" }}>excluded from clustering</span></>}
+                      <br />
+                      Occ: {log.occupancy} · Acc: {log.accuracy?.toFixed(0)}m
+                    </Tooltip>
+                  </CircleMarker>
+                );
+              })}
 
               {/* DBSCAN clusters */}
               {showCluster && clusters.map((c) => {
@@ -334,6 +466,42 @@ export default function TripMap({ tripId, onClose }) {
                   </CircleMarker>
                 );
               })}
+
+              {/* Trip start marker — green */}
+              {logs.length > 0 && (
+                <CircleMarker
+                  center={[logs[0].lat, logs[0].lon]}
+                  radius={9}
+                  pathOptions={{
+                    color: "#ffffff",
+                    fillColor: "#2e7d32",
+                    fillOpacity: 1,
+                    weight: 3,
+                  }}
+                >
+                  <Tooltip permanent direction="top" offset={[0, -8]}>
+                    <strong style={{ color: "#2e7d32" }}>START</strong>
+                  </Tooltip>
+                </CircleMarker>
+              )}
+
+              {/* Trip end marker — red */}
+              {logs.length > 1 && (
+                <CircleMarker
+                  center={[logs[logs.length - 1].lat, logs[logs.length - 1].lon]}
+                  radius={9}
+                  pathOptions={{
+                    color: "#ffffff",
+                    fillColor: "#c62828",
+                    fillOpacity: 1,
+                    weight: 3,
+                  }}
+                >
+                  <Tooltip permanent direction="top" offset={[0, -8]}>
+                    <strong style={{ color: "#c62828" }}>END</strong>
+                  </Tooltip>
+                </CircleMarker>
+              )}
 
               {/* 78 Ground truth stops */}
               {showGT && GROUND_TRUTH.map(([lat, lon, name], i) => (
@@ -370,12 +538,24 @@ export default function TripMap({ tripId, onClose }) {
           </div>
           <div className="tripmap-legend-group">
             <span className="tripmap-legend-item">
+              <span className="tripmap-legend-dot" style={{ background: "#2e7d32", border: "2px solid #fff" }} />
+              Start
+            </span>
+            <span className="tripmap-legend-item">
+              <span className="tripmap-legend-dot" style={{ background: "#c62828", border: "2px solid #fff" }} />
+              End
+            </span>
+            <span className="tripmap-legend-item">
               <span className="tripmap-legend-dot" style={{ background: "#6200ea" }} />
               GT Stop (78)
             </span>
             <span className="tripmap-legend-item">
-              <span style={{ width: 24, height: 3, background: "#1565c0", opacity: 0.5, borderRadius: 2, display: "inline-block", marginRight: 4, borderTop: "2px dashed #1565c0" }} />
-              Corridor Route
+              <span style={{ width: 24, height: 3, background: "#1565c0", opacity: 0.85, borderRadius: 2, display: "inline-block", marginRight: 4 }} />
+              Corridor
+            </span>
+            <span className="tripmap-legend-item">
+              <span style={{ width: 24, height: 0, borderTop: "3px dashed #ff6f00", display: "inline-block", marginRight: 4, verticalAlign: "middle" }} />
+              Trip Path
             </span>
           </div>
           <div className="tripmap-legend-group">
