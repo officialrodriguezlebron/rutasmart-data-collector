@@ -274,3 +274,226 @@
 .tripmap-container.dark .tripmap-legend-title { color: #777; }
 .tripmap-container.dark .tripmap-legend-item { color: #ccc; }
 .tripmap-container.dark .tripmap-close { background: #2a2a3e; border-color: #3a3a5e; color: #ccc; }
+
+/* ═══════════════════════════════════════════════════════════════
+   v2 enhancements — metadata ridge, filter row, banners,
+   cluster number bubbles, intensity slider
+═══════════════════════════════════════════════════════════════ */
+
+/* Trip metadata ridge — appears below header */
+.rs-metadata-ridge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 24px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #fafcff 100%);
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  color: #1f2937;
+  flex-shrink: 0;
+}
+
+.rs-metadata-ridge span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rs-metadata-ridge strong {
+  color: #1565c0;
+  font-weight: 700;
+}
+
+/* Filter row — demand tier chips + heatmap intensity slider */
+.rs-filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 8px 20px;
+  background: #fafcff;
+  border-bottom: 1px solid #eef2f7;
+  flex-shrink: 0;
+}
+
+.rs-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rs-filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+  margin-right: 4px;
+}
+
+.rs-tier-chip {
+  padding: 4px 11px;
+  border: 1.5px solid #d4d4d8;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.rs-tier-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.rs-tier-chip.active {
+  background: #1565c0;
+  border-color: #1565c0;
+  color: white;
+}
+
+/* Heatmap intensity slider */
+.rs-intensity-slider {
+  width: 140px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #1a237e, #1976d2, #00acc1, #ffd54f, #fb8c00, #c62828);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.rs-intensity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border: 2px solid #1565c0;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.rs-intensity-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border: 2px solid #1565c0;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.rs-intensity-value {
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1565c0;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Banners (warn / info) */
+.rs-banner {
+  padding: 8px 18px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  border-bottom: 1px solid;
+  flex-shrink: 0;
+}
+.rs-banner-warn { background: #fff3e0; color: #e65100; border-color: #ffe0b2; }
+.rs-banner-info { background: #f3e5f5; color: #4a148c; border-color: #e1bee7; }
+
+/* Cluster number bubble (DivIcon) */
+.rs-cluster-label { background: transparent !important; border: none !important; }
+
+.rs-cluster-bubble {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: white;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.30);
+  font-family: "DM Sans", -apple-system, sans-serif;
+  pointer-events: none;
+}
+
+/* Animated cluster pulse for TRUE_STOPs (subtle attention-getter) */
+.leaflet-interactive {
+  transition: stroke-opacity 0.3s, fill-opacity 0.3s;
+}
+
+/* Improved heatmap gradient legend */
+.tripmap-heat-gradient {
+  width: 100px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(
+    to right,
+    #1a237e, #1976d2, #00acc1, #ffd54f, #fb8c00, #c62828
+  );
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+}
+
+/* Tighter top-right zoom controls */
+.tripmap-map-wrap .leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tripmap-map-wrap .leaflet-control-zoom a {
+  background: white;
+  color: #1f2937;
+  font-weight: 700;
+  border: none !important;
+}
+
+.tripmap-map-wrap .leaflet-control-zoom a:hover {
+  background: #f0f7ff;
+  color: #1565c0;
+}
+
+.tripmap-map-wrap .leaflet-control-scale {
+  border: 1.5px solid #1565c0;
+  background: rgba(255,255,255,0.95);
+  border-radius: 4px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1565c0;
+}
+
+/* Dark mode for new sections */
+.tripmap-container.dark .rs-metadata-ridge {
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f1023 100%);
+  color: #e0e0e0;
+  border-bottom-color: #333;
+}
+.tripmap-container.dark .rs-metadata-ridge strong { color: #90caf9; }
+
+.tripmap-container.dark .rs-filter-row {
+  background: #1a1a2e;
+  border-bottom-color: #333;
+}
+.tripmap-container.dark .rs-filter-label { color: #888; }
+.tripmap-container.dark .rs-tier-chip {
+  background: #2a2a3e;
+  border-color: #3a3a5e;
+  color: #ccc;
+}
+
+.tripmap-container.dark .rs-banner-warn { background: #2e1a0f; color: #ffb74d; border-color: #4a2a1a; }
+.tripmap-container.dark .rs-banner-info { background: #1a0e2e; color: #ce93d8; border-color: #3a1a4a; }
