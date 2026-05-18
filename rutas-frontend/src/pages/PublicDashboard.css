@@ -399,3 +399,53 @@
     min-height: 100vh;
   }
 }
+
+/* ── Direction filter pills ────────────────────────────────── */
+.pd-dir-filter {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 4px;
+  flex-wrap: wrap;
+}
+
+.pd-dir-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 99px;
+  border: 1.5px solid rgba(255,255,255,0.20);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.70);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pd-dir-btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+}
+
+.pd-dir-btn.active {
+  background: #1565c0;
+  border-color: #1565c0;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(21,101,192,0.45);
+}
+
+.pd-dir-count {
+  background: rgba(255,255,255,0.20);
+  border-radius: 99px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 22px;
+  text-align: center;
+}
+
+.pd-dir-btn.active .pd-dir-count {
+  background: rgba(255,255,255,0.30);
+}

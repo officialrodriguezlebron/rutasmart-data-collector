@@ -90,6 +90,7 @@ export default function PublicDashboard() {
   const [error,   setError]   = useState(null);
   const [lastPoll,setLastPoll]= useState(null);
   const [pulse,   setPulse]   = useState(false);
+  const [dirFilter, setDirFilter] = useState("all"); // "all" | "MALANDAY-RECTO" | "RECTO-MALANDAY"
 
   const fetchData = useCallback(async () => {
     try {
@@ -112,8 +113,14 @@ export default function PublicDashboard() {
   }, [fetchData]);
 
   const total     = data?.active_count || 0;
-  const available = data?.jeepneys?.filter(j => j.tier === "AVAILABLE").length || 0;
-  const full      = data?.jeepneys?.filter(j => j.tier === "FULL" || j.tier === "OVERCAP").length || 0;
+  const jeepneys  = data?.jeepneys || [];
+  const filtered  = dirFilter === "all"
+    ? jeepneys
+    : jeepneys.filter(j => j.direction === dirFilter);
+  const available = filtered.filter(j => j.tier === "AVAILABLE").length;
+  const full      = filtered.filter(j => j.tier === "FULL" || j.tier === "OVERCAP").length;
+  const countMR   = jeepneys.filter(j => j.direction === "MALANDAY-RECTO").length;
+  const countRM   = jeepneys.filter(j => j.direction === "RECTO-MALANDAY").length;
 
   return (
     <div className="pd-page">
@@ -180,15 +187,41 @@ export default function PublicDashboard() {
 
         {data && data.jeepneys.length > 0 && (
           <>
-            <p className="pd-hint">
-              Tap any jeepney card to see its last known position on the route.
-              Data updates every 5 seconds from conductor devices.
-            </p>
-            <div className="pd-cards">
-              {data.jeepneys.map(j => (
-                <JeepCard key={j.trip_id} j={j} />
+            {/* Direction filter pills */}
+            <div className="pd-dir-filter">
+              {[
+                { key: "all",             label: "All",                 count: total   },
+                { key: "MALANDAY-RECTO",  label: "To Recto →",         count: countMR },
+                { key: "RECTO-MALANDAY",  label: "← To Malanday",      count: countRM },
+              ].map(({ key, label, count }) => (
+                <button
+                  key={key}
+                  onClick={() => setDirFilter(key)}
+                  className={`pd-dir-btn ${dirFilter === key ? "active" : ""}`}
+                >
+                  {label}
+                  <span className="pd-dir-count">{count}</span>
+                </button>
               ))}
             </div>
+
+            <p className="pd-hint">
+              Data updates every 5 seconds from conductor devices.
+            </p>
+
+            {filtered.length === 0 ? (
+              <div className="pd-empty">
+                <div className="pd-empty-icon">🚌</div>
+                <h3>No jeepneys in this direction right now</h3>
+                <p>Try switching to "All" or check back in a moment.</p>
+              </div>
+            ) : (
+              <div className="pd-cards">
+                {filtered.map(j => (
+                  <JeepCard key={j.trip_id} j={j} />
+                ))}
+              </div>
+            )}
           </>
         )}
 
