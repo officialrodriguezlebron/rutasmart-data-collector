@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import "./PublicDashboard.css";
 
 const API = import.meta.env.VITE_API_URL;
@@ -129,8 +129,6 @@ export default function PublicDashboard() {
   const countMR   = jeepneys.filter(j => j.direction === "MALANDAY-RECTO").length;
   const countRM   = jeepneys.filter(j => j.direction === "RECTO-MALANDAY").length;
 
-  const navigate  = useNavigate();
-
   return (
     <div className="pd-page">
 
@@ -139,7 +137,7 @@ export default function PublicDashboard() {
         <div className="pd-header-top">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => window.location.href = "/"}
               style={{
                 background: "rgba(255,255,255,0.12)",
                 border: "1px solid rgba(255,255,255,0.20)",
@@ -155,7 +153,7 @@ export default function PublicDashboard() {
                 gap: 5,
               }}
             >
-              ← Back
+              ⌂ Home
             </button>
             <div>
               <h1 className="pd-title">RutaSmart</h1>
