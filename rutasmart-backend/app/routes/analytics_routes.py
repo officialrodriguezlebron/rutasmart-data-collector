@@ -323,19 +323,49 @@ def run_merged_compare(
     ).model_dump()
 
     # ④ Cluster evaluation vs ground truth (uses vanilla clusters)
-    eval_result = evaluate_clusters(all_points, vanilla_raw["clusters"], eps_m, min_samples)
+    # Build points_by_cluster the same way the single-trip endpoint does
+    from sklearn.cluster import DBSCAN as SKLearnDBSCAN
+    import numpy as np
+    clean_logs = [p for p in all_points if p.gps_quality_flag != "POOR"]
+    coords     = np.radians([[p.latitude, p.longitude] for p in clean_logs])
+    eps_rad    = eps_m / 6_371_000
+    db_model   = SKLearnDBSCAN(eps=eps_rad, min_samples=min_samples,
+                               metric="haversine", algorithm="ball_tree", n_jobs=-1)
+    db_model.fit(coords)
+    labels = db_model.labels_
+    points_by_cluster = {}
+    for pt, lbl in zip(clean_logs, labels):
+        if lbl == -1:
+            continue
+        points_by_cluster.setdefault(lbl, []).append((pt.latitude, pt.longitude))
+
+    detected = [
+        {"cluster_id": c.cluster_id, "centroid_lat": c.centroid_lat, "centroid_lon": c.centroid_lon}
+        for c in vanilla_raw["clusters"]
+    ]
+
+    eval_result = evaluate_clusters(
+        points_by_cluster=points_by_cluster,
+        detected_clusters=detected,
+        eps_m=eps_m,
+        min_samples=min_samples,
+        total_input=vanilla_raw["total_input"],
+        dbscan_input=vanilla_raw["dbscan_input"],
+        noise_ratio=vanilla_raw["noise_ratio"],
+    )
+
     eval_dict = {
-        "trip_id":        label,
-        "eps_m":          eps_m,
-        "min_samples":    min_samples,
-        "n_clusters":     len(vanilla_raw["clusters"]),
-        "true_positives": eval_result.true_positives,
+        "trip_id":         label,
+        "eps_m":           eps_m,
+        "min_samples":     min_samples,
+        "n_clusters":      len(vanilla_raw["clusters"]),
+        "true_positives":  eval_result.true_positives,
         "false_positives": eval_result.false_positives,
         "false_negatives": eval_result.false_negatives,
-        "precision":      eval_result.precision,
-        "recall":         eval_result.recall,
-        "f1_score":       eval_result.f1_score,
-        "mae_m":          eval_result.mae_m,
+        "precision":       eval_result.precision,
+        "recall":          eval_result.recall,
+        "f1_score":        eval_result.f1_score,
+        "mae_m":           eval_result.mae_m,
         "silhouette": {
             "score":          eval_result.silhouette.score,
             "interpretation": eval_result.silhouette.interpretation,
