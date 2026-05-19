@@ -466,10 +466,12 @@ export default function AnalyticsEngine() {
         const all = await allRes.json();
         tripIds = (all || []).filter(t => {
           if (t.status !== "COMPLETED") return false;
-          const phtDate = t.start_time
-            ? new Date(new Date(t.start_time + "Z").getTime() + 8 * 3600000)
-                .toISOString().slice(0, 10)
-            : null;
+          if (!t.start_time) return false;
+          // start_time arrives as "2026-05-19 05:07:00" (no T, no Z) — stored UTC.
+          // Replace space with T and append Z so Date() parses it correctly everywhere.
+          const utcStr = t.start_time.replace(" ", "T") + "Z";
+          const phtDate = new Date(new Date(utcStr).getTime() + 8 * 3600000)
+            .toISOString().slice(0, 10);
           return phtDate === selectedDay;
         }).map(t => t.trip_id);
       }
