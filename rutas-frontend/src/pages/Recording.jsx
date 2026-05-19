@@ -410,17 +410,19 @@ function Recording() {
     }
   };
 
-  if (!activeTrip) return null;
+  if (!activeTrip && !isEndingRef.current) return null;
 
+  // During end-trip, activeTrip may be null while navigate("/summary") is pending
+  // Use optional chaining so the component doesn't crash before unmounting
   const isOverloaded =
-    activeTrip.capacity > 0 && occupancy > activeTrip.capacity;
+    (activeTrip?.capacity ?? 0) > 0 && occupancy > (activeTrip?.capacity ?? 0);
 
   return (
     <div className="app-container">
       <div className="app-card">
         <div className="record-header">
           <h2>Recording Trip</h2>
-          <p className="trip-id">{activeTrip.tripId}</p>
+          <p className="trip-id">{activeTrip?.tripId}</p>
         </div>
 
         <div className="status-row">
@@ -467,7 +469,7 @@ function Recording() {
         )}
 
         <div className="occupancy-display">
-          <p className="capacity-label">Capacity: {activeTrip.capacity}</p>
+          <p className="capacity-label">Capacity: {activeTrip?.capacity}</p>
 
           <h1 className={isOverloaded ? "over" : ""}>{occupancy}</h1>
 
