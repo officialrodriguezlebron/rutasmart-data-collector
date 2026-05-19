@@ -866,3 +866,152 @@
   color: #8e9ab0;
   margin: 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Sidebar UX overhaul — mode tabs, trip dropdown, action groups
+═══════════════════════════════════════════════════════════════ */
+
+/* Mode card — no bottom padding gap */
+.ae-mode-card { padding-bottom: 18px; }
+
+/* Mode tab group */
+.ae-mode-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ae-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: rgba(21,101,192,0.06);
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.ae-mode-tab:hover {
+  background: rgba(21,101,192,0.12);
+  border-color: rgba(21,101,192,0.20);
+  color: #1565c0;
+}
+
+.ae-mode-tab.active {
+  background: linear-gradient(135deg, #1565c0, #1044a3);
+  border-color: #1565c0;
+  color: white;
+  box-shadow: 0 4px 14px rgba(21,101,192,0.35);
+}
+
+.ae-mode-tab-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Trip select dropdown */
+.ae-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid rgba(0,0,0,0.12);
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #1f2937;
+  background: rgba(255,255,255,0.90);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+.ae-select:focus {
+  outline: none;
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21,101,192,0.12);
+}
+
+/* Selected trip meta pill strip */
+.ae-trip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  background: rgba(21,101,192,0.06);
+  border-radius: 10px;
+  font-size: 11px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.ae-status-pill {
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ae-status-pill.completed { background: #dcfce7; color: #15803d; }
+.ae-status-pill.active    { background: #dbeafe; color: #1565c0; }
+
+/* Action group — primary button + secondary row */
+.ae-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ae-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ae-btn-primary {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ae-btn-secondary {
+  margin-top: 0 !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Day hint text */
+.ae-day-hint {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  background: rgba(0,0,0,0.04);
+  border-radius: 8px;
+}
+
+/* All trips count */
+.ae-all-trips-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1565c0;
+  margin-bottom: 12px;
+}
+
+.ae-all-trips-count strong {
+  font-size: 20px;
+  font-weight: 800;
+}

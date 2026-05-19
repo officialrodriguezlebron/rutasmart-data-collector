@@ -334,14 +334,32 @@ export default function AnalyticsEngine() {
   const [compareError, setCompareError] = useState(null);
 
   // ── Mode switcher ────────────────────────────────────────────────────────
-  // "single" = one trip (existing behaviour)
-  // "day"    = pick a date → aggregate all trips that day
-  // "all"    = aggregate across all completed trips
   const [mode,        setMode]        = useState("single");
   const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
   const [aggData,     setAggData]     = useState(null);
   const [aggLoading,  setAggLoading]  = useState(false);
   const [aggError,    setAggError]    = useState(null);
+
+  // ── Trip list — fetched once so admin can pick from a dropdown ───────────
+  const [tripList,     setTripList]     = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(true);
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_API_KEY || "";
+    fetch(`${API}/admin/trips`, { headers: { "X-API-Key": apiKey } })
+      .then(r => r.json())
+      .then(d => {
+        const completed = (d || []).filter(t => t.status === "COMPLETED");
+        setTripList(completed);
+        // If no tripId set yet and URL has one from admin panel, keep it
+        // Otherwise pre-select the most recent completed trip
+        if (!tripId && completed.length > 0) {
+          setTripId(completed[0].trip_id);
+        }
+      })
+      .catch(() => {}) // silently fail — manual input still works
+      .finally(() => setTripsLoading(false));
+  }, []);
 
   const runAnalysis = useCallback(async () => {
     const id = tripId.trim();
@@ -491,174 +509,196 @@ export default function AnalyticsEngine() {
         </div>
       </div>
 
-      {/* ── Mode Switcher ──────────────────────────────────────────────── */}
-      <div className="ae-mode-bar">
-        <span className="ae-mode-label">View mode:</span>
-        {[
-          { key: "single", label: "🔍 Single Trip" },
-          { key: "day",    label: "📅 By Day"      },
-          { key: "all",    label: "📊 All Trips"   },
-        ].map(({ key, label }) => (
-          <button
-            key={key}
-            className={`ae-mode-btn ${mode === key ? "active" : ""}`}
-            onClick={() => { setMode(key); setAggData(null); setAggError(null); }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {/* Two-column layout */}
       <div className="ae-layout">
 
         {/* Sidebar */}
         <aside className="ae-sidebar">
 
-          <div className="ae-card">
-            {mode === "single" && (<>
-              <p className="ae-card-title">Trip selection</p>
+          {/* ── Mode selector ─────────────────────────────────── */}
+          <div className="ae-card ae-mode-card">
+            <p className="ae-card-title">Analysis Mode</p>
+            <div className="ae-mode-tabs">
+              {[
+                { key: "single", icon: "🔍", label: "Single Trip"  },
+                { key: "day",    icon: "📅", label: "By Day"       },
+                { key: "all",    icon: "📊", label: "All Trips"    },
+              ].map(({ key, icon, label }) => (
+                <button
+                  key={key}
+                  className={`ae-mode-tab ${mode === key ? "active" : ""}`}
+                  onClick={() => { setMode(key); setAggData(null); setAggError(null); setData(null); setError(null); }}
+                >
+                  <span className="ae-mode-tab-icon">{icon}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Single Trip controls ──────────────────────────── */}
+          {mode === "single" && (
+            <div className="ae-card">
+              <p className="ae-card-title">Trip Selection</p>
+
+              {/* Dropdown of completed trips */}
               <div className="ae-field">
-                <label className="ae-label" htmlFor="trip-id-input">Completed trip ID</label>
+                <label className="ae-label">Select trip</label>
+                {tripsLoading ? (
+                  <div style={{ fontSize: 12, color: "#8e9ab0", padding: "8px 0" }}>Loading trips…</div>
+                ) : tripList.length > 0 ? (
+                  <select
+                    className="ae-select"
+                    value={tripId}
+                    onChange={e => setTripId(e.target.value)}
+                  >
+                    <option value="">— choose a trip —</option>
+                    {tripList.map(t => (
+                      <option key={t.trip_id} value={t.trip_id}>
+                        {t.jeep_code} · {t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"} · {t.start_time?.slice(0, 10) || ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+
+                {/* Fallback manual input */}
+                <label className="ae-label" style={{ marginTop: 8 }}>Or enter trip ID</label>
                 <input
-                  id="trip-id-input"
                   className="ae-input"
                   value={tripId}
                   onChange={e => setTripId(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && runAnalysis()}
                   placeholder="2026-05-09_JEEP4_MLD-RCT_c49e"
-              />
-            </div>
-            <button className="ae-run-btn" onClick={runAnalysis} disabled={loading}>
-              {loading
-                ? <><span className="ae-spinner" aria-hidden="true" /> Running…</>
-                : "▶  Run all algorithms"
-              }
-            </button>
-            <button
-              className="ae-run-btn"
-              style={{ background: "#0288d1", marginTop: 8 }}
-              onClick={() => setShowMap(true)}
-              disabled={!tripId.trim()}
-            >
-              🗺  View Heatmap
-            </button>
-            <button
-              className="ae-run-btn"
-              style={{ background: "#6200ea", marginTop: 8 }}
-              onClick={runComparison}
-              disabled={comparing || !tripId.trim()}
-            >
-              {comparing
-                ? <><span className="ae-spinner" aria-hidden="true" /> Comparing…</>
-                : "📊  Compare Algorithms"
-              }
-            </button>
-            </>)}
-
-            {mode === "day" && (<>
-              <p className="ae-card-title">Select Date</p>
-              <div className="ae-field">
-                <label className="ae-label" htmlFor="day-input">Date (PHT)</label>
-                <input
-                  id="day-input"
-                  type="date"
-                  className="ae-input"
-                  value={selectedDay}
-                  onChange={e => setSelectedDay(e.target.value)}
                 />
               </div>
-              <button
-                className="ae-run-btn"
-                onClick={runAggregate}
-                disabled={aggLoading}
-              >
+
+              {/* Selected trip meta */}
+              {tripId && tripList.find(t => t.trip_id === tripId) && (() => {
+                const t = tripList.find(t => t.trip_id === tripId);
+                return (
+                  <div className="ae-trip-meta">
+                    <span>🚌 {t.jeep_code}</span>
+                    <span>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</span>
+                    <span>Cap {t.official_capacity}</span>
+                    <span className={`ae-status-pill ${t.status === "COMPLETED" ? "completed" : "active"}`}>{t.status}</span>
+                  </div>
+                );
+              })()}
+
+              <div className="ae-action-group">
+                <button className="ae-run-btn ae-btn-primary" onClick={runAnalysis} disabled={loading || !tripId.trim()}>
+                  {loading
+                    ? <><span className="ae-spinner" /> Running…</>
+                    : "▶  Run All Algorithms"
+                  }
+                </button>
+                <div className="ae-action-row">
+                  <button className="ae-run-btn ae-btn-secondary" style={{ background: "#0288d1" }}
+                    onClick={() => setShowMap(true)} disabled={!tripId.trim()}>
+                    🗺 Heatmap
+                  </button>
+                  <button className="ae-run-btn ae-btn-secondary" style={{ background: "#6200ea" }}
+                    onClick={runComparison} disabled={comparing || !tripId.trim()}>
+                    {comparing ? <><span className="ae-spinner" /> …</> : "📊 Compare"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── By Day controls ───────────────────────────────── */}
+          {mode === "day" && (
+            <div className="ae-card">
+              <p className="ae-card-title">Select Date</p>
+              <div className="ae-field">
+                <label className="ae-label">Date (PHT)</label>
+                <input type="date" className="ae-input" value={selectedDay}
+                  onChange={e => setSelectedDay(e.target.value)} />
+              </div>
+              <div className="ae-day-hint">
+                Aggregates all completed trips that started on this date.
+              </div>
+              <button className="ae-run-btn ae-btn-primary" onClick={runAggregate} disabled={aggLoading}>
                 {aggLoading
                   ? <><span className="ae-spinner" /> Computing…</>
                   : `▶  Analyse ${selectedDay}`
                 }
               </button>
-            </>)}
+            </div>
+          )}
 
-            {mode === "all" && (<>
+          {/* ── All Trips controls ────────────────────────────── */}
+          {mode === "all" && (
+            <div className="ae-card">
               <p className="ae-card-title">All Trips</p>
-              <p style={{ fontSize: 12, color: "#8e9ab0", marginBottom: 12 }}>
-                Aggregates all completed trips in the database.
-              </p>
-              <button
-                className="ae-run-btn"
-                onClick={runAggregate}
-                disabled={aggLoading}
-              >
+              <div className="ae-day-hint">
+                Aggregates every completed trip in the database into a single summary.
+              </div>
+              <div className="ae-all-trips-count">
+                {tripList.length > 0 && (
+                  <span><strong>{tripList.length}</strong> completed trips available</span>
+                )}
+              </div>
+              <button className="ae-run-btn ae-btn-primary" onClick={runAggregate} disabled={aggLoading}>
                 {aggLoading
                   ? <><span className="ae-spinner" /> Computing…</>
-                  : "▶  Run aggregate analysis"
+                  : "▶  Run Aggregate Analysis"
                 }
               </button>
               {aggData && (
-                <button
-                  className="ae-run-btn"
-                  style={{ background: "#546e7a", marginTop: 8 }}
-                  onClick={() => { setAggData(null); setAggError(null); }}
-                >
+                <button className="ae-run-btn" style={{ background: "#546e7a", marginTop: 8 }}
+                  onClick={() => { setAggData(null); setAggError(null); }}>
                   ↺ Reset
                 </button>
               )}
-            </>)}
-          </div>
-
-          <div className="ae-card">
-            <p className="ae-card-title">DBSCAN parameters</p>
-
-            <div className="ae-param">
-              <div className="ae-param-header">
-                <span className="ae-param-label">eps (metres)</span>
-                <span className="ae-param-value">{epsM}m</span>
-              </div>
-              <input
-                type="range" min="10" max="200" step="5"
-                value={epsM} onChange={e => setEpsM(Number(e.target.value))}
-                className="ae-slider"
-                aria-label="DBSCAN epsilon in metres"
-              />
             </div>
+          )}
 
-            <div className="ae-param">
-              <div className="ae-param-header">
-                <span className="ae-param-label">min samples</span>
-                <span className="ae-param-value">{minPts}</span>
-              </div>
-              <input
-                type="range" min="2" max="20" step="1"
-                value={minPts} onChange={e => setMinPts(Number(e.target.value))}
-                className="ae-slider"
-                aria-label="DBSCAN minimum samples"
-              />
-            </div>
+          {/* ── DBSCAN params — only show in single trip mode ─── */}
+          {mode === "single" && (
+            <div className="ae-card">
+              <p className="ae-card-title">DBSCAN Parameters</p>
 
-            <button
-              className="ae-rerun-btn"
-              onClick={rerunDBSCAN}
-              disabled={loading || !data}
-            >
-              ↺ Re-run DBSCAN
-            </button>
-
-            <hr className="ae-divider" />
-
-            <div className="ae-sensitivity-grid">
-              {[
-                { eps: "30m",   note: "Too tight — splits stops", rec: false },
-                { eps: "50m ✓", note: "Blueprint default",        rec: true  },
-                { eps: "100m",  note: "Merges nearby stops",      rec: false },
-              ].map(({ eps, note, rec }) => (
-                <div key={eps} className={`ae-sensitivity-row ${rec ? "recommended" : ""}`}>
-                  <span className="ae-sensitivity-eps">{eps}</span>
-                  <span className="ae-sensitivity-note">{note}</span>
+              <div className="ae-param">
+                <div className="ae-param-header">
+                  <span className="ae-param-label">Epsilon (metres)</span>
+                  <span className="ae-param-value">{epsM}m</span>
                 </div>
-              ))}
+                <input type="range" min="10" max="200" step="5"
+                  value={epsM} onChange={e => setEpsM(Number(e.target.value))}
+                  className="ae-slider" />
+              </div>
+
+              <div className="ae-param">
+                <div className="ae-param-header">
+                  <span className="ae-param-label">Min samples</span>
+                  <span className="ae-param-value">{minPts}</span>
+                </div>
+                <input type="range" min="2" max="20" step="1"
+                  value={minPts} onChange={e => setMinPts(Number(e.target.value))}
+                  className="ae-slider" />
+              </div>
+
+              <button className="ae-rerun-btn" onClick={rerunDBSCAN} disabled={loading || !data}>
+                ↺ Re-run DBSCAN
+              </button>
+
+              <hr className="ae-divider" />
+
+              <div className="ae-sensitivity-grid">
+                {[
+                  { eps: "30m",   note: "Too tight — splits stops", rec: false },
+                  { eps: "50m ✓", note: "Blueprint default",        rec: true  },
+                  { eps: "100m",  note: "Merges nearby stops",      rec: false },
+                ].map(({ eps, note, rec }) => (
+                  <div key={eps} className={`ae-sensitivity-row ${rec ? "recommended" : ""}`}>
+                    <span className="ae-sensitivity-eps">{eps}</span>
+                    <span className="ae-sensitivity-note">{note}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
         </aside>
 

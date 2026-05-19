@@ -118,7 +118,6 @@ export default function AdminDashboard() {
     { key: "overview",   label: "Overview"   },
     { key: "trips",      label: "Trips"      },
     { key: "conductors", label: "Conductors" },
-    { key: "aggregate",  label: "All Trips ✦" },
     { key: "analytics",  label: "Analytics"  },
   ];
 
@@ -163,7 +162,6 @@ export default function AdminDashboard() {
               {tab === "overview"   && "Overview"}
               {tab === "trips"      && "Trips"}
               {tab === "conductors" && "Conductors"}
-              {tab === "aggregate"  && "All Trips"}
             </h1>
             <button className="admin-refresh" onClick={fetchData}>↺ Refresh</button>
           </div>
