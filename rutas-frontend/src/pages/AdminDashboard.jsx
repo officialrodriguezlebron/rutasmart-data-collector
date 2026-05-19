@@ -26,6 +26,15 @@ export default function AdminDashboard() {
   const [deletingId,     setDeletingId]     = useState(null);
   const [mapTripId,      setMapTripId]      = useState(null);
 
+  // ── Trips tab — filter, pagination, multi-select ────────────────────────
+  const [tripSearch,   setTripSearch]   = useState("");
+  const [tripStatus,   setTripStatus]   = useState("all");
+  const [tripDir,      setTripDir]      = useState("all");
+  const [tripPage,     setTripPage]     = useState(1);
+  const [selected,     setSelected]     = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const PAGE_SIZE = 10;
+
   // New conductor form
   const [newName,    setNewName]    = useState("");
   const [newEmpId,   setNewEmpId]   = useState("");
@@ -68,10 +77,58 @@ export default function AdminDashboard() {
     try {
       const res = await deleteTrip(tripId);
       setImportMessage({ type: "success", text: `Deleted — ${res.data.logs_removed} logs removed.` });
+      setSelected(prev => { const s = new Set(prev); s.delete(tripId); return s; });
       fetchData();
     } catch (e) {
       setImportMessage({ type: "error", text: e.response?.data?.detail || "Delete failed." });
     } finally { setDeletingId(null); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`Delete ${selected.size} selected trip(s)?\n\nThis permanently removes all GPS logs for each trip.`)) return;
+    setBulkDeleting(true);
+    let deleted = 0; let failed = 0;
+    for (const id of selected) {
+      try { await deleteTrip(id); deleted++; }
+      catch { failed++; }
+    }
+    setSelected(new Set());
+    setImportMessage({
+      type: failed ? "error" : "success",
+      text: `Deleted ${deleted} trip(s).${failed ? ` ${failed} failed.` : ""}`,
+    });
+    setBulkDeleting(false);
+    fetchData();
+  };
+
+  // Filtered + paginated trips
+  const filteredTrips = trips.filter(t => {
+    const q = tripSearch.toLowerCase();
+    const matchSearch = !q ||
+      t.trip_id?.toLowerCase().includes(q) ||
+      t.jeep_code?.toLowerCase().includes(q) ||
+      t.recorder_id?.toLowerCase().includes(q);
+    const matchStatus = tripStatus === "all" || t.status === tripStatus;
+    const matchDir    = tripDir    === "all" || t.direction === tripDir;
+    return matchSearch && matchStatus && matchDir;
+  });
+  const totalPages   = Math.max(1, Math.ceil(filteredTrips.length / PAGE_SIZE));
+  const paginated    = filteredTrips.slice((tripPage - 1) * PAGE_SIZE, tripPage * PAGE_SIZE);
+  const allPageSelected = paginated.length > 0 && paginated.every(t => selected.has(t.trip_id));
+
+  const toggleSelect = (id) => setSelected(prev => {
+    const s = new Set(prev);
+    s.has(id) ? s.delete(id) : s.add(id);
+    return s;
+  });
+
+  const togglePage = () => {
+    if (allPageSelected) {
+      setSelected(prev => { const s = new Set(prev); paginated.forEach(t => s.delete(t.trip_id)); return s; });
+    } else {
+      setSelected(prev => { const s = new Set(prev); paginated.forEach(t => s.add(t.trip_id)); return s; });
+    }
   };
 
   const handleImport = async (e) => {
@@ -267,23 +324,66 @@ export default function AdminDashboard() {
             </div>
 
             <div className="admin-card" style={{ padding:0, overflow:"hidden" }}>
-              <div style={{ padding:"16px 22px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <div className="admin-card-title" style={{ marginBottom:0 }}>
-                  All Trips ({trips.length})
-                </div>
+
+              {/* ── Filter bar ──────────────────────────── */}
+              <div className="trips-filter-bar">
+                <input
+                  className="trips-search"
+                  placeholder="🔍 Search trip ID, jeep code…"
+                  value={tripSearch}
+                  onChange={e => { setTripSearch(e.target.value); setTripPage(1); setSelected(new Set()); }}
+                />
+                <select className="trips-filter-select" value={tripStatus}
+                  onChange={e => { setTripStatus(e.target.value); setTripPage(1); setSelected(new Set()); }}>
+                  <option value="all">All statuses</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+                <select className="trips-filter-select" value={tripDir}
+                  onChange={e => { setTripDir(e.target.value); setTripPage(1); setSelected(new Set()); }}>
+                  <option value="all">All directions</option>
+                  <option value="MALANDAY-RECTO">→ Malanday–Recto</option>
+                  <option value="RECTO-MALANDAY">← Recto–Malanday</option>
+                </select>
+                <span className="trips-count">
+                  {filteredTrips.length} trip{filteredTrips.length !== 1 ? "s" : ""}
+                  {(tripSearch || tripStatus !== "all" || tripDir !== "all") ? ` of ${trips.length}` : ""}
+                </span>
               </div>
+
+              {/* ── Bulk action bar ─────────────────────── */}
+              {selected.size > 0 && (
+                <div className="trips-bulk-bar">
+                  <span className="trips-bulk-label">{selected.size} selected</span>
+                  <button className="trips-bulk-clear" onClick={() => setSelected(new Set())}>Clear</button>
+                  <button className="trips-bulk-delete" onClick={handleBulkDelete} disabled={bulkDeleting}>
+                    {bulkDeleting ? "Deleting…" : `🗑 Delete ${selected.size}`}
+                  </button>
+                </div>
+              )}
+
+              {/* ── Table ───────────────────────────────── */}
               <div className="admin-table-wrap">
                 <table className="admin-table">
                   <thead><tr>
+                    <th style={{ width:36 }}>
+                      <input type="checkbox" checked={allPageSelected} onChange={togglePage}
+                        title="Select all on this page" />
+                    </th>
                     <th>Trip ID</th><th>Jeep</th><th>Direction</th>
                     <th>Cap</th><th>Status</th><th>Start</th><th>Actions</th>
                   </tr></thead>
                   <tbody>
-                    {trips.map(t => (
-                      <tr key={t.trip_id}>
-                        <td className="admin-mono">{t.trip_id}</td>
-                        <td>{t.jeep_code}</td>
-                        <td style={{ fontSize:11 }}>{t.direction}</td>
+                    {paginated.map(t => (
+                      <tr key={t.trip_id} className={selected.has(t.trip_id) ? "trips-row-selected" : ""}>
+                        <td>
+                          <input type="checkbox" checked={selected.has(t.trip_id)}
+                            onChange={() => toggleSelect(t.trip_id)} />
+                        </td>
+                        <td className="admin-mono" style={{ fontSize:11, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.trip_id}</td>
+                        <td style={{ fontWeight:600 }}>{t.jeep_code}</td>
+                        <td style={{ fontSize:11 }}>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</td>
                         <td style={{ textAlign:"center" }}>{t.official_capacity}</td>
                         <td>
                           <span className="admin-status-badge"
@@ -291,14 +391,12 @@ export default function AdminDashboard() {
                             {t.status}
                           </span>
                         </td>
-                        <td className="admin-mono" style={{ color:"#8e9ab0" }}>{t.start_time?.slice(0,16)}</td>
+                        <td className="admin-mono" style={{ color:"#8e9ab0", fontSize:11 }}>{t.start_time?.slice(0,16)}</td>
                         <td>
                           <div className="admin-action-group">
                             {t.status === "COMPLETED" && (<>
                               <button className="admin-action-btn"
-                                onClick={() => navigate(`/analytics?trip=${t.trip_id}`)}>
-                                Analyse
-                              </button>
+                                onClick={() => navigate(`/analytics?trip=${t.trip_id}`)}>Analyse</button>
                               <button className="admin-action-btn map"
                                 onClick={() => setMapTripId(t.trip_id)}>🗺</button>
                             </>)}
@@ -311,14 +409,35 @@ export default function AdminDashboard() {
                         </td>
                       </tr>
                     ))}
-                    {trips.length === 0 && (
-                      <tr><td colSpan={7} style={{ textAlign:"center", padding:32, color:"#8e9ab0" }}>
-                        No trips yet. Run a field ride or import a CSV above.
+                    {paginated.length === 0 && (
+                      <tr><td colSpan={8} style={{ textAlign:"center", padding:40, color:"#8e9ab0" }}>
+                        {tripSearch || tripStatus !== "all" || tripDir !== "all"
+                          ? "No trips match your filters. Try clearing them."
+                          : "No trips yet. Run a field ride or import a CSV above."}
                       </td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {/* ── Pagination ──────────────────────────── */}
+              {totalPages > 1 && (
+                <div className="trips-pagination">
+                  <button className="trips-page-btn" disabled={tripPage===1} onClick={() => setTripPage(1)}>«</button>
+                  <button className="trips-page-btn" disabled={tripPage===1} onClick={() => setTripPage(p=>p-1)}>‹</button>
+                  {Array.from({length:totalPages},(_,i)=>i+1)
+                    .filter(p=>p===1||p===totalPages||Math.abs(p-tripPage)<=1)
+                    .reduce((acc,p,i,arr)=>{ if(i>0&&p-arr[i-1]>1)acc.push("…"); acc.push(p); return acc; },[])
+                    .map((p,i)=>p==="…"
+                      ?<span key={`e${i}`} className="trips-page-ellipsis">…</span>
+                      :<button key={p} className={`trips-page-btn${tripPage===p?" active":""}`} onClick={()=>setTripPage(p)}>{p}</button>
+                    )}
+                  <button className="trips-page-btn" disabled={tripPage===totalPages} onClick={()=>setTripPage(p=>p+1)}>›</button>
+                  <button className="trips-page-btn" disabled={tripPage===totalPages} onClick={()=>setTripPage(totalPages)}>»</button>
+                  <span className="trips-page-info">Page {tripPage} / {totalPages} · {filteredTrips.length} trips</span>
+                </div>
+              )}
+
             </div>
           </>)}
 

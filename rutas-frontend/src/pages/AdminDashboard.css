@@ -803,3 +803,165 @@
   border-radius: 4px;
   letter-spacing: 0.05em;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Trips tab — filter bar, bulk actions, pagination
+═══════════════════════════════════════════════════════════════ */
+
+.trips-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f0f2f5;
+  flex-wrap: wrap;
+  background: #fafbfd;
+}
+
+.trips-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.trips-search:focus { border-color: #1565c0; }
+
+.trips-filter-select {
+  padding: 8px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: white;
+  cursor: pointer;
+  outline: none;
+}
+
+.trips-filter-select:focus { border-color: #1565c0; }
+
+.trips-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8e9ab0;
+  white-space: nowrap;
+}
+
+/* Bulk action bar */
+.trips-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #fff3e0, #fff8f0);
+  border-bottom: 1px solid #ffe0b2;
+}
+
+.trips-bulk-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e65100;
+}
+
+.trips-bulk-clear {
+  padding: 5px 12px;
+  border: 1.5px solid #e65100;
+  border-radius: 6px;
+  background: transparent;
+  color: #e65100;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.trips-bulk-delete {
+  padding: 5px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #c62828;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  margin-left: auto;
+  transition: background 0.15s;
+}
+
+.trips-bulk-delete:hover { background: #b71c1c; }
+.trips-bulk-delete:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Selected row highlight */
+.trips-row-selected {
+  background: rgba(21, 101, 192, 0.06) !important;
+}
+
+.trips-row-selected td { border-left: 3px solid #1565c0; }
+.trips-row-selected td:first-child { border-left: none; }
+
+/* Pagination */
+.trips-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  border-top: 1px solid #f0f2f5;
+  background: #fafbfd;
+  flex-wrap: wrap;
+}
+
+.trips-page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 7px;
+  background: white;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trips-page-btn:hover:not(:disabled) {
+  border-color: #1565c0;
+  color: #1565c0;
+  background: #f0f7ff;
+}
+
+.trips-page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.trips-page-btn.active {
+  background: #1565c0;
+  border-color: #1565c0;
+  color: white;
+}
+
+.trips-page-ellipsis {
+  padding: 0 6px;
+  color: #8e9ab0;
+  font-size: 13px;
+  user-select: none;
+}
+
+.trips-page-info {
+  margin-left: auto;
+  font-size: 12px;
+  color: #8e9ab0;
+  font-weight: 600;
+  white-space: nowrap;
+}
