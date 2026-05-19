@@ -980,26 +980,33 @@ def run_merged_analytics(
     demand = DemandResult(
         trip_id=label,
         distribution={
-            tier: TierCount(**data)
-            for tier, data in classify_demand_distribution(all_points, cap).items()
+            tier: TierCount(**tier_data)
+            for tier, tier_data in classify_demand_distribution(all_points, cap).items()
         },
     )
 
     time_dist = TimeResult(
         trip_id=label,
         distribution={
-            period: PeriodCount(**data)
-            for period, data in time_period_distribution(all_points).items()
+            period: PeriodCount(**period_data)
+            for period, period_data in time_period_distribution(all_points).items()
         },
     )
 
-    return {
-        "trip_id":      label,
-        "source_trips": found_ids,
-        "total_logs":   len(all_points),
-        "gps_quality":  gps_quality,
-        "dbscan":       dbscan,
-        "load_factor":  load_factor,
-        "demand":       demand,
-        "time_dist":    time_dist,
-    }
+    # Build the full result as a dict so we can include merged-specific
+    # metadata (source_trips, total_logs) alongside the standard analytics.
+    # The frontend reads source_trips/total_logs for the banner and uses
+    # the standard analytics fields for all 6 tab components.
+    result = FullAnalyticsResult(
+        trip_id=label,
+        gps_quality=gps_quality,
+        dbscan=dbscan,
+        load_factor=load_factor,
+        demand=demand,
+        time_dist=time_dist,
+    ).model_dump()
+
+    result["source_trips"] = found_ids
+    result["total_logs"]   = len(all_points)
+
+    return result
