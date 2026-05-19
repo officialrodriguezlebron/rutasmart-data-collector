@@ -399,6 +399,23 @@ export default function TripMap({ tripId, onClose }) {
             >
               🎯 Fit to Data
             </button>
+            {/* Fullscreen button — uses Browser Fullscreen API, helpful on mobile */}
+            {document.fullscreenEnabled && (
+              <button
+                className="tripmap-close"
+                title="Toggle fullscreen"
+                onClick={() => {
+                  const el = document.querySelector(".tripmap-container");
+                  if (!document.fullscreenElement) {
+                    el?.requestFullscreen?.();
+                  } else {
+                    document.exitFullscreen?.();
+                  }
+                }}
+              >
+                ⛶
+              </button>
+            )}
             <button className="tripmap-close" onClick={onClose}>✕ Close</button>
           </div>
         </div>

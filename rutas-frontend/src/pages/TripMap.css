@@ -497,3 +497,167 @@
 
 .tripmap-container.dark .rs-banner-warn { background: #2e1a0f; color: #ffb74d; border-color: #4a2a1a; }
 .tripmap-container.dark .rs-banner-info { background: #1a0e2e; color: #ce93d8; border-color: #3a1a4a; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Mobile responsive — full-screen map on phones
+   Tested at 390×844 (iPhone 12 Pro viewport from screenshot)
+═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 600px) {
+
+  /* Full-screen overlay — no padding, no rounded corners */
+  .tripmap-overlay {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .tripmap-container {
+    border-radius: 0;
+    height: 100dvh;       /* dynamic viewport height — respects mobile browser chrome */
+    height: 100vh;        /* fallback */
+    max-width: 100%;
+  }
+
+  /* Compact header */
+  .tripmap-header {
+    padding: 10px 14px;
+  }
+
+  .tripmap-title {
+    font-size: 15px;
+  }
+
+  .tripmap-subtitle {
+    font-size: 10px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tripmap-close {
+    padding: 6px 11px;
+    font-size: 12px;
+  }
+
+  /* Metadata ridge — single scrollable row, no wrapping */
+  .rs-metadata-ridge {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 16px;
+    padding: 7px 14px;
+    font-size: 12px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .rs-metadata-ridge::-webkit-scrollbar { display: none; }
+
+  /* Controls — horizontally scrollable, no wrapping */
+  .tripmap-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 8px 14px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tripmap-controls::-webkit-scrollbar { display: none; }
+
+  .tripmap-toggles {
+    flex-shrink: 0;
+    gap: 5px;
+  }
+
+  .tripmap-toggle {
+    padding: 5px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .tripmap-quality-filter {
+    flex-shrink: 0;
+    margin-left: 0;
+    gap: 5px;
+  }
+
+  /* Filter row — horizontally scrollable */
+  .rs-filter-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 6px 14px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .rs-filter-row::-webkit-scrollbar { display: none; }
+
+  .rs-filter-group {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+
+  .rs-intensity-slider {
+    width: 90px;
+  }
+
+  /* Stats bar — horizontally scrollable */
+  .tripmap-stats {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tripmap-stats::-webkit-scrollbar { display: none; }
+
+  .tripmap-stat {
+    padding: 6px 12px;
+    min-width: 58px;
+  }
+
+  .tripmap-stat-value {
+    font-size: 15px;
+  }
+
+  .tripmap-stat-label {
+    font-size: 8px;
+  }
+
+  /* Banners */
+  .rs-banner {
+    padding: 6px 14px;
+    font-size: 11.5px;
+  }
+
+  /* Legend — horizontal scroll, no wrap */
+  .tripmap-legend {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 14px;
+    padding: 6px 14px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tripmap-legend::-webkit-scrollbar { display: none; }
+
+  .tripmap-legend-group {
+    flex-shrink: 0;
+    gap: 6px;
+  }
+
+  .tripmap-legend-item {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  /* Map gets all remaining space */
+  .tripmap-map-wrap {
+    flex: 1;
+    min-height: 0;
+  }
+}
