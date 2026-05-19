@@ -124,8 +124,6 @@ export default function PublicDashboard() {
   const filtered  = dirFilter === "all"
     ? jeepneys
     : jeepneys.filter(j => j.direction === dirFilter);
-  const available = filtered.filter(j => j.tier === "AVAILABLE").length;
-  const full      = filtered.filter(j => j.tier === "FULL" || j.tier === "OVERCAP").length;
   const countMR   = jeepneys.filter(j => j.direction === "MALANDAY-RECTO").length;
   const countRM   = jeepneys.filter(j => j.direction === "RECTO-MALANDAY").length;
 
