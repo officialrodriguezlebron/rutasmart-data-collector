@@ -635,7 +635,7 @@ export default function AnalyticsEngine() {
                     <option value="">— choose a trip —</option>
                     {tripList.map(t => (
                       <option key={t.trip_id} value={t.trip_id}>
-                        {t.jeep_code} · {t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"} · {t.start_time?.slice(0, 10) || ""}
+                        {t.jeep_code} · {t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : "Recto → Malanday"} · {t.start_time?.slice(0, 10) || ""}
                       </option>
                     ))}
                   </select>
@@ -658,7 +658,7 @@ export default function AnalyticsEngine() {
                 return (
                   <div className="ae-trip-meta">
                     <span>🚌 {t.jeep_code}</span>
-                    <span>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</span>
+                    <span>{t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : "Recto → Malanday"}</span>
                     <span>Cap {t.official_capacity}</span>
                     <span className={`ae-status-pill ${t.status === "COMPLETED" ? "completed" : "active"}`}>{t.status}</span>
                   </div>

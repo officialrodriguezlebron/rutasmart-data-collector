@@ -343,8 +343,8 @@ export default function AdminDashboard() {
                 <select className="trips-filter-select" value={tripDir}
                   onChange={e => { setTripDir(e.target.value); setTripPage(1); setSelected(new Set()); }}>
                   <option value="all">All directions</option>
-                  <option value="MALANDAY-RECTO">→ Malanday–Recto</option>
-                  <option value="RECTO-MALANDAY">← Recto–Malanday</option>
+                  <option value="MALANDAY-RECTO">Malanday → Recto</option>
+                  <option value="RECTO-MALANDAY">Recto → Malanday</option>
                 </select>
                 <span className="trips-count">
                   {filteredTrips.length} trip{filteredTrips.length !== 1 ? "s" : ""}
@@ -383,7 +383,7 @@ export default function AdminDashboard() {
                         </td>
                         <td className="admin-mono" style={{ fontSize:11, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.trip_id}</td>
                         <td style={{ fontWeight:600 }}>{t.jeep_code}</td>
-                        <td style={{ fontSize:11 }}>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</td>
+                        <td style={{ fontSize:11 }}>{t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : "Recto → Malanday"}</td>
                         <td style={{ textAlign:"center" }}>{t.official_capacity}</td>
                         <td>
                           <span className="admin-status-badge"
@@ -689,7 +689,7 @@ export default function AdminDashboard() {
                             <tr key={t.trip_id}>
                               <td className="admin-mono" style={{ fontSize: 10, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
                               <td className="admin-mono" style={{ fontWeight: 700 }}>{t.jeep_code}</td>
-                              <td style={{ fontSize: 11 }}>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</td>
+                              <td style={{ fontSize: 11 }}>{t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : "Recto → Malanday"}</td>
                               <td className="admin-mono">{t.date}</td>
                               <td className="admin-mono">{t.log_count}</td>
                               <td className="admin-mono" style={{ color: t.avg_lf_pct > 100 ? "#c62828" : "#2e7d32", fontWeight: 700 }}>{t.avg_lf_pct}%</td>

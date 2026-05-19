@@ -228,8 +228,8 @@ export default function PublicDashboard() {
             <div className="pd-dir-filter">
               {[
                 { key: "all",             label: "All",                 count: total   },
-                { key: "MALANDAY-RECTO",  label: "To Recto →",         count: countMR },
-                { key: "RECTO-MALANDAY",  label: "← To Malanday",      count: countRM },
+                { key: "MALANDAY-RECTO",  label: "Malanday → Recto",         count: countMR },
+                { key: "RECTO-MALANDAY",  label: "Recto → Malanday",      count: countRM },
               ].map(({ key, label, count }) => (
                 <button
                   key={key}
