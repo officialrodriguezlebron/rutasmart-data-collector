@@ -897,3 +897,109 @@ def run_all_analytics(
         demand=demand,
         time_dist=time_dist,
     )
+
+
+# ── Merged multi-trip run-all ─────────────────────────────────────────────
+@router.get("/merged/run-all")
+@limiter.limit("5/minute")
+def run_merged_analytics(
+    request: Request,
+    trip_ids: str = Query(..., description="Comma-separated trip IDs"),
+    eps_m: float  = Query(default=50.0, gt=0, le=500),
+    min_samples: int = Query(default=5, ge=2, le=50),
+    db: Session = Depends(get_db),
+):
+    """
+    Run the full analytical pipeline across multiple trips combined.
+    Returns the same FullAnalyticsResult shape as /{trip_id}/run-all
+    so the frontend can reuse all existing tab components unchanged.
+    """
+    ids = [t.strip() for t in trip_ids.split(",") if t.strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="No trip IDs provided.")
+    if len(ids) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 trips per merged call.")
+
+    all_points = []
+    capacities = []
+    found_ids  = []
+
+    for tid in ids:
+        trip = db.query(Trip).filter(Trip.trip_id == tid).first()
+        if not trip:
+            continue
+        pts = _fetch_points(tid, db)
+        if pts:
+            all_points.extend(pts)
+            capacities.append(trip.official_capacity or 26)
+            found_ids.append(tid)
+
+    if not all_points:
+        raise HTTPException(status_code=404, detail="No GPS logs found for any of the specified trips.")
+
+    from collections import Counter
+    cap   = Counter(capacities).most_common(1)[0][0]
+    label = f"MERGED({len(found_ids)})"
+
+    quality_raw  = gps_quality_summary(all_points)
+    gps_quality  = GPSQualityResult(trip_id=label, **quality_raw)
+
+    dbscan_raw   = run_dbscan(all_points, cap, eps_m, min_samples)
+    clusters_out = [StopClusterOut(**{
+        "cluster_id":      c.cluster_id,
+        "centroid_lat":    c.centroid_lat,
+        "centroid_lon":    c.centroid_lon,
+        "point_count":     c.point_count,
+        "avg_occupancy":   c.avg_occupancy,
+        "max_occupancy":   c.max_occupancy,
+        "demand_tier":     c.demand_tier,
+        "peak_period":     c.peak_period,
+        "load_factor_pct": c.load_factor_pct,
+        "noise_ratio_pct": c.noise_ratio_pct,
+    }) for c in dbscan_raw["clusters"]]
+
+    dbscan = DBSCANResult(
+        trip_id=label, clusters=clusters_out,
+        noise_ratio=dbscan_raw["noise_ratio"],
+        eps_m=dbscan_raw["eps_m"], min_samples=dbscan_raw["min_samples"],
+        total_input=dbscan_raw["total_input"],
+        dbscan_input=dbscan_raw["dbscan_input"],
+        noise_points=dbscan_raw["noise_points"],
+    )
+
+    overall   = trip_load_factor_summary(all_points, cap)
+    by_period = {
+        period: PeriodStat(**stats)
+        for period, stats in load_factor_by_period(all_points, cap).items()
+    }
+    load_factor = LoadFactorResult(
+        trip_id=label, official_capacity=cap,
+        overall=overall, by_period=by_period,
+    )
+
+    demand = DemandResult(
+        trip_id=label,
+        distribution={
+            tier: TierCount(**data)
+            for tier, data in classify_demand_distribution(all_points, cap).items()
+        },
+    )
+
+    time_dist = TimeResult(
+        trip_id=label,
+        distribution={
+            period: PeriodCount(**data)
+            for period, data in time_period_distribution(all_points).items()
+        },
+    )
+
+    return {
+        "trip_id":      label,
+        "source_trips": found_ids,
+        "total_logs":   len(all_points),
+        "gps_quality":  gps_quality,
+        "dbscan":       dbscan,
+        "load_factor":  load_factor,
+        "demand":       demand,
+        "time_dist":    time_dist,
+    }

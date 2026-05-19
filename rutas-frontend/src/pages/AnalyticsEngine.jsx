@@ -449,26 +449,62 @@ export default function AnalyticsEngine() {
   }, [tripId, epsM, minPts]);
   const runAggregate = useCallback(async () => {
     setAggLoading(true); setAggError(null); setAggData(null);
+    setData(null); setError(null); setCompareData(null); setCompareError(null);
+    setActiveTab("overview");
+
     try {
+      const apiKey = import.meta.env.VITE_API_KEY || "";
+      const headers = { "X-API-Key": apiKey };
+
+      // Step 1 — collect trip IDs for this mode
+      let tripIds = [];
       if (mode === "all") {
-        const res = await getAggregateDashboard();
-        setAggData({ ...res.data, mode: "all" });
+        tripIds = tripList.filter(t => t.status === "COMPLETED").map(t => t.trip_id);
       } else {
-        // mode === "day" — call aggregate endpoint filtered by date
-        const res = await fetch(
-          `${API}/admin/aggregate?date=${selectedDay}`,
-          { headers: { "X-API-Key": import.meta.env.VITE_API_KEY || "" } }
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        setAggData({ ...json, mode: "day", date: selectedDay });
+        // By Day — fetch all trips and filter by PHT date
+        const allRes = await fetch(`${API}/admin/trips`, { headers });
+        const all = await allRes.json();
+        tripIds = (all || []).filter(t => {
+          if (t.status !== "COMPLETED") return false;
+          const phtDate = t.start_time
+            ? new Date(new Date(t.start_time + "Z").getTime() + 8 * 3600000)
+                .toISOString().slice(0, 10)
+            : null;
+          return phtDate === selectedDay;
+        }).map(t => t.trip_id);
       }
+
+      if (tripIds.length === 0) {
+        setAggData({ empty: true, mode, date: selectedDay });
+        return;
+      }
+
+      // Step 2 — call merged run-all endpoint
+      const url = `${API}/analytics/merged/run-all?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minPts}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+
+      // Step 3 — feed into setData so all 6 existing tabs render automatically
+      setData(json);
+      setAggData({
+        mode,
+        date: selectedDay,
+        source_trips: json.source_trips,
+        total_logs:   json.total_logs,
+        label:        json.trip_id,
+        empty:        false,
+      });
+
     } catch (e) {
       setAggError(e.message || "Failed to load aggregate data.");
     } finally {
       setAggLoading(false);
     }
-  }, [mode, selectedDay]);
+  }, [mode, selectedDay, tripList, epsM, minPts]);
 
   const db  = data?.dbscan;
   const lf  = data?.load_factor;
@@ -768,16 +804,19 @@ export default function AnalyticsEngine() {
           {mode === "single" && !data && !loading && !error && (
             <div className="ae-empty">
               <span className="ae-empty-icon" aria-hidden="true">🗺</span>
-              <p>Enter a completed trip ID and run the algorithms</p>
+              <p>Select a completed trip and run the algorithms</p>
               <small>Trip must have status COMPLETED in the database</small>
             </div>
           )}
 
-          {/* Day/All empty state — not yet run */}
+          {/* Day / All Trips empty state — not yet run */}
           {(mode === "day" || mode === "all") && !aggData && !aggLoading && !aggError && (
             <div className="ae-empty">
-              <span className="ae-empty-icon">📊</span>
-              <p>{mode === "day" ? `Select a date and run the analysis` : `Click Run to aggregate all completed trips`}</p>
+              <span className="ae-empty-icon">{mode === "day" ? "📅" : "📊"}</span>
+              <p>{mode === "day"
+                ? `Select a date and click Analyse`
+                : `Click Run to aggregate all completed trips`}
+              </p>
             </div>
           )}
 
