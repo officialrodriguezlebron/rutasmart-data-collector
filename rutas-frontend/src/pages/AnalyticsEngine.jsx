@@ -404,36 +404,67 @@ export default function AnalyticsEngine() {
   }, [tripId]);
 
   const runComparison = useCallback(async () => {
-    const id = tripId.trim();
-    if (!id) return;
     setComparing(true);
     setCompareError(null);
     setCompareData(null);
     setActiveTab("compare");
+
     try {
+      const apiKey = import.meta.env.VITE_API_KEY || "";
+      const headers = { "X-API-Key": apiKey };
+
+      // Merged mode — use the /merged/compare endpoint
+      if ((mode === "day" || mode === "all") && aggData?.source_trips?.length) {
+        const ids = aggData.source_trips.join(",");
+        const url = `${API}/analytics/merged/compare?trip_ids=${encodeURIComponent(ids)}&eps_m=${epsM}&min_samples=${minPts}`;
+        const res = await fetch(url, { headers });
+        const json = await res.json();
+        if (json.detail) throw new Error(json.detail);
+
+        const calcShift = (c1, c2) => {
+          if (!c1?.length || !c2?.length) return null;
+          return c1.map((a, i) => {
+            const b = c2[i]; if (!b) return 0;
+            const dlat = (a.centroid_lat - b.centroid_lat) * 111320;
+            const dlon = (a.centroid_lon - b.centroid_lon) * 111320;
+            return Math.sqrt(dlat * dlat + dlon * dlon);
+          });
+        };
+
+        setCompareData({
+          vanilla:       json.vanilla,
+          kalman:        json.kalman,
+          weighted:      json.weighted,
+          evalData:      json.evalData,
+          shiftKalman:   calcShift(json.vanilla?.clusters, json.kalman?.clusters),
+          shiftWeighted: calcShift(json.vanilla?.clusters, json.weighted?.clusters),
+        });
+        return;
+      }
+
+      // Single trip mode — original behaviour
+      const id = tripId.trim();
+      if (!id) return;
       const eps = epsM; const mp = minPts;
       const [vanillaRes, kalmanRes, wRes, evalRes] = await Promise.all([
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan?eps_m=${eps}&min_samples=${mp}`),
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan-kalman?eps_m=${eps}&min_samples=${mp}`),
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/wdbscan?eps_m=${eps}&min_samples=${mp}`),
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/evaluate?eps_m=${eps}&min_samples=${mp}`),
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan?eps_m=${eps}&min_samples=${mp}`, { headers }),
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan-kalman?eps_m=${eps}&min_samples=${mp}`, { headers }),
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/wdbscan?eps_m=${eps}&min_samples=${mp}`, { headers }),
+        fetch(`${API}/analytics/${encodeURIComponent(id)}/evaluate?eps_m=${eps}&min_samples=${mp}`, { headers }),
       ]);
       const [vanilla, kalman, weighted, evalData] = await Promise.all([
         vanillaRes.json(), kalmanRes.json(), wRes.json(), evalRes.json(),
       ]);
       if (vanilla.detail) throw new Error(vanilla.detail);
 
-      // Compute centroid shifts: vanilla → kalman and vanilla → weighted
       const calcShift = (clusters1, clusters2) => {
         if (!clusters1?.length || !clusters2?.length) return null;
-        const shifts = clusters1.map((c1, i) => {
-          const c2 = clusters2[i];
-          if (!c2) return 0;
+        return clusters1.map((c1, i) => {
+          const c2 = clusters2[i]; if (!c2) return 0;
           const dlat = (c1.centroid_lat - c2.centroid_lat) * 111320;
           const dlon = (c1.centroid_lon - c2.centroid_lon) * 111320;
           return Math.sqrt(dlat * dlat + dlon * dlon);
         });
-        return shifts;
       };
 
       setCompareData({
@@ -446,7 +477,7 @@ export default function AnalyticsEngine() {
     } finally {
       setComparing(false);
     }
-  }, [tripId, epsM, minPts]);
+  }, [tripId, epsM, minPts, mode, aggData]);
   const runAggregate = useCallback(async () => {
     setAggLoading(true); setAggError(null); setAggData(null);
     setData(null); setError(null); setCompareData(null); setCompareError(null);
@@ -677,6 +708,12 @@ export default function AnalyticsEngine() {
                   : `▶  Analyse ${selectedDay}`
                 }
               </button>
+              {aggData && !aggData.empty && (
+                <button className="ae-run-btn" style={{ background: "#6200ea", marginTop: 8 }}
+                  onClick={runComparison} disabled={comparing}>
+                  {comparing ? <><span className="ae-spinner" /> Running…</> : "📊 Compare Algorithms"}
+                </button>
+              )}
             </div>
           )}
 
@@ -698,9 +735,15 @@ export default function AnalyticsEngine() {
                   : "▶  Run Aggregate Analysis"
                 }
               </button>
+              {aggData && !aggData.empty && (
+                <button className="ae-run-btn" style={{ background: "#6200ea", marginTop: 8 }}
+                  onClick={runComparison} disabled={comparing}>
+                  {comparing ? <><span className="ae-spinner" /> Running…</> : "📊 Compare Algorithms"}
+                </button>
+              )}
               {aggData && (
                 <button className="ae-run-btn" style={{ background: "#546e7a", marginTop: 8 }}
-                  onClick={() => { setAggData(null); setAggError(null); }}>
+                  onClick={() => { setAggData(null); setAggError(null); setData(null); }}>
                   ↺ Reset
                 </button>
               )}

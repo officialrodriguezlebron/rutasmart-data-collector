@@ -236,6 +236,129 @@ def run_merged_analytics(
     return result
 
 
+@router.get("/merged/compare")
+@limiter.limit("5/minute")
+def run_merged_compare(
+    request: Request,
+    trip_ids: str = Query(..., description="Comma-separated trip IDs"),
+    eps_m: float  = Query(default=50.0, gt=0, le=500),
+    min_samples: int = Query(default=5, ge=2, le=50),
+    db: Session = Depends(get_db),
+):
+    """
+    Run Vanilla DBSCAN, Kalman+DBSCAN, W-DBSCAN, and cluster evaluation
+    on the merged GPS logs of multiple trips combined.
+    Returns the same shape as the four single-trip compare endpoints so
+    the existing AlgorithmComparison component works without modification.
+    """
+    ids = [t.strip() for t in trip_ids.split(",") if t.strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="No trip IDs provided.")
+
+    all_points = []
+    capacities = []
+
+    for tid in ids:
+        trip = db.query(Trip).filter(Trip.trip_id == tid).first()
+        if not trip:
+            continue
+        pts = _fetch_points(tid, db)
+        if pts:
+            all_points.extend(pts)
+            capacities.append(trip.official_capacity or 26)
+
+    if not all_points:
+        raise HTTPException(status_code=404, detail="No GPS logs found.")
+
+    from collections import Counter
+    cap   = Counter(capacities).most_common(1)[0][0]
+    label = f"MERGED({len(ids)})"
+
+    # ① Vanilla DBSCAN
+    vanilla_raw  = run_dbscan(all_points, cap, eps_m, min_samples, apply_kalman=False)
+    vanilla_clusters = [StopClusterOut(**{
+        "cluster_id": c.cluster_id, "centroid_lat": c.centroid_lat,
+        "centroid_lon": c.centroid_lon, "point_count": c.point_count,
+        "avg_occupancy": c.avg_occupancy, "max_occupancy": c.max_occupancy,
+        "demand_tier": c.demand_tier, "peak_period": c.peak_period,
+        "load_factor_pct": c.load_factor_pct, "noise_ratio_pct": c.noise_ratio_pct,
+    }) for c in vanilla_raw["clusters"]]
+    vanilla = DBSCANResult(
+        trip_id=label, clusters=vanilla_clusters,
+        noise_ratio=vanilla_raw["noise_ratio"], eps_m=vanilla_raw["eps_m"],
+        min_samples=vanilla_raw["min_samples"], total_input=vanilla_raw["total_input"],
+        dbscan_input=vanilla_raw["dbscan_input"], noise_points=vanilla_raw["noise_points"],
+    ).model_dump()
+
+    # ② Kalman + DBSCAN
+    kalman_raw   = run_dbscan(all_points, cap, eps_m, min_samples, apply_kalman=True)
+    kalman_clusters = [StopClusterOut(**{
+        "cluster_id": c.cluster_id, "centroid_lat": c.centroid_lat,
+        "centroid_lon": c.centroid_lon, "point_count": c.point_count,
+        "avg_occupancy": c.avg_occupancy, "max_occupancy": c.max_occupancy,
+        "demand_tier": c.demand_tier, "peak_period": c.peak_period,
+        "load_factor_pct": c.load_factor_pct, "noise_ratio_pct": c.noise_ratio_pct,
+    }) for c in kalman_raw["clusters"]]
+    kalman = DBSCANResult(
+        trip_id=label, clusters=kalman_clusters,
+        noise_ratio=kalman_raw["noise_ratio"], eps_m=kalman_raw["eps_m"],
+        min_samples=kalman_raw["min_samples"], total_input=kalman_raw["total_input"],
+        dbscan_input=kalman_raw["dbscan_input"], noise_points=kalman_raw["noise_points"],
+    ).model_dump()
+
+    # ③ W-DBSCAN
+    wraw  = run_wdbscan(all_points, cap, eps_m, min_samples)
+    wclusters = [StopClusterOut(**{
+        "cluster_id": c.cluster_id, "centroid_lat": c.centroid_lat,
+        "centroid_lon": c.centroid_lon, "point_count": c.point_count,
+        "avg_occupancy": c.avg_occupancy, "max_occupancy": c.max_occupancy,
+        "demand_tier": c.demand_tier, "peak_period": c.peak_period,
+        "load_factor_pct": c.load_factor_pct, "noise_ratio_pct": c.noise_ratio_pct,
+    }) for c in wraw["clusters"]]
+    weighted = DBSCANResult(
+        trip_id=label, clusters=wclusters,
+        noise_ratio=wraw["noise_ratio"], eps_m=wraw["eps_m"],
+        min_samples=wraw["min_samples"], total_input=wraw["total_input"],
+        dbscan_input=wraw["dbscan_input"], noise_points=wraw["noise_points"],
+    ).model_dump()
+
+    # ④ Cluster evaluation vs ground truth (uses vanilla clusters)
+    eval_result = evaluate_clusters(all_points, vanilla_raw["clusters"], eps_m, min_samples)
+    eval_dict = {
+        "trip_id":        label,
+        "eps_m":          eps_m,
+        "min_samples":    min_samples,
+        "n_clusters":     len(vanilla_raw["clusters"]),
+        "true_positives": eval_result.true_positives,
+        "false_positives": eval_result.false_positives,
+        "false_negatives": eval_result.false_negatives,
+        "precision":      eval_result.precision,
+        "recall":         eval_result.recall,
+        "f1_score":       eval_result.f1_score,
+        "mae_m":          eval_result.mae_m,
+        "silhouette": {
+            "score":          eval_result.silhouette.score,
+            "interpretation": eval_result.silhouette.interpretation,
+            "n_clusters":     eval_result.silhouette.n_clusters,
+            "n_points":       eval_result.silhouette.n_points,
+            "per_cluster":    eval_result.silhouette.per_cluster,
+        },
+        "davies_bouldin": {
+            "index":          eval_result.davies_bouldin.index,
+            "interpretation": eval_result.davies_bouldin.interpretation,
+        },
+    }
+
+    return {
+        "vanilla":  vanilla,
+        "kalman":   kalman,
+        "weighted": weighted,
+        "evalData": eval_dict,
+        "source_trips": ids,
+        "total_logs":   len(all_points),
+    }
+
+
 # ── Raw GPS logs (for heatmap visualization) ──────────────────────────────
 
 @router.get("/{trip_id}/logs", tags=["Analytics"])
