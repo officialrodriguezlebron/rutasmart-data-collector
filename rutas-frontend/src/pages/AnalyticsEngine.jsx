@@ -461,19 +461,30 @@ export default function AnalyticsEngine() {
       if (mode === "all") {
         tripIds = tripList.filter(t => t.status === "COMPLETED").map(t => t.trip_id);
       } else {
-        // By Day — fetch all trips and filter by PHT date
-        const allRes = await fetch(`${API}/admin/trips`, { headers });
-        const all = await allRes.json();
-        tripIds = (all || []).filter(t => {
+        // By Day — use already-loaded tripList, filter by PHT date
+        // start_time from backend is "2026-05-19 05:07:00" (space, no Z) stored as UTC
+        console.log("[RutaSmart] By Day filter — selectedDay:", selectedDay);
+        console.log("[RutaSmart] tripList:", tripList.map(t => ({
+          id: t.trip_id, status: t.status, start: t.start_time
+        })));
+
+        tripIds = tripList.filter(t => {
           if (t.status !== "COMPLETED") return false;
-          if (!t.start_time) return false;
-          // start_time arrives as "2026-05-19 05:07:00" (no T, no Z) — stored UTC.
-          // Replace space with T and append Z so Date() parses it correctly everywhere.
-          const utcStr = t.start_time.replace(" ", "T") + "Z";
-          const phtDate = new Date(new Date(utcStr).getTime() + 8 * 3600000)
-            .toISOString().slice(0, 10);
+          const raw = t.start_time;
+          if (!raw || raw === "None" || raw === "null") return false;
+          // Normalise: "2026-05-19 05:07:00" → "2026-05-19T05:07:00Z"
+          const utcStr = raw.replace(" ", "T").replace(/(\.\d+)?$/, "Z");
+          const d = new Date(utcStr);
+          if (isNaN(d.getTime())) {
+            console.warn("[RutaSmart] Could not parse date:", raw);
+            return false;
+          }
+          const phtDate = new Date(d.getTime() + 8 * 3600000).toISOString().slice(0, 10);
+          console.log("[RutaSmart]", t.trip_id, "→ phtDate:", phtDate, "selectedDay:", selectedDay, "match:", phtDate === selectedDay);
           return phtDate === selectedDay;
         }).map(t => t.trip_id);
+
+        console.log("[RutaSmart] matched tripIds:", tripIds);
       }
 
       if (tripIds.length === 0) {
