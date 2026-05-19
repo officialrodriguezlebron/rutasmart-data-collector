@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import "./PublicDashboard.css";
 
 const API = import.meta.env.VITE_API_URL;
@@ -113,7 +113,14 @@ export default function PublicDashboard() {
   }, [fetchData]);
 
   const total     = data?.active_count || 0;
-  const jeepneys  = data?.jeepneys || [];
+  const jeepneys  = (data?.jeepneys || []).filter(j => {
+    // Hide stale trips — if last GPS update was more than 2 hours ago,
+    // the conductor almost certainly forgot to end the trip.
+    // Show them as inactive rather than confusing passengers.
+    if (!j.last_updated) return false;
+    const ageMs = Date.now() - new Date(j.last_updated + (j.last_updated.endsWith("Z") ? "" : "Z")).getTime();
+    return ageMs < 2 * 60 * 60 * 1000; // 2 hours
+  });
   const filtered  = dirFilter === "all"
     ? jeepneys
     : jeepneys.filter(j => j.direction === dirFilter);
@@ -122,17 +129,40 @@ export default function PublicDashboard() {
   const countMR   = jeepneys.filter(j => j.direction === "MALANDAY-RECTO").length;
   const countRM   = jeepneys.filter(j => j.direction === "RECTO-MALANDAY").length;
 
+  const navigate  = useNavigate();
+
   return (
     <div className="pd-page">
 
       {/* Header */}
       <div className="pd-header">
         <div className="pd-header-top">
-          <div>
-            <h1 className="pd-title">RutaSmart</h1>
-            <p className="pd-subtitle">
-              {data?.route_name || "Malanday – Recto"} · Live Jeepney Status
-            </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => navigate(-1)}
+              style={{
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.20)",
+                borderRadius: 10,
+                color: "#fff",
+                padding: "6px 12px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              ← Back
+            </button>
+            <div>
+              <h1 className="pd-title">RutaSmart</h1>
+              <p className="pd-subtitle">
+                {data?.route_name || "Malanday – Recto"} · Live Jeepney Status
+              </p>
+            </div>
           </div>
           <div className={`pd-live-dot ${pulse ? "pulse" : ""}`}>
             <span className="pd-live-ring" />
@@ -140,13 +170,24 @@ export default function PublicDashboard() {
           </div>
         </div>
 
+        {/* Stale trip notice */}
+        {data && (data.jeepneys?.length || 0) > jeepneys.length && (
+          <div style={{
+            fontSize: 11, color: "rgba(255,255,255,0.60)",
+            padding: "4px 0 2px",
+            textAlign: "center",
+          }}>
+            ⚠ {(data.jeepneys?.length || 0) - jeepneys.length} jeepney{(data.jeepneys?.length || 0) - jeepneys.length > 1 ? "s" : ""} hidden — no update in over 2 hours
+          </div>
+        )}
+
         {/* Summary strip */}
         {data && (
           <div className="pd-summary">
             {[
-              { label: "Active Jeepneys", value: total,     color: "#1565c0" },
-              { label: "Available Seats", value: available, color: "#2e7d32" },
-              { label: "Full / Crowded",  value: full,      color: "#c62828" },
+              { label: "Active Jeepneys",    value: jeepneys.length, color: "#1565c0" },
+              { label: "Available / Filling", value: jeepneys.filter(j => j.tier === "AVAILABLE" || j.tier === "MODERATE").length, color: "#2e7d32" },
+              { label: "Full / Overcrowded",  value: jeepneys.filter(j => j.tier === "FULL" || j.tier === "OVERCAP").length,      color: "#c62828" },
             ].map(({ label, value, color }) => (
               <div key={label} className="pd-summary-item">
                 <div className="pd-summary-value" style={{ color }}>{value}</div>
