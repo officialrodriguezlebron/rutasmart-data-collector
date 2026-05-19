@@ -10,9 +10,10 @@ function Recording() {
   const activeTrip = tripService.getActiveTrip();
   const deviceId = localStorage.getItem("rutasmart_device_id");
   const backendStatus = useBackendHealth({ intervalMs: 30000 });
+  const isEndingRef   = useRef(false); // prevents guard from redirecting to /dashboard during end-trip
 
   useEffect(() => {
-    if (!activeTrip) {
+    if (!activeTrip && !isEndingRef.current) {
       navigate("/dashboard", { replace: true });
     }
   }, [activeTrip, navigate]);
@@ -349,6 +350,8 @@ function Recording() {
       "Are you sure you want to end this trip?"
     );
     if (!confirmEnd) return;
+
+    isEndingRef.current = true; // suppress the activeTrip guard redirect
 
     try {
       clearInterval(intervalRef.current);
