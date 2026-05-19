@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService } from "../services/authService";
+import { getAggregateDashboard } from "../services/api";
 import TripMap from "./TripMap";
 import "./AnalyticsEngine.css";
 
@@ -332,6 +333,16 @@ export default function AnalyticsEngine() {
   const [compareData,  setCompareData]  = useState(null);
   const [compareError, setCompareError] = useState(null);
 
+  // ── Mode switcher ────────────────────────────────────────────────────────
+  // "single" = one trip (existing behaviour)
+  // "day"    = pick a date → aggregate all trips that day
+  // "all"    = aggregate across all completed trips
+  const [mode,        setMode]        = useState("single");
+  const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
+  const [aggData,     setAggData]     = useState(null);
+  const [aggLoading,  setAggLoading]  = useState(false);
+  const [aggError,    setAggError]    = useState(null);
+
   const runAnalysis = useCallback(async () => {
     const id = tripId.trim();
     if (!id) { setError("Enter a trip ID first."); return; }
@@ -418,6 +429,29 @@ export default function AnalyticsEngine() {
       setComparing(false);
     }
   }, [tripId, epsM, minPts]);
+  const runAggregate = useCallback(async () => {
+    setAggLoading(true); setAggError(null); setAggData(null);
+    try {
+      if (mode === "all") {
+        const res = await getAggregateDashboard();
+        setAggData({ ...res.data, mode: "all" });
+      } else {
+        // mode === "day" — call aggregate endpoint filtered by date
+        const res = await fetch(
+          `${API}/admin/aggregate?date=${selectedDay}`,
+          { headers: { "X-API-Key": import.meta.env.VITE_API_KEY || "" } }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        setAggData({ ...json, mode: "day", date: selectedDay });
+      }
+    } catch (e) {
+      setAggError(e.message || "Failed to load aggregate data.");
+    } finally {
+      setAggLoading(false);
+    }
+  }, [mode, selectedDay]);
+
   const db  = data?.dbscan;
   const lf  = data?.load_factor;
   const dem = data?.demand;
@@ -457,6 +491,24 @@ export default function AnalyticsEngine() {
         </div>
       </div>
 
+      {/* ── Mode Switcher ──────────────────────────────────────────────── */}
+      <div className="ae-mode-bar">
+        <span className="ae-mode-label">View mode:</span>
+        {[
+          { key: "single", label: "🔍 Single Trip" },
+          { key: "day",    label: "📅 By Day"      },
+          { key: "all",    label: "📊 All Trips"   },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            className={`ae-mode-btn ${mode === key ? "active" : ""}`}
+            onClick={() => { setMode(key); setAggData(null); setAggError(null); }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Two-column layout */}
       <div className="ae-layout">
 
@@ -464,16 +516,17 @@ export default function AnalyticsEngine() {
         <aside className="ae-sidebar">
 
           <div className="ae-card">
-            <p className="ae-card-title">Trip selection</p>
-            <div className="ae-field">
-              <label className="ae-label" htmlFor="trip-id-input">Completed trip ID</label>
-              <input
-                id="trip-id-input"
-                className="ae-input"
-                value={tripId}
-                onChange={e => setTripId(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && runAnalysis()}
-                placeholder="2026-05-09_JEEP4_MLD-RCT_c49e"
+            {mode === "single" && (<>
+              <p className="ae-card-title">Trip selection</p>
+              <div className="ae-field">
+                <label className="ae-label" htmlFor="trip-id-input">Completed trip ID</label>
+                <input
+                  id="trip-id-input"
+                  className="ae-input"
+                  value={tripId}
+                  onChange={e => setTripId(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && runAnalysis()}
+                  placeholder="2026-05-09_JEEP4_MLD-RCT_c49e"
               />
             </div>
             <button className="ae-run-btn" onClick={runAnalysis} disabled={loading}>
@@ -501,6 +554,57 @@ export default function AnalyticsEngine() {
                 : "📊  Compare Algorithms"
               }
             </button>
+            </>)}
+
+            {mode === "day" && (<>
+              <p className="ae-card-title">Select Date</p>
+              <div className="ae-field">
+                <label className="ae-label" htmlFor="day-input">Date (PHT)</label>
+                <input
+                  id="day-input"
+                  type="date"
+                  className="ae-input"
+                  value={selectedDay}
+                  onChange={e => setSelectedDay(e.target.value)}
+                />
+              </div>
+              <button
+                className="ae-run-btn"
+                onClick={runAggregate}
+                disabled={aggLoading}
+              >
+                {aggLoading
+                  ? <><span className="ae-spinner" /> Computing…</>
+                  : `▶  Analyse ${selectedDay}`
+                }
+              </button>
+            </>)}
+
+            {mode === "all" && (<>
+              <p className="ae-card-title">All Trips</p>
+              <p style={{ fontSize: 12, color: "#8e9ab0", marginBottom: 12 }}>
+                Aggregates all completed trips in the database.
+              </p>
+              <button
+                className="ae-run-btn"
+                onClick={runAggregate}
+                disabled={aggLoading}
+              >
+                {aggLoading
+                  ? <><span className="ae-spinner" /> Computing…</>
+                  : "▶  Run aggregate analysis"
+                }
+              </button>
+              {aggData && (
+                <button
+                  className="ae-run-btn"
+                  style={{ background: "#546e7a", marginTop: 8 }}
+                  onClick={() => { setAggData(null); setAggError(null); }}
+                >
+                  ↺ Reset
+                </button>
+              )}
+            </>)}
           </div>
 
           <div className="ae-card">
@@ -568,11 +672,205 @@ export default function AnalyticsEngine() {
             </div>
           )}
 
-          {!data && !loading && !error && (
+          {/* Aggregate error */}
+          {aggError && (
+            <div className="ae-error" role="alert">
+              <span className="ae-error-icon">⚠</span> {aggError}
+            </div>
+          )}
+
+          {/* Aggregate loading */}
+          {aggLoading && (
+            <div className="ae-empty">
+              <span className="ae-spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
+              <p>Computing aggregate data…</p>
+            </div>
+          )}
+
+          {/* Aggregate results — Day or All Trips */}
+          {aggData && !aggLoading && (
+            <div className="agg-panel">
+
+              {/* Header */}
+              <div className="agg-panel-header">
+                <div>
+                  <h3 className="agg-panel-title">
+                    {aggData.mode === "day"
+                      ? `Day Summary — ${aggData.date}`
+                      : "All Trips — Aggregate Summary"
+                    }
+                  </h3>
+                  <p className="agg-panel-sub">
+                    {aggData.total_trips} trips · {aggData.total_logs?.toLocaleString()} GPS logs
+                  </p>
+                </div>
+              </div>
+
+              {aggData.total_trips === 0 ? (
+                <div className="ae-empty">
+                  <span className="ae-empty-icon">📭</span>
+                  <p>{aggData.mode === "day"
+                    ? `No completed trips found on ${aggData.date}`
+                    : "No completed trips in the database yet"
+                  }</p>
+                </div>
+              ) : (<>
+
+                {/* KPI row */}
+                <div className="agg-kpi-strip">
+                  {[
+                    { label: "Trips",           value: aggData.total_trips,                   color: "#1565c0" },
+                    { label: "GPS Logs",        value: aggData.total_logs?.toLocaleString(),  color: "#42a5f5" },
+                    { label: "Avg Load Factor", value: `${aggData.avg_load_factor_pct}%`,     color: aggData.avg_load_factor_pct > 100 ? "#c62828" : "#2e7d32" },
+                    { label: "Worst Period",    value: aggData.peak_critical_period || "—",   color: "#ef6c00" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="agg-kpi-card">
+                      <div className="agg-kpi-value" style={{ color }}>{value}</div>
+                      <div className="agg-kpi-label">{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Charts row */}
+                <div className="agg-charts-row">
+
+                  {/* Time distribution */}
+                  <div className="agg-chart-card">
+                    <div className="agg-chart-title">
+                      Time Period Distribution
+                      <span className="agg-chart-subtitle">GPS logs by operational period</span>
+                    </div>
+                    {(() => {
+                      const d = aggData.time_distribution || {};
+                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
+                      const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
+                      return Object.entries(d).map(([period, count]) => (
+                        <div key={period} className="agg-bar-row">
+                          <span className="agg-bar-label">{period}</span>
+                          <div className="agg-bar-track">
+                            <div className="agg-bar-fill" style={{ width: `${(count / total) * 100}%`, background: COLOR[period] }} />
+                          </div>
+                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
+                          <span className="agg-bar-count">({count.toLocaleString()})</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Demand distribution */}
+                  <div className="agg-chart-card">
+                    <div className="agg-chart-title">
+                      Demand Intensity Distribution
+                      <span className="agg-chart-subtitle">Normal / Moderate / High / Critical</span>
+                    </div>
+                    {(() => {
+                      const d = aggData.demand_distribution || {};
+                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
+                      const COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
+                      return Object.entries(d).map(([tier, count]) => (
+                        <div key={tier} className="agg-bar-row">
+                          <span className="agg-bar-label">{tier}</span>
+                          <div className="agg-bar-track">
+                            <div className="agg-bar-fill" style={{ width: `${(count / total) * 100}%`, background: COLOR[tier] }} />
+                          </div>
+                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
+                          <span className="agg-bar-count">({count.toLocaleString()})</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                {/* Critical by period */}
+                <div className="agg-chart-card">
+                  <div className="agg-chart-title">
+                    Critical-Tier Logs by Time Period
+                    <span className="agg-chart-subtitle">which period had the most over-capacity moments</span>
+                  </div>
+                  {(() => {
+                    const d = aggData.critical_by_period || {};
+                    const max = Math.max(...Object.values(d), 1);
+                    const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
+                    return Object.entries(d).map(([period, count]) => (
+                      <div key={period} className="agg-bar-row">
+                        <span className="agg-bar-label">
+                          {period}
+                          {period === aggData.peak_critical_period && (
+                            <span className="agg-peak-badge">WORST</span>
+                          )}
+                        </span>
+                        <div className="agg-bar-track">
+                          <div className="agg-bar-fill" style={{
+                            width: `${(count / max) * 100}%`,
+                            background: period === aggData.peak_critical_period ? "#c62828" : COLOR[period],
+                          }} />
+                        </div>
+                        <span className="agg-bar-count">{count.toLocaleString()} critical logs</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+
+                {/* Per-trip table */}
+                <div className="agg-chart-card">
+                  <div className="agg-chart-title">
+                    Per-Trip Breakdown
+                    <span className="agg-chart-subtitle">{aggData.trip_summaries?.length} trips</span>
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                          {["Trip ID", "Jeep", "Direction", "Date", "Logs", "Avg LF", "Max Occ", "Cap", "Dom. Tier", "Peak Period"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "6px 10px", color: "#8e9ab0", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(aggData.trip_summaries || []).map((t, i) => {
+                          const TIER_COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
+                          return (
+                            <tr key={t.trip_id} style={{ borderBottom: "1px solid #f3f4f6", background: i % 2 ? "#fafafa" : "#fff" }}>
+                              <td style={{ padding: "6px 10px", fontFamily: "monospace", fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
+                              <td style={{ padding: "6px 10px", fontWeight: 700, fontFamily: "monospace" }}>{t.jeep_code}</td>
+                              <td style={{ padding: "6px 10px", fontSize: 11 }}>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</td>
+                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.date}</td>
+                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.log_count}</td>
+                              <td style={{ padding: "6px 10px", fontFamily: "monospace", fontWeight: 700, color: t.avg_lf_pct > 100 ? "#c62828" : "#2e7d32" }}>{t.avg_lf_pct}%</td>
+                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.max_occupancy}</td>
+                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.capacity}</td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <span style={{ padding: "2px 8px", borderRadius: 6, background: (TIER_COLOR[t.dominant_tier] || "#888") + "22", color: TIER_COLOR[t.dominant_tier] || "#888", fontSize: 11, fontWeight: 700 }}>
+                                  {t.dominant_tier}
+                                </span>
+                              </td>
+                              <td style={{ padding: "6px 10px", fontSize: 11 }}>{t.dominant_period}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </>)}
+            </div>
+          )}
+
+          {/* Single trip empty state */}
+          {mode === "single" && !data && !loading && !error && (
             <div className="ae-empty">
               <span className="ae-empty-icon" aria-hidden="true">🗺</span>
               <p>Enter a completed trip ID and run the algorithms</p>
               <small>Trip must have status COMPLETED in the database</small>
+            </div>
+          )}
+
+          {/* Day/All empty state — not yet run */}
+          {(mode === "day" || mode === "all") && !aggData && !aggLoading && !aggError && (
+            <div className="ae-empty">
+              <span className="ae-empty-icon">📊</span>
+              <p>{mode === "day" ? `Select a date and run the analysis` : `Click Run to aggregate all completed trips`}</p>
             </div>
           )}
 

@@ -352,28 +352,37 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
 # threshold so the dashboard stays accurate.
 
 @app.get("/admin/aggregate", tags=["Admin"])
-def get_aggregate_dashboard(db: Session = Depends(get_db)):
+def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
     """
-    Aggregate analytics across ALL completed trips.
-    Returns:
-      - average load factor per trip, then grand average
-      - GPS log count per time period across all trips
-      - demand intensity tier distribution across all trips
-      - which time period had the most Critical-tier logs
-      - per-trip summary rows for the breakdown table
+    Aggregate analytics across completed trips.
+    Optional ?date=YYYY-MM-DD filters to trips that started on that date (PHT).
+    Without a date, aggregates all completed trips.
     """
-    from datetime import timedelta
+    from datetime import timedelta, date as dt_date
     from app.analytics.algorithms import categorise_time, classify_demand
 
     PHT_OFFSET = timedelta(hours=8)
 
-    # Only aggregate COMPLETED trips that have GPS logs
-    trips = (
-        db.query(Trip)
-        .filter(Trip.status == TripStatusEnum.COMPLETED)
-        .order_by(Trip.start_time.desc())
-        .all()
-    )
+    trips_q = db.query(Trip).filter(Trip.status == TripStatusEnum.COMPLETED)
+
+    # Filter by date if provided (compare in PHT = UTC+8)
+    if date:
+        try:
+            target = dt_date.fromisoformat(date)
+            # start_time is stored as UTC — shift to PHT for comparison
+            from datetime import datetime
+            day_start_pht = datetime(target.year, target.month, target.day, 0,  0,  0)
+            day_end_pht   = datetime(target.year, target.month, target.day, 23, 59, 59)
+            day_start_utc = day_start_pht - PHT_OFFSET
+            day_end_utc   = day_end_pht   - PHT_OFFSET
+            trips_q = trips_q.filter(
+                Trip.start_time >= day_start_utc,
+                Trip.start_time <= day_end_utc,
+            )
+        except ValueError:
+            pass  # invalid date format — fall through to all trips
+
+    trips = trips_q.order_by(Trip.start_time.desc()).all()
 
     if not trips:
         return {
