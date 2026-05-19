@@ -449,26 +449,68 @@ export default function AnalyticsEngine() {
   }, [tripId, epsM, minPts]);
   const runAggregate = useCallback(async () => {
     setAggLoading(true); setAggError(null); setAggData(null);
+    setData(null); setError(null); setCompareData(null); setCompareError(null);
+    setActiveTab("overview");
+
     try {
+      const apiKey = import.meta.env.VITE_API_KEY || "";
+      const headers = { "X-API-Key": apiKey };
+
+      // Step 1 — get the list of completed trip IDs for this mode
+      let tripIds = [];
       if (mode === "all") {
-        const res = await getAggregateDashboard();
-        setAggData({ ...res.data, mode: "all" });
+        tripIds = tripList
+          .filter(t => t.status === "COMPLETED")
+          .map(t => t.trip_id);
       } else {
-        // mode === "day" — call aggregate endpoint filtered by date
-        const res = await fetch(
-          `${API}/admin/aggregate?date=${selectedDay}`,
-          { headers: { "X-API-Key": import.meta.env.VITE_API_KEY || "" } }
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        setAggData({ ...json, mode: "day", date: selectedDay });
+        // By Day — fetch trips, filter by selected date (PHT = UTC+8)
+        const allRes = await fetch(`${API}/admin/trips`, { headers });
+        const all = await allRes.json();
+        tripIds = (all || [])
+          .filter(t => {
+            if (t.status !== "COMPLETED") return false;
+            // start_time stored as UTC — add 8h for PHT comparison
+            const phtDate = t.start_time
+              ? new Date(new Date(t.start_time + "Z").getTime() + 8 * 3600000)
+                  .toISOString().slice(0, 10)
+              : null;
+            return phtDate === selectedDay;
+          })
+          .map(t => t.trip_id);
       }
+
+      if (tripIds.length === 0) {
+        setAggData({ empty: true, mode, date: selectedDay });
+        return;
+      }
+
+      // Step 2 — call the merged run-all endpoint
+      const url = `${API}/analytics/merged/run-all?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minPts}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+
+      // Step 3 — feed result into the same `data` state as single-trip mode
+      // so all existing tabs (Overview, DBSCAN, Load Factor, Demand, Time, Compare)
+      // render automatically without any code duplication
+      setData(json);
+      setAggData({
+        mode,
+        date: selectedDay,
+        source_trips: json.source_trips,
+        total_logs: json.total_logs,
+        label: json.trip_id,
+      });
+
     } catch (e) {
       setAggError(e.message || "Failed to load aggregate data.");
     } finally {
       setAggLoading(false);
     }
-  }, [mode, selectedDay]);
+  }, [mode, selectedDay, tripList, epsM, minPts]);
 
   const db  = data?.dbscan;
   const lf  = data?.load_factor;
@@ -727,173 +769,36 @@ export default function AnalyticsEngine() {
             </div>
           )}
 
-          {/* Aggregate results — Day or All Trips */}
-          {aggData && !aggLoading && (
-            <div className="agg-panel">
-
-              {/* Header */}
-              <div className="agg-panel-header">
-                <div>
-                  <h3 className="agg-panel-title">
-                    {aggData.mode === "day"
-                      ? `Day Summary — ${aggData.date}`
-                      : "All Trips — Aggregate Summary"
-                    }
-                  </h3>
-                  <p className="agg-panel-sub">
-                    {aggData.total_trips} trips · {aggData.total_logs?.toLocaleString()} GPS logs
-                  </p>
-                </div>
+          {/* Merged mode info banner — shown above the shared tabs when in Day or All mode */}
+          {aggData && !aggLoading && !aggData.empty && (
+            <div className="ae-merged-banner">
+              <span className="ae-merged-icon">
+                {aggData.mode === "day" ? "📅" : "📊"}
+              </span>
+              <div className="ae-merged-text">
+                <strong>
+                  {aggData.mode === "day"
+                    ? `Day Analysis — ${aggData.date}`
+                    : "All Trips — Combined Analysis"}
+                </strong>
+                <span>
+                  {aggData.source_trips?.length} trip{aggData.source_trips?.length !== 1 ? "s" : ""}
+                  {" · "}{aggData.total_logs?.toLocaleString()} GPS logs combined
+                  {" · "}DBSCAN and all analytics run on merged dataset
+                </span>
               </div>
+            </div>
+          )}
 
-              {aggData.total_trips === 0 ? (
-                <div className="ae-empty">
-                  <span className="ae-empty-icon">📭</span>
-                  <p>{aggData.mode === "day"
-                    ? `No completed trips found on ${aggData.date}`
-                    : "No completed trips in the database yet"
-                  }</p>
-                </div>
-              ) : (<>
-
-                {/* KPI row */}
-                <div className="agg-kpi-strip">
-                  {[
-                    { label: "Trips",           value: aggData.total_trips,                   color: "#1565c0" },
-                    { label: "GPS Logs",        value: aggData.total_logs?.toLocaleString(),  color: "#42a5f5" },
-                    { label: "Avg Load Factor", value: `${aggData.avg_load_factor_pct}%`,     color: aggData.avg_load_factor_pct > 100 ? "#c62828" : "#2e7d32" },
-                    { label: "Worst Period",    value: aggData.peak_critical_period || "—",   color: "#ef6c00" },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} className="agg-kpi-card">
-                      <div className="agg-kpi-value" style={{ color }}>{value}</div>
-                      <div className="agg-kpi-label">{label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Charts row */}
-                <div className="agg-charts-row">
-
-                  {/* Time distribution */}
-                  <div className="agg-chart-card">
-                    <div className="agg-chart-title">
-                      Time Period Distribution
-                      <span className="agg-chart-subtitle">GPS logs by operational period</span>
-                    </div>
-                    {(() => {
-                      const d = aggData.time_distribution || {};
-                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
-                      const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
-                      return Object.entries(d).map(([period, count]) => (
-                        <div key={period} className="agg-bar-row">
-                          <span className="agg-bar-label">{period}</span>
-                          <div className="agg-bar-track">
-                            <div className="agg-bar-fill" style={{ width: `${(count / total) * 100}%`, background: COLOR[period] }} />
-                          </div>
-                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
-                          <span className="agg-bar-count">({count.toLocaleString()})</span>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-
-                  {/* Demand distribution */}
-                  <div className="agg-chart-card">
-                    <div className="agg-chart-title">
-                      Demand Intensity Distribution
-                      <span className="agg-chart-subtitle">Normal / Moderate / High / Critical</span>
-                    </div>
-                    {(() => {
-                      const d = aggData.demand_distribution || {};
-                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
-                      const COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
-                      return Object.entries(d).map(([tier, count]) => (
-                        <div key={tier} className="agg-bar-row">
-                          <span className="agg-bar-label">{tier}</span>
-                          <div className="agg-bar-track">
-                            <div className="agg-bar-fill" style={{ width: `${(count / total) * 100}%`, background: COLOR[tier] }} />
-                          </div>
-                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
-                          <span className="agg-bar-count">({count.toLocaleString()})</span>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </div>
-
-                {/* Critical by period */}
-                <div className="agg-chart-card">
-                  <div className="agg-chart-title">
-                    Critical-Tier Logs by Time Period
-                    <span className="agg-chart-subtitle">which period had the most over-capacity moments</span>
-                  </div>
-                  {(() => {
-                    const d = aggData.critical_by_period || {};
-                    const max = Math.max(...Object.values(d), 1);
-                    const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
-                    return Object.entries(d).map(([period, count]) => (
-                      <div key={period} className="agg-bar-row">
-                        <span className="agg-bar-label">
-                          {period}
-                          {period === aggData.peak_critical_period && (
-                            <span className="agg-peak-badge">WORST</span>
-                          )}
-                        </span>
-                        <div className="agg-bar-track">
-                          <div className="agg-bar-fill" style={{
-                            width: `${(count / max) * 100}%`,
-                            background: period === aggData.peak_critical_period ? "#c62828" : COLOR[period],
-                          }} />
-                        </div>
-                        <span className="agg-bar-count">{count.toLocaleString()} critical logs</span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-
-                {/* Per-trip table */}
-                <div className="agg-chart-card">
-                  <div className="agg-chart-title">
-                    Per-Trip Breakdown
-                    <span className="agg-chart-subtitle">{aggData.trip_summaries?.length} trips</span>
-                  </div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                      <thead>
-                        <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-                          {["Trip ID", "Jeep", "Direction", "Date", "Logs", "Avg LF", "Max Occ", "Cap", "Dom. Tier", "Peak Period"].map(h => (
-                            <th key={h} style={{ textAlign: "left", padding: "6px 10px", color: "#8e9ab0", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(aggData.trip_summaries || []).map((t, i) => {
-                          const TIER_COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
-                          return (
-                            <tr key={t.trip_id} style={{ borderBottom: "1px solid #f3f4f6", background: i % 2 ? "#fafafa" : "#fff" }}>
-                              <td style={{ padding: "6px 10px", fontFamily: "monospace", fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
-                              <td style={{ padding: "6px 10px", fontWeight: 700, fontFamily: "monospace" }}>{t.jeep_code}</td>
-                              <td style={{ padding: "6px 10px", fontSize: 11 }}>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</td>
-                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.date}</td>
-                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.log_count}</td>
-                              <td style={{ padding: "6px 10px", fontFamily: "monospace", fontWeight: 700, color: t.avg_lf_pct > 100 ? "#c62828" : "#2e7d32" }}>{t.avg_lf_pct}%</td>
-                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.max_occupancy}</td>
-                              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{t.capacity}</td>
-                              <td style={{ padding: "6px 10px" }}>
-                                <span style={{ padding: "2px 8px", borderRadius: 6, background: (TIER_COLOR[t.dominant_tier] || "#888") + "22", color: TIER_COLOR[t.dominant_tier] || "#888", fontSize: 11, fontWeight: 700 }}>
-                                  {t.dominant_tier}
-                                </span>
-                              </td>
-                              <td style={{ padding: "6px 10px", fontSize: 11 }}>{t.dominant_period}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-              </>)}
+          {/* Empty result — no trips found for this day */}
+          {aggData?.empty && !aggLoading && (
+            <div className="ae-empty">
+              <span className="ae-empty-icon">📭</span>
+              <p>
+                {aggData.mode === "day"
+                  ? `No completed trips found on ${aggData.date}`
+                  : "No completed trips in the database yet"}
+              </p>
             </div>
           )}
 

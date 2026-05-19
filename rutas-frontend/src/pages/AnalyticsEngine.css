@@ -1015,3 +1015,38 @@
   font-size: 20px;
   font-weight: 800;
 }
+
+/* ── Merged mode info banner ──────────────────────────────────── */
+.ae-merged-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, rgba(21,101,192,0.10), rgba(0,172,193,0.08));
+  border: 1.5px solid rgba(21,101,192,0.20);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  animation: card-in 0.3s ease both;
+}
+
+.ae-merged-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.ae-merged-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ae-merged-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a2744;
+}
+
+.ae-merged-text span {
+  font-size: 12px;
+  color: #6b7280;
+}
