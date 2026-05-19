@@ -357,23 +357,20 @@ function Recording() {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
 
-      // Capture BEFORE any async calls — ref survives but want a stable snapshot
+      // Capture stable references BEFORE any async calls
       const finalLogsSent = logsSentRef.current;
+      const tripSnapshot   = { ...activeTrip }; // snapshot in case localStorage is cleared
 
       addDebug("Trip ending — final flush...");
       await flushQueue();
       clearQueue();
 
-      // Retry-on-reconnect: end-trip is critical for keeping the DB in sync
-      // with the conductor's view. Try up to 3 times with backoff before
-      // giving up. Local state is updated regardless so the conductor can
-      // still proceed to the Trip Summary.
       let endTripSucceeded = false;
       const RETRY_DELAYS_MS = [0, 2000, 5000];
       for (const delay of RETRY_DELAYS_MS) {
         if (delay > 0) await new Promise(r => setTimeout(r, delay));
         try {
-          await endTripAPI(activeTrip.tripId);
+          await endTripAPI(tripSnapshot.tripId);
           endTripSucceeded = true;
           addDebug("End-trip confirmed by backend.");
           break;
@@ -392,7 +389,13 @@ function Recording() {
         finalOccupancy: occupancy,
         logsSent: finalLogsSent,
         queueRemaining: 0,
-      });
+      }) || {
+        // Fallback if localStorage was already cleared
+        ...tripSnapshot,
+        finalOccupancy: occupancy,
+        logsSent: finalLogsSent,
+        endedAt: Date.now(),
+      };
 
       navigate("/summary", {
         replace: true,
