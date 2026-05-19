@@ -351,6 +351,117 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
 # An admin can call this endpoint to auto-end trips older than the
 # threshold so the dashboard stays accurate.
 
+@app.get("/admin/aggregate", tags=["Admin"])
+def get_aggregate_dashboard(db: Session = Depends(get_db)):
+    """
+    Aggregate analytics across ALL completed trips.
+    Returns:
+      - average load factor per trip, then grand average
+      - GPS log count per time period across all trips
+      - demand intensity tier distribution across all trips
+      - which time period had the most Critical-tier logs
+      - per-trip summary rows for the breakdown table
+    """
+    from datetime import timedelta
+    from app.analytics.algorithms import categorise_time, classify_demand
+
+    PHT_OFFSET = timedelta(hours=8)
+
+    # Only aggregate COMPLETED trips that have GPS logs
+    trips = (
+        db.query(Trip)
+        .filter(Trip.status == TripStatusEnum.COMPLETED)
+        .order_by(Trip.start_time.desc())
+        .all()
+    )
+
+    if not trips:
+        return {
+            "total_trips":         0,
+            "total_logs":          0,
+            "avg_load_factor_pct": 0,
+            "time_distribution":   {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0},
+            "demand_distribution": {"Normal": 0, "Moderate": 0, "High": 0, "Critical": 0},
+            "peak_critical_period": None,
+            "trip_summaries":       [],
+        }
+
+    # Aggregate across all trips
+    time_dist    = {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0}
+    demand_dist  = {"Normal": 0, "Moderate": 0, "High": 0, "Critical": 0}
+    critical_by_period = {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0}
+
+    all_lf_values = []
+    trip_summaries = []
+
+    for trip in trips:
+        logs = (
+            db.query(GPSLog)
+            .filter(GPSLog.trip_id == trip.trip_id)
+            .all()
+        )
+        if not logs:
+            continue
+
+        cap = trip.official_capacity or 26
+        trip_lf_values = []
+        trip_demand = {"Normal": 0, "Moderate": 0, "High": 0, "Critical": 0}
+        trip_time   = {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0}
+
+        for log in logs:
+            # Load factor
+            lf = log.occupancy_count / cap
+            trip_lf_values.append(lf)
+            all_lf_values.append(lf)
+
+            # Time period
+            if log.timestamp:
+                period = categorise_time(log.timestamp)
+                time_dist[period]   = time_dist.get(period, 0) + 1
+                trip_time[period]   = trip_time.get(period, 0) + 1
+
+                # Demand tier
+                tier = classify_demand(log.occupancy_count, cap)
+                demand_dist[tier]  = demand_dist.get(tier, 0) + 1
+                trip_demand[tier]  = trip_demand.get(tier, 0) + 1
+
+                # Critical by period
+                if tier == "Critical":
+                    critical_by_period[period] = critical_by_period.get(period, 0) + 1
+
+        avg_lf = sum(trip_lf_values) / len(trip_lf_values) if trip_lf_values else 0
+        max_occ = max((l.occupancy_count for l in logs), default=0)
+        dominant_tier = max(trip_demand, key=trip_demand.get)
+        dominant_period = max(trip_time, key=trip_time.get)
+
+        trip_summaries.append({
+            "trip_id":          trip.trip_id,
+            "jeep_code":        trip.jeep_code,
+            "direction":        trip.direction,
+            "date":             trip.start_time.strftime("%Y-%m-%d") if trip.start_time else "—",
+            "log_count":        len(logs),
+            "avg_lf_pct":       round(avg_lf * 100, 1),
+            "max_occupancy":    max_occ,
+            "capacity":         cap,
+            "dominant_tier":    dominant_tier,
+            "dominant_period":  dominant_period,
+        })
+
+    grand_avg_lf = sum(all_lf_values) / len(all_lf_values) if all_lf_values else 0
+    peak_critical = max(critical_by_period, key=critical_by_period.get) if any(critical_by_period.values()) else None
+
+    return {
+        "total_trips":          len(trip_summaries),
+        "total_logs":           sum(t["log_count"] for t in trip_summaries),
+        "avg_load_factor_pct":  round(grand_avg_lf * 100, 1),
+        "time_distribution":    time_dist,
+        "demand_distribution":  demand_dist,
+        "critical_by_period":   critical_by_period,
+        "peak_critical_period": peak_critical,
+        "trip_summaries":       trip_summaries,
+    }
+
+
 @app.post("/admin/clean-stale-trips", tags=["Admin"])
 def clean_stale_trips(hours: int = 8, db: Session = Depends(get_db)):
     """

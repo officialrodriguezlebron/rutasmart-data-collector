@@ -36,7 +36,8 @@ export const getRawLogs       = (tripId, quality = "all") =>
 
 // ── Admin ──────────────────────────────────────────────────────────────────
 export const getAdminTrips = () => API.get("/admin/trips");
-export const getAdminStats = () => API.get("/admin/stats");
+export const getAdminStats        = () => API.get("/admin/stats");
+export const getAggregateDashboard = () => API.get("/admin/aggregate");
 export const deleteTrip    = (tripId) => API.delete(`/admin/trip/${tripId}`);
 export const importTripCSV = (file) => {
   const fd = new FormData();

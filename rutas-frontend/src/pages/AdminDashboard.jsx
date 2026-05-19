@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   getAdminStats, getAdminTrips, deleteTrip,
   importTripCSV, createUser, getConductors,
+  getAggregateDashboard,
 } from "../services/api";
 import { authService } from "../services/authService";
 import TripMap from "./TripMap";
@@ -15,6 +16,8 @@ export default function AdminDashboard() {
   const [stats,      setStats]      = useState(null);
   const [trips,      setTrips]      = useState([]);
   const [conductors, setConductors] = useState([]);
+  const [aggregate,  setAggregate]  = useState(null);
+  const [aggLoading, setAggLoading] = useState(false);
   const [loading,    setLoading]    = useState(true);
   const [tab,        setTab]        = useState("overview");
 
@@ -35,6 +38,16 @@ export default function AdminDashboard() {
     if (!authService.isAdmin()) { navigate("/login", { replace: true }); return; }
     fetchData();
   }, []);
+
+  // Lazy-load aggregate data only when the tab is opened
+  useEffect(() => {
+    if (tab !== "aggregate" || aggregate) return;
+    setAggLoading(true);
+    getAggregateDashboard()
+      .then(r => setAggregate(r.data))
+      .catch(e => console.error("Aggregate load failed:", e))
+      .finally(() => setAggLoading(false));
+  }, [tab]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -105,6 +118,7 @@ export default function AdminDashboard() {
     { key: "overview",   label: "Overview"   },
     { key: "trips",      label: "Trips"      },
     { key: "conductors", label: "Conductors" },
+    { key: "aggregate",  label: "All Trips ✦" },
     { key: "analytics",  label: "Analytics"  },
   ];
 
@@ -149,6 +163,7 @@ export default function AdminDashboard() {
               {tab === "overview"   && "Overview"}
               {tab === "trips"      && "Trips"}
               {tab === "conductors" && "Conductors"}
+              {tab === "aggregate"  && "All Trips"}
             </h1>
             <button className="admin-refresh" onClick={fetchData}>↺ Refresh</button>
           </div>
@@ -395,6 +410,196 @@ export default function AdminDashboard() {
               </div>
             </div>
           </>)}
+
+          {/* ── ALL TRIPS AGGREGATE TAB ──────────────────────────── */}
+          {tab === "aggregate" && (
+            <div className="agg-container">
+              <div className="agg-header">
+                <h2 className="agg-title">All Trips — Aggregate Summary</h2>
+                <button
+                  className="agg-refresh-btn"
+                  onClick={() => {
+                    setAggregate(null);
+                    setAggLoading(true);
+                    getAggregateDashboard()
+                      .then(r => setAggregate(r.data))
+                      .catch(e => console.error(e))
+                      .finally(() => setAggLoading(false));
+                  }}
+                >↻ Refresh</button>
+              </div>
+
+              {aggLoading && (
+                <div className="agg-loading">
+                  <div className="tripmap-spinner" />
+                  <p>Computing aggregate data across all trips…</p>
+                </div>
+              )}
+
+              {aggregate && !aggLoading && (<>
+
+                {/* ── KPI strip ─────────────────────────────────── */}
+                <div className="agg-kpi-strip">
+                  {[
+                    { label: "Trips Analyzed",     value: aggregate.total_trips,           color: "#1565c0" },
+                    { label: "Total GPS Logs",      value: aggregate.total_logs.toLocaleString(), color: "#42a5f5" },
+                    { label: "Avg Load Factor",     value: `${aggregate.avg_load_factor_pct}%`,   color: aggregate.avg_load_factor_pct > 100 ? "#c62828" : "#2e7d32" },
+                    { label: "Peak Critical Period", value: aggregate.peak_critical_period || "—", color: "#ef6c00" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="agg-kpi-card">
+                      <div className="agg-kpi-value" style={{ color }}>{value}</div>
+                      <div className="agg-kpi-label">{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Two-column charts ─────────────────────────── */}
+                <div className="agg-charts-row">
+
+                  {/* Time period distribution */}
+                  <div className="agg-chart-card">
+                    <div className="agg-chart-title">
+                      Time Period Distribution
+                      <span className="agg-chart-subtitle">GPS logs across all trips</span>
+                    </div>
+                    {(() => {
+                      const d = aggregate.time_distribution;
+                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
+                      const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
+                      return Object.entries(d).map(([period, count]) => (
+                        <div key={period} className="agg-bar-row">
+                          <span className="agg-bar-label">{period}</span>
+                          <div className="agg-bar-track">
+                            <div
+                              className="agg-bar-fill"
+                              style={{ width: `${(count / total) * 100}%`, background: COLOR[period] }}
+                            />
+                          </div>
+                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
+                          <span className="agg-bar-count">({count.toLocaleString()})</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Demand intensity distribution */}
+                  <div className="agg-chart-card">
+                    <div className="agg-chart-title">
+                      Demand Intensity Distribution
+                      <span className="agg-chart-subtitle">across all GPS log records</span>
+                    </div>
+                    {(() => {
+                      const d = aggregate.demand_distribution;
+                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
+                      const COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
+                      return Object.entries(d).map(([tier, count]) => (
+                        <div key={tier} className="agg-bar-row">
+                          <span className="agg-bar-label">{tier}</span>
+                          <div className="agg-bar-track">
+                            <div
+                              className="agg-bar-fill"
+                              style={{ width: `${(count / total) * 100}%`, background: COLOR[tier] }}
+                            />
+                          </div>
+                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
+                          <span className="agg-bar-count">({count.toLocaleString()})</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                </div>
+
+                {/* ── Critical demand by period ──────────────────── */}
+                <div className="agg-chart-card" style={{ marginBottom: 20 }}>
+                  <div className="agg-chart-title">
+                    Critical Demand Logs by Time Period
+                    <span className="agg-chart-subtitle">which period has the most overcrowded moments</span>
+                  </div>
+                  {(() => {
+                    const d = aggregate.critical_by_period;
+                    const max = Math.max(...Object.values(d), 1);
+                    const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
+                    return Object.entries(d).map(([period, count]) => (
+                      <div key={period} className="agg-bar-row">
+                        <span className="agg-bar-label">
+                          {period}
+                          {period === aggregate.peak_critical_period && (
+                            <span className="agg-peak-badge">WORST</span>
+                          )}
+                        </span>
+                        <div className="agg-bar-track">
+                          <div
+                            className="agg-bar-fill"
+                            style={{
+                              width: `${(count / max) * 100}%`,
+                              background: period === aggregate.peak_critical_period ? "#c62828" : COLOR[period],
+                            }}
+                          />
+                        </div>
+                        <span className="agg-bar-count">{count.toLocaleString()} critical logs</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+
+                {/* ── Per-trip breakdown table ───────────────────── */}
+                <div className="agg-chart-card">
+                  <div className="agg-chart-title">
+                    Per-Trip Breakdown
+                    <span className="agg-chart-subtitle">{aggregate.trip_summaries.length} completed trips</span>
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="admin-table" style={{ fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th>Trip ID</th>
+                          <th>Jeep</th>
+                          <th>Direction</th>
+                          <th>Date</th>
+                          <th>Logs</th>
+                          <th>Avg LF</th>
+                          <th>Max Occ</th>
+                          <th>Cap</th>
+                          <th>Dominant Tier</th>
+                          <th>Peak Period</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {aggregate.trip_summaries.map(t => {
+                          const TIER_COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
+                          return (
+                            <tr key={t.trip_id}>
+                              <td className="admin-mono" style={{ fontSize: 10, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
+                              <td className="admin-mono" style={{ fontWeight: 700 }}>{t.jeep_code}</td>
+                              <td style={{ fontSize: 11 }}>{t.direction === "MALANDAY-RECTO" ? "→ Recto" : "← Malanday"}</td>
+                              <td className="admin-mono">{t.date}</td>
+                              <td className="admin-mono">{t.log_count}</td>
+                              <td className="admin-mono" style={{ color: t.avg_lf_pct > 100 ? "#c62828" : "#2e7d32", fontWeight: 700 }}>{t.avg_lf_pct}%</td>
+                              <td className="admin-mono">{t.max_occupancy}</td>
+                              <td className="admin-mono">{t.capacity}</td>
+                              <td>
+                                <span className="admin-status-badge" style={{ background: TIER_COLOR[t.dominant_tier] + "22", color: TIER_COLOR[t.dominant_tier] }}>
+                                  {t.dominant_tier}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: 11 }}>{t.dominant_period}</td>
+                            </tr>
+                          );
+                        })}
+                        {aggregate.trip_summaries.length === 0 && (
+                          <tr><td colSpan={10} style={{ textAlign: "center", padding: 32, color: "#8e9ab0" }}>
+                            No completed trips found.
+                          </td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </>)}
+            </div>
+          )}
 
         </main>
       </div>

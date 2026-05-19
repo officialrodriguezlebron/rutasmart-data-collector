@@ -622,3 +622,184 @@
   .admin-topbar h1 { font-size: 20px; }
   .admin-form-row { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Aggregate Dashboard Tab
+═══════════════════════════════════════════════════════════════ */
+
+.agg-container {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.agg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agg-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.agg-refresh-btn {
+  padding: 7px 16px;
+  border: 1.5px solid #1565c0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1565c0;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.agg-refresh-btn:hover {
+  background: #1565c0;
+  color: #fff;
+}
+
+.agg-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  color: #8e9ab0;
+  font-size: 14px;
+}
+
+/* KPI strip */
+.agg-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.agg-kpi-card {
+  background: white;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.agg-kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  font-family: "DM Mono", monospace;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.agg-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #8e9ab0;
+}
+
+/* Two-column chart layout */
+.agg-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .agg-charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agg-chart-card {
+  background: white;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.agg-chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agg-chart-subtitle {
+  font-size: 11px;
+  font-weight: 400;
+  color: #8e9ab0;
+}
+
+/* Bar chart rows */
+.agg-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.agg-bar-label {
+  width: 130px;
+  flex-shrink: 0;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agg-bar-track {
+  flex: 1;
+  height: 10px;
+  background: #f3f4f6;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.agg-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
+.agg-bar-pct {
+  width: 44px;
+  text-align: right;
+  font-weight: 700;
+  font-family: monospace;
+  color: #374151;
+  flex-shrink: 0;
+}
+
+.agg-bar-count {
+  color: #8e9ab0;
+  font-size: 11px;
+  flex-shrink: 0;
+  min-width: 70px;
+}
+
+.agg-peak-badge {
+  background: #c62828;
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
