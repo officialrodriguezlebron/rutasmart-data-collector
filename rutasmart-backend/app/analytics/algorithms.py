@@ -46,44 +46,11 @@ def haversine_distance(lat1: float, lon1: float,
     return EARTH_RADIUS_M * 2 * math.asin(math.sqrt(a))
 
 
-"""
-RutaSmart Analytics — Four-Feature Model
-=========================================
-Implements the four algorithms described in the thesis:
-
-  1. Haversine distance      — great-circle distance between GPS coordinates
-  2. DBSCAN stop detection   — density-based clustering of GPS logs
-  3. Load factor computation — occupancy / capacity utilisation
-  4. Time categorisation     — Morning Peak / Midday / Afternoon Peak / Off-Peak
-
-Enhanced Pipeline Additions (Chapter 3 revision):
-  5. Kalman Filter           — GPS trace smoothing before DBSCAN (Stage 3.5)
-  6. W-DBSCAN                — Weighted DBSCAN using occupancy as density weight
-
-POOR log filtering
-------------------
-GPS logs flagged POOR (accuracy > 50m) are excluded from DBSCAN input.
-The positional error of a POOR log exceeds epsilon (50m), meaning the log
-could spatially belong to any neighbouring cluster — including wrong ones.
-Filtering them removes noise without discarding useful occupancy data;
-the occupancy_count is still valid even when the GPS fix is unreliable.
-
-Design note: POOR logs ARE included in load factor and time categorisation
-because those metrics depend on occupancy and timestamp, not position.
-"""
-
-import math
-import numpy as np
-from datetime import datetime
-from typing import List, Optional
-from dataclasses import dataclass, field
-
-
-# ── 1. Haversine Distance ─────────────────────────────────────────────────────
-
-EARTH_RADIUS_M = 6_371_000  # metres
-
-
+# ── 2. Kalman Filter pre-smoothing (Stage 3.5 of pipeline) ────────────────────
+#
+# Enhanced Pipeline addition (Chapter 3 revision):
+#   - Kalman Filter        — GPS trace smoothing before DBSCAN
+#   - W-DBSCAN             — Weighted DBSCAN using occupancy as density weight
 
 def kalman_smooth(points: "List[GPSPoint]") -> "List[GPSPoint]":
     """
