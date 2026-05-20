@@ -274,17 +274,41 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
     jeep_code = first.get("jeep_code", "IMPORT")
     capacity  = int(first.get("official_capacity", 25))
 
+    # ── Derive start/end times from CSV rows ───────────────────────────────
+    # The import previously used utcnow() for both, meaning all imported trips
+    # appeared to start "now" regardless of the CSV timestamps. This broke:
+    #   - By Day filtering (PHT date wrong)
+    #   - Time period categorisation (Morning Peak vs Off-Peak)
+    #   - Timeline analytics
+    def _parse_ts(val: str):
+        if not val or val in ("None", "null", ""):
+            return None
+        try:
+            return datetime.fromisoformat(val.replace("Z", ""))
+        except Exception:
+            return None
+
+    ts_first = _parse_ts(first.get("timestamp") or first.get("gps_timestamp"))
+    ts_last  = _parse_ts(rows[-1].get("timestamp") or rows[-1].get("gps_timestamp"))
+    trip_start = ts_first or datetime.utcnow()
+    trip_end   = ts_last  or datetime.utcnow()
+
+    # Clamp starting_occupancy to official_capacity so the DB constraint
+    # (starting_occupancy <= official_capacity) never fires on overcrowded trips.
+    raw_start_occ = int(first.get("occupancy_count", 0))
+    safe_start_occ = min(raw_start_occ, capacity)
+
     new_trip = Trip(
         trip_id=trip_id,
         route_id=first.get("route_id", "MR-001"),
-        direction=first.get("direction", "Malanday-Recto"),
+        direction=first.get("direction", "MALANDAY-RECTO"),
         recorder_id=first.get("device_id", "IMPORTED"),
         jeep_code=jeep_code,
         official_capacity=capacity,
-        starting_occupancy=int(first.get("occupancy_count", 0)),
+        starting_occupancy=safe_start_occ,
         status=TripStatusEnum.COMPLETED,
-        start_time=datetime.utcnow(),
-        end_time=datetime.utcnow(),
+        start_time=trip_start,
+        end_time=trip_end,
         created_at=datetime.utcnow(),
     )
     db.add(new_trip)
@@ -303,8 +327,24 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
             skipped += 1
             continue
 
-        # Classify quality from accuracy
-        if acc <= 20:
+        # ── Coordinate range sanity (WGS-84) ───────────────────────────────
+        # Reject impossible coordinates and non-positive accuracy that the
+        # table-level CheckConstraint would otherwise convert into an opaque
+        # IntegrityError on commit.
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0) or acc <= 0 or occ < 0:
+            skipped += 1
+            continue
+
+        # ── GPS quality classify — same logic as POST /log/ ────────────────
+        # Out-of-corridor logs are forced to POOR so they are excluded from
+        # DBSCAN spatial clustering on imported data, matching live behaviour.
+        LAT_MIN, LAT_MAX =  14.55,  14.75
+        LON_MIN, LON_MAX = 120.95, 121.05
+        out_of_corridor = not (LAT_MIN <= lat <= LAT_MAX and LON_MIN <= lon <= LON_MAX)
+
+        if out_of_corridor:
+            quality = GPSQualityEnum.POOR
+        elif acc <= 20:
             quality = GPSQualityEnum.GOOD
         elif acc <= 50:
             quality = GPSQualityEnum.ACCEPTABLE

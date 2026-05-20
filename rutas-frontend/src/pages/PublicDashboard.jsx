@@ -112,7 +112,14 @@ export default function PublicDashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const total     = data?.active_count || 0;
+  // total reflects what's visually shown — after stale-trip filtering — so the
+  // "All" pill count matches the number of cards rendered below. Using the
+  // backend's raw active_count would double-count stale trips that are hidden.
+  const total     = (data?.jeepneys || []).filter(j => {
+    if (!j.last_updated) return false;
+    const ageMs = Date.now() - new Date(j.last_updated + (j.last_updated.endsWith("Z") ? "" : "Z")).getTime();
+    return ageMs < 2 * 60 * 60 * 1000;
+  }).length;
   const jeepneys  = (data?.jeepneys || []).filter(j => {
     // Hide stale trips — if last GPS update was more than 2 hours ago,
     // the conductor almost certainly forgot to end the trip.

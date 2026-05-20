@@ -378,6 +378,20 @@ function Recording() {
           addDebug("End-trip confirmed by backend.");
           break;
         } catch (err) {
+          const status = err?.response?.status;
+          // Retry only on network errors (no response) or 5xx server errors.
+          // 4xx (404 trip not found, 409 already completed, 422 validation)
+          // are not transient — retrying just delays the user. We treat
+          // 404/409 as "trip is already ended on the server" → success.
+          if (status === 404 || status === 409) {
+            endTripSucceeded = true;
+            addDebug(`End-trip returned ${status} — treating as already ended.`);
+            break;
+          }
+          if (status && status < 500) {
+            addDebug(`End-trip failed with ${status} — not retrying.`);
+            break;
+          }
           addDebug(`End-trip retry failed: ${err.message || "network error"}`);
         }
       }

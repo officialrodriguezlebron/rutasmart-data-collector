@@ -7,9 +7,9 @@ Implements the ML evaluation metrics required by the professor's revision:
                                  inter-cluster separation (-1 to +1, higher = better)
   2. Davies-Bouldin Index     — ratio of within-cluster scatter to
                                  between-cluster separation (lower = better)
-  3. Ground Truth Comparison  — matches detected clusters against the 23
-                                 manually recorded major stops along
-                                 Malanday-Recto using MAE on centroid offset
+  3. Ground Truth Comparison  — matches detected clusters against the 70
+                                 field-verified stops along the
+                                 Malanday-Recto corridor using MAE on centroid offset
   4. Detection Confusion Matrix — TP/FP/FN counts at configurable match
                                   threshold (default 100m)
 
@@ -18,8 +18,9 @@ Why these metrics for DBSCAN on GPS data
 Silhouette and Davies-Bouldin are standard unsupervised clustering metrics
 used when no ground truth exists (e.g., exploratory field data). The ground
 truth comparison (MAE + confusion matrix) is used when a reference set is
-available — in our case, the 78 officially geocoded stops from LTFRB/MMDA
-records. Together they answer two distinct questions:
+available — in our case, the 70 field-verified stops along the Malanday-Recto
+corridor, cross-referenced with LTFRB franchise documents. Together they
+answer two distinct questions:
 
   • Are the clusters internally valid? (Silhouette / Davies-Bouldin)
   • Do the clusters correspond to real stops? (MAE / confusion matrix)
@@ -40,7 +41,7 @@ from typing import List, Tuple, Optional
 
 EARTH_RADIUS_M = 6_371_000
 
-# ── 23 manually recorded major stops along Malanday-Recto ────────────────────
+# ── 70 field-verified stops along Malanday-Recto ──────────────────────────────
 # Source: Field-verified stop coordinates cross-referenced with official LTFRB
 # franchise route documents for the Malanday–Recto corridor (70 stops)
 GROUND_TRUTH_STOPS: List[Tuple[str, float, float]] = [

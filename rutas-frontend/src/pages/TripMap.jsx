@@ -293,6 +293,11 @@ export default function TripMap({ tripId, onClose }) {
     setLoading(true); setError(null); setClusterErr(null);
     setClusters([]); setStats(null);
 
+    // Track which phase failed without depending on the `logs` state, which
+    // would be a stale closure value (setLogs above is async and the catch
+    // handler still sees whatever logs was when the effect first ran).
+    let phase = "logs";
+
     // Phase 1 — load raw GPS logs first. This is fast and always works.
     // The map renders as soon as logs arrive, even if analytics is still running.
     getRawLogs(tripId, qualFilter)
@@ -325,6 +330,7 @@ export default function TripMap({ tripId, onClose }) {
         });
 
         setLoading(false); // map is ready — show it now
+        phase = "analytics"; // any error past this point is analytics, not logs
 
         // Phase 2 — run analytics in the background.
         setAnalyticsLoading(true);
@@ -355,8 +361,7 @@ export default function TripMap({ tripId, onClose }) {
       })
       .catch(e => {
         setAnalyticsLoading(false);
-        const isLogsError = logs.length === 0;
-        if (isLogsError) {
+        if (phase === "logs") {
           setError("Failed to load trip data. Please try again.");
           setLoading(false);
         } else {

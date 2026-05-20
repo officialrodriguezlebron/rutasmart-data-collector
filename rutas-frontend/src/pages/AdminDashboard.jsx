@@ -88,11 +88,14 @@ export default function AdminDashboard() {
     if (selected.size === 0) return;
     if (!window.confirm(`Delete ${selected.size} selected trip(s)?\n\nThis permanently removes all GPS logs for each trip.`)) return;
     setBulkDeleting(true);
-    let deleted = 0; let failed = 0;
-    for (const id of selected) {
-      try { await deleteTrip(id); deleted++; }
-      catch { failed++; }
-    }
+    // Parallelize deletes — sequential await blocked the UI for many seconds
+    // on slow Railway responses. Promise.allSettled keeps the request order
+    // independent and resilient to individual 404s.
+    const results = await Promise.allSettled(
+      Array.from(selected).map(id => deleteTrip(id))
+    );
+    const deleted = results.filter(r => r.status === "fulfilled").length;
+    const failed  = results.length - deleted;
     setSelected(new Set());
     setImportMessage({
       type: failed ? "error" : "success",
