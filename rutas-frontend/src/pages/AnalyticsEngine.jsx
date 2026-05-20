@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService } from "../services/authService";
-// getAggregateDashboard removed — analytics engine fetches directly via fetch()
+import { getAggregateDashboard } from "../services/api";
 import TripMap from "./TripMap";
 import "./AnalyticsEngine.css";
 
@@ -33,46 +33,6 @@ const DEMAND_COLOR = {
   High:     COLORS.high,
   Critical: COLORS.critical,
 };
-
-// ── Centroid shift helper ───────────────────────────────────────────────────
-// DBSCAN cluster IDs are not stable across runs — the same physical stop can
-// emerge with label 3 in the vanilla run and label 7 after Kalman smoothing.
-// Matching by array index (the original approach) compared unrelated clusters
-// and produced meaningless "shift" distances.
-//
-// This helper does nearest-centroid matching with a Haversine-accurate metric:
-// for each cluster in `base`, find the closest cluster in `other` within
-// `maxMatchM` and report that distance. Unmatched bases are returned as null
-// (UI renders them as "—"). Symmetric in spirit — we report shift from the
-// vanilla cluster's perspective, which is what Chapter 4 needs.
-function haversineMetres(lat1, lon1, lat2, lon2) {
-  const R = 6_371_000;
-  const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-            Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.asin(Math.sqrt(a));
-}
-
-function matchCentroidShifts(base, other, maxMatchM = 150) {
-  if (!base?.length || !other?.length) return null;
-  return base.map((b) => {
-    let best = Infinity;
-    let bestCluster = null;
-    for (const o of other) {
-      const d = haversineMetres(
-        b.centroid_lat, b.centroid_lon,
-        o.centroid_lat, o.centroid_lon,
-      );
-      if (d < best) { best = d; bestCluster = o; }
-    }
-    return best <= maxMatchM
-      ? { distance_m: best, matched: bestCluster }
-      : { distance_m: null, matched: null };
-  });
-}
 
 const PERIOD_COLOR = {
   "Morning Peak":   COLORS.morning,
@@ -139,16 +99,8 @@ function AlgorithmComparison({ comparing, compareData, compareError }) {
 
   const { vanilla, kalman, weighted, evalData, shiftKalman, shiftWeighted } = compareData;
 
-  // shiftKalman/shiftWeighted entries: { distance_m, matched } | null
-  // distance_m is null when no other-cluster fell within the 150m match
-  // threshold (i.e. the smoothed/weighted run produced a different stop set).
-  const shiftStats = (arr) => {
-    if (!arr?.length) return { avg: "—", matched: 0, total: 0 };
-    const dists = arr.map((e) => e?.distance_m).filter((d) => d != null);
-    if (!dists.length) return { avg: "—", matched: 0, total: arr.length };
-    const avg = dists.reduce((a, b) => a + b, 0) / dists.length;
-    return { avg: avg.toFixed(2), matched: dists.length, total: arr.length };
-  };
+  const avgShift = (arr) => arr?.length
+    ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2) : "—";
 
   const typeCount = (clusters, type) =>
     clusters?.filter(c => c.cluster_type === type).length ?? 0;
@@ -184,19 +136,16 @@ function AlgorithmComparison({ comparing, compareData, compareError }) {
                   <div style={{ fontSize:10, color:"#aaa", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em" }}>{label}</div>
                 </div>
               ))}
-              {m.shift && (() => {
-                const s = shiftStats(m.shift);
-                return (
-                  <div style={{ gridColumn:"1/-1", background:"#f3e5f5", borderRadius:8, padding:"8px 10px" }}>
-                    <div style={{ fontSize:18, fontWeight:700, color:"#6200ea", fontFamily:"monospace" }}>
-                      {s.avg}{s.avg !== "—" ? "m" : ""}
-                    </div>
-                    <div style={{ fontSize:10, color:"#9c27b0", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em" }}>
-                      Avg centroid shift vs vanilla · {s.matched}/{s.total} matched
-                    </div>
+              {m.shift && (
+                <div style={{ gridColumn:"1/-1", background:"#f3e5f5", borderRadius:8, padding:"8px 10px" }}>
+                  <div style={{ fontSize:18, fontWeight:700, color:"#6200ea", fontFamily:"monospace" }}>
+                    {avgShift(m.shift)}m
                   </div>
-                );
-              })()}
+                  <div style={{ fontSize:10, color:"#9c27b0", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                    Avg Centroid Shift vs Vanilla
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -272,10 +221,8 @@ function AlgorithmComparison({ comparing, compareData, compareError }) {
               </thead>
               <tbody>
                 {vanilla.clusters.map((c,i) => {
-                  const kShift = shiftKalman?.[i];
-                  const wShift = shiftWeighted?.[i];
-                  const kc = kShift?.matched;   // nearest Kalman cluster within 150m, or null
-                  const wc = wShift?.matched;   // nearest W-DBSCAN cluster within 150m, or null
+                  const kc = kalman?.clusters?.[i];
+                  const wc = weighted?.clusters?.[i];
                   const typeColors = {
                     TRUE_STOP:      { bg:"#e8f0fe", color:"#1565c0" },
                     CREEPING_QUEUE: { bg:"#fff3e0", color:"#ef6c00" },
@@ -298,13 +245,13 @@ function AlgorithmComparison({ comparing, compareData, compareError }) {
                         {kc ? `${kc.centroid_lat.toFixed(5)}, ${kc.centroid_lon.toFixed(5)}` : "—"}
                       </td>
                       <td style={{ padding:"10px 14px", fontWeight:700, color:"#2e7d32" }}>
-                        {kShift?.distance_m != null ? kShift.distance_m.toFixed(1)+"m" : "—"}
+                        {shiftKalman?.[i] != null ? shiftKalman[i].toFixed(1)+"m" : "—"}
                       </td>
                       <td style={{ padding:"10px 14px", fontFamily:"monospace", color:"#ef6c00", fontSize:11 }}>
                         {wc ? `${wc.centroid_lat.toFixed(5)}, ${wc.centroid_lon.toFixed(5)}` : "—"}
                       </td>
                       <td style={{ padding:"10px 14px", fontWeight:700, color:"#ef6c00" }}>
-                        {wShift?.distance_m != null ? wShift.distance_m.toFixed(1)+"m" : "—"}
+                        {shiftWeighted?.[i] != null ? shiftWeighted[i].toFixed(1)+"m" : "—"}
                       </td>
                       <td style={{ padding:"10px 14px", fontWeight:700, color:"#1565c0" }}>
                         {c.load_factor_pct?.toFixed(1)}%
@@ -412,10 +359,6 @@ export default function AnalyticsEngine() {
       })
       .catch(() => {}) // silently fail — manual input still works
       .finally(() => setTripsLoading(false));
-    // Intentionally runs once on mount only. tripId is read only to check
-    // if a URL param already pre-selected a trip — adding it to deps would
-    // re-fetch on every keystroke in the trip ID input, which is wasteful.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const runAnalysis = useCallback(async () => {
@@ -478,13 +421,23 @@ export default function AnalyticsEngine() {
         const json = await res.json();
         if (json.detail) throw new Error(json.detail);
 
+        const calcShift = (c1, c2) => {
+          if (!c1?.length || !c2?.length) return null;
+          return c1.map((a, i) => {
+            const b = c2[i]; if (!b) return 0;
+            const dlat = (a.centroid_lat - b.centroid_lat) * 111320;
+            const dlon = (a.centroid_lon - b.centroid_lon) * 111320;
+            return Math.sqrt(dlat * dlat + dlon * dlon);
+          });
+        };
+
         setCompareData({
           vanilla:       json.vanilla,
           kalman:        json.kalman,
           weighted:      json.weighted,
           evalData:      json.evalData,
-          shiftKalman:   matchCentroidShifts(json.vanilla?.clusters, json.kalman?.clusters),
-          shiftWeighted: matchCentroidShifts(json.vanilla?.clusters, json.weighted?.clusters),
+          shiftKalman:   calcShift(json.vanilla?.clusters, json.kalman?.clusters),
+          shiftWeighted: calcShift(json.vanilla?.clusters, json.weighted?.clusters),
         });
         return;
       }
@@ -504,10 +457,20 @@ export default function AnalyticsEngine() {
       ]);
       if (vanilla.detail) throw new Error(vanilla.detail);
 
+      const calcShift = (clusters1, clusters2) => {
+        if (!clusters1?.length || !clusters2?.length) return null;
+        return clusters1.map((c1, i) => {
+          const c2 = clusters2[i]; if (!c2) return 0;
+          const dlat = (c1.centroid_lat - c2.centroid_lat) * 111320;
+          const dlon = (c1.centroid_lon - c2.centroid_lon) * 111320;
+          return Math.sqrt(dlat * dlat + dlon * dlon);
+        });
+      };
+
       setCompareData({
         vanilla, kalman, weighted, evalData,
-        shiftKalman:   matchCentroidShifts(vanilla.clusters, kalman.clusters),
-        shiftWeighted: matchCentroidShifts(vanilla.clusters, weighted.clusters),
+        shiftKalman:   calcShift(vanilla.clusters, kalman.clusters),
+        shiftWeighted: calcShift(vanilla.clusters, weighted.clusters),
       });
     } catch (e) {
       setCompareError(e.message || "Comparison failed.");

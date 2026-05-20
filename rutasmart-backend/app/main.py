@@ -38,7 +38,7 @@ if FRONTEND_URL and FRONTEND_URL not in ALLOWED_ORIGINS:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -277,7 +277,7 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
     new_trip = Trip(
         trip_id=trip_id,
         route_id=first.get("route_id", "MR-001"),
-        direction=first.get("direction", "MALANDAY-RECTO"),
+        direction=first.get("direction", "Malanday-Recto"),
         recorder_id=first.get("device_id", "IMPORTED"),
         jeep_code=jeep_code,
         official_capacity=capacity,
@@ -303,24 +303,8 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
             skipped += 1
             continue
 
-        # ── Coordinate range sanity (WGS-84) ───────────────────────────────
-        # Reject impossible coordinates and non-positive accuracy that the
-        # table-level CheckConstraint would otherwise convert into an opaque
-        # IntegrityError on commit.
-        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0) or acc <= 0 or occ < 0:
-            skipped += 1
-            continue
-
-        # ── GPS quality classify — same logic as POST /log/ ────────────────
-        # Out-of-corridor logs are forced to POOR so they are excluded from
-        # DBSCAN spatial clustering on imported data, matching live behaviour.
-        LAT_MIN, LAT_MAX =  14.55,  14.75
-        LON_MIN, LON_MAX = 120.95, 121.05
-        out_of_corridor = not (LAT_MIN <= lat <= LAT_MAX and LON_MIN <= lon <= LON_MAX)
-
-        if out_of_corridor:
-            quality = GPSQualityEnum.POOR
-        elif acc <= 20:
+        # Classify quality from accuracy
+        if acc <= 20:
             quality = GPSQualityEnum.GOOD
         elif acc <= 50:
             quality = GPSQualityEnum.ACCEPTABLE
