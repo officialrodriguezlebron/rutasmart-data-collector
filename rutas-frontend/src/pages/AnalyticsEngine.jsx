@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService } from "../services/authService";
-import { getAggregateDashboard } from "../services/api";
+// getAggregateDashboard removed — analytics engine fetches directly via fetch()
 import TripMap from "./TripMap";
 import "./AnalyticsEngine.css";
 
@@ -412,6 +412,10 @@ export default function AnalyticsEngine() {
       })
       .catch(() => {}) // silently fail — manual input still works
       .finally(() => setTripsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally runs once on mount only. tripId is read to check if a URL
+    // param pre-selected a trip; adding it to deps would re-fetch on every
+    // keystroke in the trip ID input, which is unnecessary and wasteful.
   }, []);
 
   const runAnalysis = useCallback(async () => {
