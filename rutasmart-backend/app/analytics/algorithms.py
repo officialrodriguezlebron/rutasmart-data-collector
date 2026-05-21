@@ -224,6 +224,19 @@ def run_wdbscan(
                                total_input=total_input,
                                noise_ratio=noise_ratio), "weighted": True}
 
+    # ── Velocity gate (same rationale as run_dbscan) ─────────────────────────
+    # Exclude MOVING points (>1.0 m/s) before clustering to prevent the
+    # density-chaining that collapses dense / merged traces into one cluster.
+    clean_sorted_pre = sorted(clean_logs, key=lambda p: p.timestamp)
+    vel_pre = {
+        p.log_id: v
+        for p, v in zip(clean_sorted_pre, compute_velocities(clean_sorted_pre))
+    }
+    MOVING_THRESHOLD_MS = 1.0
+    gated = [p for p in clean_logs if vel_pre.get(p.log_id, 0.0) <= MOVING_THRESHOLD_MS]
+    if len(gated) >= min_samples:
+        clean_logs = gated
+
     # Determine weight scale from data
     occs = [p.occupancy_count for p in clean_logs]
     median_occ = float(np.median(occs)) if occs else 1.0
@@ -421,6 +434,7 @@ def run_dbscan(
     eps_m: float = 50.0,
     min_samples: int = 5,
     apply_kalman: bool = False,
+    exclude_moving: bool = True,
 ) -> dict:
     """
     Run DBSCAN on a list of GPSPoint records.
@@ -428,6 +442,18 @@ def run_dbscan(
     POOR logs are filtered before clustering but counted so the noise_ratio
     can be reported. POOR logs' occupancy data is preserved in the
     load-factor and demand calculations, which operate on ALL logs.
+
+    Velocity gating (exclude_moving)
+    --------------------------------
+    When exclude_moving is True (default), GPS points with velocity above the
+    MOVING threshold (>1.0 m/s) are excluded from the spatial clustering input.
+    Stops are, by definition, where the jeepney is stationary or creeping — the
+    moving-segment points between stops add no stop information and, on dense
+    or merged multi-trip traces, chain adjacent stops into one giant cluster
+    (the classic DBSCAN density-chaining problem). Gating on velocity isolates
+    the dwell points so DBSCAN can separate genuine stops. Excluded moving
+    points are still counted for occupancy, load-factor, and demand metrics,
+    which depend on passenger count and time, not position.
 
     Parameters
     ----------
@@ -437,6 +463,8 @@ def run_dbscan(
     min_samples       : minimum cluster density (default 5 per blueprint)
     apply_kalman      : if True, apply Kalman Filter smoothing before DBSCAN
                         (Stage 3.5 of pipeline — reduces centroid jitter)
+    exclude_moving    : if True, exclude MOVING (>1.0 m/s) points from the
+                        clustering input to prevent density chaining
     """
     from sklearn.cluster import DBSCAN as SKLearnDBSCAN
 
@@ -467,9 +495,29 @@ def run_dbscan(
         for p, v in zip(clean_logs_sorted, compute_velocities(clean_logs_sorted))
     }
 
+    # ── Velocity gate: exclude MOVING points from clustering input ───────────
+    # Moving-segment points (>1.0 m/s) bridge adjacent stops and chain them
+    # into one cluster on dense / merged traces. We cluster only the dwell
+    # points (stationary + creeping queue). If gating would leave too few
+    # points to cluster (e.g. a very short or fast trip), fall back to using
+    # all clean points so we never return an empty result spuriously.
+    MOVING_THRESHOLD_MS = 1.0
+    moving_excluded = 0
+    cluster_logs = clean_logs
+    if exclude_moving:
+        gated = [p for p in clean_logs
+                 if velocities_map.get(p.log_id, 0.0) <= MOVING_THRESHOLD_MS]
+        moving_excluded = len(clean_logs) - len(gated)
+        if len(gated) >= min_samples:
+            cluster_logs = gated
+        else:
+            # Not enough dwell points — fall back to all clean points
+            cluster_logs = clean_logs
+            moving_excluded = 0
+
     # ── Build coordinate matrix (radians for haversine metric) ───────────────
     coords = np.radians(
-        np.array([[p.latitude, p.longitude] for p in clean_logs])
+        np.array([[p.latitude, p.longitude] for p in cluster_logs])
     )
     eps_radians = eps_m / EARTH_RADIUS_M
 
@@ -491,7 +539,7 @@ def run_dbscan(
 
     for cid in unique_labels:
         mask = labels == cid
-        cluster_pts = [p for p, m in zip(clean_logs, mask) if m]
+        cluster_pts = [p for p, m in zip(cluster_logs, mask) if m]
 
         lats = [p.latitude  for p in cluster_pts]
         lons = [p.longitude for p in cluster_pts]
@@ -528,25 +576,27 @@ def run_dbscan(
         ))
 
     return {
-        "clusters":     clusters,
-        "noise_ratio":  round(noise_ratio, 4),
-        "eps_m":        eps_m,
-        "min_samples":  min_samples,
-        "total_input":  total_input,
-        "dbscan_input": len(clean_logs),
-        "noise_points": dbscan_noise_count,   # spatial noise, not POOR logs
+        "clusters":        clusters,
+        "noise_ratio":     round(noise_ratio, 4),
+        "eps_m":           eps_m,
+        "min_samples":     min_samples,
+        "total_input":     total_input,
+        "dbscan_input":    len(cluster_logs),
+        "noise_points":    dbscan_noise_count,   # spatial noise, not POOR logs
+        "moving_excluded": moving_excluded,      # MOVING points gated out before clustering
     }
 
 
 def _empty_result(eps_m, min_samples, total_input=0, noise_ratio=0.0):
     return {
-        "clusters":     [],
-        "noise_ratio":  noise_ratio,
-        "eps_m":        eps_m,
-        "min_samples":  min_samples,
-        "total_input":  total_input,
-        "dbscan_input": 0,
-        "noise_points": 0,
+        "clusters":        [],
+        "noise_ratio":     noise_ratio,
+        "eps_m":           eps_m,
+        "min_samples":     min_samples,
+        "total_input":     total_input,
+        "dbscan_input":    0,
+        "noise_points":    0,
+        "moving_excluded": 0,
     }
 
 

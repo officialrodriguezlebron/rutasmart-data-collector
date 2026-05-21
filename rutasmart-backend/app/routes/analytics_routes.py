@@ -193,6 +193,7 @@ def run_merged_analytics(
         total_input=dbscan_raw["total_input"],
         dbscan_input=dbscan_raw["dbscan_input"],
         noise_points=dbscan_raw["noise_points"],
+        moving_excluded=dbscan_raw.get("moving_excluded", 0),
     )
 
     overall   = trip_load_factor_summary(all_points, cap)
@@ -645,6 +646,7 @@ def get_dbscan_clusters(
         total_input=result["total_input"],
         dbscan_input=result["dbscan_input"],
         noise_points=result["noise_points"],
+        moving_excluded=result.get("moving_excluded", 0),
     )
 
 

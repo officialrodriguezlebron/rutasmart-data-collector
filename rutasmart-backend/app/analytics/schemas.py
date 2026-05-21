@@ -30,8 +30,9 @@ class DBSCANResult(BaseModel):
     eps_m:        float
     min_samples:  int
     total_input:  int            # logs before POOR filter
-    dbscan_input: int            # logs after POOR filter
+    dbscan_input: int            # logs clustered (after POOR + velocity gate)
     noise_points: int            # DBSCAN spatial noise (not POOR logs)
+    moving_excluded: int = 0     # MOVING points gated out before clustering
 
 
 class PeriodStat(BaseModel):
