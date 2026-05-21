@@ -1468,3 +1468,117 @@
   .ae-kpi-strip-5 { grid-template-columns: repeat(3, 1fr); }
   .ae-two-col, .ae-three-col { grid-template-columns: 1fr; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   ADMIN COMPREHENSION LAYER — help boxes, tooltips, metric hints
+   Added to make analytics readable for non-technical inspectors/planners.
+   Matches the existing glass-card scheme (dark text on light glass cards).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Help box — info banner explaining a section ────────────────────────── */
+.ae-helpbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 11px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+}
+.ae-helpbox-info {
+  background: rgba(33, 150, 243, 0.14);
+  border: 1px solid rgba(33, 150, 243, 0.32);
+}
+.ae-helpbox-warn {
+  background: rgba(255, 167, 38, 0.14);
+  border: 1px solid rgba(255, 167, 38, 0.34);
+}
+.ae-helpbox-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+.ae-helpbox-info .ae-helpbox-icon  { background: rgba(33,150,243,0.30);  color: #0a4a82; }
+.ae-helpbox-warn .ae-helpbox-icon  { background: rgba(255,167,38,0.32);  color: #8a4b00; }
+.ae-helpbox-text {
+  font-size: 12px;
+  color: #2c3a4f;
+  font-weight: 500;
+}
+.ae-helpbox-text strong { font-weight: 800; color: #16202e; }
+
+/* On the dark sidebar, the mode-intro help box needs lighter text */
+.ae-sidebar .ae-helpbox-text       { color: rgba(255,255,255,0.88); }
+.ae-sidebar .ae-helpbox-text strong{ color: #fff; }
+.ae-sidebar .ae-helpbox-info       { background: rgba(33,150,243,0.18); }
+.ae-sidebar .ae-helpbox-info .ae-helpbox-icon { background: rgba(120,180,255,0.30); color: #cfe5ff; }
+
+/* ── Tooltip — hover ? icon ─────────────────────────────────────────────── */
+.ae-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  cursor: help;
+  vertical-align: middle;
+}
+.ae-tip-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(33,150,243,0.18);
+  color: #1565c0;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.ae-tip:hover .ae-tip-icon,
+.ae-tip:focus .ae-tip-icon { background: #1565c0; color: #fff; }
+.ae-tip-bubble {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 150%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 210px;
+  background: rgba(10, 22, 44, 0.97);
+  border: 1px solid rgba(120, 180, 255, 0.4);
+  border-radius: 9px;
+  padding: 9px 11px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.94);
+  line-height: 1.55;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  z-index: 50;
+  transition: opacity 0.15s;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.ae-tip:hover .ae-tip-bubble,
+.ae-tip:focus .ae-tip-bubble { visibility: visible; opacity: 1; }
+
+/* ── Metric hint — plain line under the big number ──────────────────────── */
+.ae-metric-hint {
+  display: block;
+  font-size: 10px;
+  color: #1565c0;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 3px;
+}

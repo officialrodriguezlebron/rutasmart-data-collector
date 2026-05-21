@@ -81,11 +81,38 @@ const PERIOD_COLOR = {
   "Off-Peak":       COLORS.offpeak,
 };
 
-function MetricCard({ label, value, sub, variant }) {
+// ── Tip — hover ? icon with a plain-language explanation ────────────────────
+// Helps non-technical inspectors understand a term without cluttering the UI.
+function Tip({ text }) {
+  return (
+    <span className="ae-tip" tabIndex={0} aria-label={text}>
+      <span className="ae-tip-icon" aria-hidden="true">?</span>
+      <span className="ae-tip-bubble" role="tooltip">{text}</span>
+    </span>
+  );
+}
+
+// ── HelpBox — a glass info banner explaining what a section shows ───────────
+// variant: "info" (blue) or "warn" (amber, for researcher-only sections)
+function HelpBox({ children, variant = "info" }) {
+  return (
+    <div className={`ae-helpbox ae-helpbox-${variant}`}>
+      <span className="ae-helpbox-icon" aria-hidden="true">
+        {variant === "warn" ? "⚠" : "ℹ"}
+      </span>
+      <span className="ae-helpbox-text">{children}</span>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, sub, variant, hint, tip }) {
   return (
     <div className="ae-metric">
-      <span className="ae-metric-label">{label}</span>
+      <span className="ae-metric-label">
+        {label}{tip && <Tip text={tip} />}
+      </span>
       <span className={`ae-metric-value ${variant || ""}`}>{value}</span>
+      {hint && <span className="ae-metric-hint">{hint}</span>}
       {sub && <span className="ae-metric-sub">{sub}</span>}
     </div>
   );
@@ -161,6 +188,14 @@ function AlgorithmComparison({ comparing, compareData, compareError }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+      {/* Researcher-only notice — inspectors can skip this tab */}
+      <HelpBox variant="warn">
+        <strong>Inspectors can skip this tab.</strong> It compares three technical
+        stop-detection methods against the 70 official LTFRB stops — used only for
+        the thesis evaluation. Everything you need for daily operations is in the
+        other tabs.
+      </HelpBox>
 
       {/* Method summary cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:12 }}>
@@ -653,7 +688,18 @@ export default function AnalyticsEngine() {
             </div>
           </div>
 
-          {/* ── Single Trip controls ──────────────────────────── */}
+          {/* ── Mode intro help — plain-language guide for inspectors ── */}
+          <HelpBox>
+            {mode === "single" && (
+              <><strong>Single Trip</strong> — deep-dive one jeepney run: how full it got, where it stopped, and which areas were busiest.</>
+            )}
+            {mode === "day" && (
+              <><strong>By Day</strong> — combines every trip on one date into a single view. Best for daily inspector reports.</>
+            )}
+            {mode === "all" && (
+              <><strong>All Trips</strong> — combines the full recorded history. Best for planning long-term schedules.</>
+            )}
+          </HelpBox>
           {mode === "single" && (
             <div className="ae-card">
               <p className="ae-card-title">Trip Selection</p>
@@ -932,10 +978,10 @@ export default function AnalyticsEngine() {
               {activeTab === "overview" && (
                 <>
                   <div className="ae-metrics">
-                    <MetricCard label="Total logs"     value={q.total_logs}                           sub={`${q.dbscan_eligible} eligible`} />
-                    <MetricCard label="POOR excluded"  value={`${q.poor_pct.toFixed(0)}%`}            sub={`${q.poor_count} logs`}          variant={q.poor_pct > 30 ? "danger" : q.poor_pct > 15 ? "warning" : ""} />
-                    <MetricCard label="Clusters"       value={db.clusters.length}                     sub={`eps=${db.eps_m}m · pts=${db.min_samples}`} variant="info" />
-                    <MetricCard label="Avg load factor" value={`${lf.overall.avg_lf.toFixed(1)}%`}   sub={`max ${lf.overall.max_lf.toFixed(1)}%`} variant={lf.overall.avg_lf >= 100 ? "danger" : lf.overall.avg_lf >= 80 ? "warning" : ""} />
+                    <MetricCard label="GPS pings"      value={q.total_logs}                           sub={`${q.dbscan_eligible} usable for stops`} tip="Number of location readings sent during the trip — one every 2–3 seconds." />
+                    <MetricCard label="Poor signal"    value={`${q.poor_pct.toFixed(0)}%`}            sub={`${q.poor_count} readings`}      variant={q.poor_pct > 30 ? "danger" : q.poor_pct > 15 ? "warning" : ""} tip="Readings that were off by more than 50m. These are excluded from stop detection but still count for passenger numbers." />
+                    <MetricCard label="Stops found"    value={db.clusters.length}                     sub="where people boarded/exited" variant="info" tip="Places where the jeep paused long enough for passengers to board or alight." />
+                    <MetricCard label="How full"       value={`${lf.overall.avg_lf.toFixed(1)}%`}   sub={`peaked at ${lf.overall.max_lf.toFixed(1)}%`} variant={lf.overall.avg_lf >= 100 ? "danger" : lf.overall.avg_lf >= 80 ? "warning" : ""} tip="Load factor — passengers vs the 26-seat limit. 100% = exactly full, above 100% = overcrowded." />
                   </div>
 
                   <div className="ae-card">
