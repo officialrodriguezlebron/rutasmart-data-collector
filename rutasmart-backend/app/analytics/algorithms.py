@@ -391,18 +391,30 @@ class StopCluster:
 def compute_velocities(points: List[GPSPoint]) -> List[float]:
     """
     Compute point-to-point speed (m/s) for a time-ordered list of GPS logs.
+
     Uses Haversine distance / time delta between consecutive logs.
-    Returns a list of the same length as points; first entry is always 0.0.
+
+    Contract
+    --------
+    - Returns a list of EXACTLY the same length as ``points`` (one velocity per
+      point), so callers can zip points and velocities safely.
+    - The first point has no predecessor, so its velocity is 0.0.
+    - Empty input returns an empty list.
+    - Non-positive time deltas (duplicate or out-of-order timestamps) yield 0.0
+      rather than raising, so malformed field data degrades gracefully.
     """
-    velocities = [0.0]
+    if not points:
+        return []
+
+    velocities = [0.0]  # first point has no predecessor
     for i in range(1, len(points)):
-        dt = (points[i].timestamp - points[i-1].timestamp).total_seconds()
+        dt = (points[i].timestamp - points[i - 1].timestamp).total_seconds()
         if dt <= 0:
             velocities.append(0.0)
             continue
         dist = haversine_distance(
-            points[i-1].latitude, points[i-1].longitude,
-            points[i].latitude,   points[i].longitude,
+            points[i - 1].latitude, points[i - 1].longitude,
+            points[i].latitude,     points[i].longitude,
         )
         velocities.append(dist / dt)
     return velocities

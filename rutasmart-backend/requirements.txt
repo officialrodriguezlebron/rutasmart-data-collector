@@ -11,3 +11,7 @@ python-multipart
 bcrypt==4.0.1
 passlib[bcrypt]==1.7.4
 pydantic
+
+# ── Development / testing (not required at runtime) ──────────────────────────
+pytest>=8.0
+pytest-cov>=5.0
