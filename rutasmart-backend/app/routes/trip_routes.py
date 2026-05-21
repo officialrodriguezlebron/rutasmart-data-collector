@@ -4,15 +4,14 @@ from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from datetime import datetime, timezone
-import uuid
-import csv
-import io
+import uuid, csv, io, logging
 
 from app.database import get_db
 from app.models.trip import Trip, TripStatusEnum
 from app.models.gps_log import GPSLog
 from app.schemas.trip_schema import TripStartRequest, TripStartResponse
 
+logger  = logging.getLogger(__name__)
 router  = APIRouter(prefix="/trip", tags=["Trip Management"])
 limiter = Limiter(key_func=get_remote_address)
 
@@ -67,7 +66,8 @@ def start_trip(body: TripStartRequest, request: Request, db: Session = Depends(g
     db.add(new_trip)
     db.commit()
     db.refresh(new_trip)
-
+    logger.info("Trip started | trip=%s jeep=%s dir=%s cap=%d",
+                new_trip.trip_id, body.jeep_code, body.direction, body.official_capacity)
     return TripStartResponse(
         trip_id=new_trip.trip_id,
         start_time=new_trip.start_time
@@ -92,10 +92,9 @@ def end_trip(trip_id: str, request: Request, db: Session = Depends(get_db)):
 
     trip.status   = TripStatusEnum.COMPLETED
     trip.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
-
     db.commit()
     db.refresh(trip)
-
+    logger.info("Trip ended | trip=%s jeep=%s", trip.trip_id, trip.jeep_code)
     return {
         "message": "Trip completed successfully",
         "trip_id": trip.trip_id,

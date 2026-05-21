@@ -564,13 +564,8 @@ export default function AnalyticsEngine() {
       if (mode === "all") {
         tripIds = tripList.filter(t => t.status === "COMPLETED").map(t => t.trip_id);
       } else {
-        // By Day — use already-loaded tripList, filter by PHT date
-        // start_time from backend is "2026-05-19 05:07:00" (space, no Z) stored as UTC
-        console.log("[RutaSmart] By Day filter — selectedDay:", selectedDay);
-        console.log("[RutaSmart] tripList:", tripList.map(t => ({
-          id: t.trip_id, status: t.status, start: t.start_time
-        })));
-
+        // By Day — filter tripList by PHT date.
+        // start_time from backend is "2026-05-19 05:07:00" (space, no Z) stored as UTC.
         tripIds = tripList.filter(t => {
           if (t.status !== "COMPLETED") return false;
           const raw = t.start_time;
@@ -579,15 +574,12 @@ export default function AnalyticsEngine() {
           const utcStr = raw.replace(" ", "T").replace(/(\.\d+)?$/, "Z");
           const d = new Date(utcStr);
           if (isNaN(d.getTime())) {
-            console.warn("[RutaSmart] Could not parse date:", raw);
+            console.warn("[RutaSmart] Could not parse trip start_time:", raw);
             return false;
           }
           const phtDate = new Date(d.getTime() + 8 * 3600000).toISOString().slice(0, 10);
-          console.log("[RutaSmart]", t.trip_id, "→ phtDate:", phtDate, "selectedDay:", selectedDay, "match:", phtDate === selectedDay);
           return phtDate === selectedDay;
         }).map(t => t.trip_id);
-
-        console.log("[RutaSmart] matched tripIds:", tripIds);
       }
 
       if (tripIds.length === 0) {

@@ -3,13 +3,14 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-import uuid
+import uuid, logging
 
 from app.database import get_db
 from app.models.gps_log import GPSLog, GPSQualityEnum
 from app.models.trip import Trip, TripStatusEnum
 from app.schemas.gps_schema import GPSLogCreate, GPSLogResponse
 
+logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/log", tags=["GPS Logs"])
 
@@ -64,6 +65,12 @@ def create_gps_log(request: Request, log: GPSLogCreate, db: Session = Depends(ge
         gps_quality = GPSQualityEnum.POOR
 
     over_capacity = log.occupancy_count > trip.official_capacity
+    if over_capacity:
+        logger.warning("Over capacity | trip=%s occ=%d cap=%d",
+                       log.trip_id, log.occupancy_count, trip.official_capacity)
+    if out_of_corridor:
+        logger.warning("Out-of-corridor GPS | trip=%s lat=%.5f lon=%.5f",
+                       log.trip_id, log.latitude, log.longitude)
 
     log_id = f"{log.trip_id}_{uuid.uuid4().hex[:6]}"
 

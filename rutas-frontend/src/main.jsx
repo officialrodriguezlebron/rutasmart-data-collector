@@ -11,7 +11,7 @@ registerSW({
     }
   },
   onOfflineReady() {
-    console.log("App ready to work offline");
+    // PWA is cached and ready for offline use — no action needed
   }
 });
 

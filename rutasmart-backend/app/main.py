@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Request, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from datetime import datetime
-import os, csv, io, uuid
+import os, csv, io, uuid, logging, time
 
 from app.database import engine, Base, get_db
 from app.models.trip import Trip, TripStatusEnum
@@ -16,6 +17,17 @@ from app.routes.auth_routes import router as auth_router
 from app.routes.trip_routes import router as trip_router
 from app.routes.gps_routes import router as gps_router
 from app.routes.analytics_routes import router as analytics_router
+
+# ── Structured logging ────────────────────────────────────────────────────────
+# Configured at startup so every module that does logging.getLogger(__name__)
+# inherits the same format and level. On Railway, stdout is captured and
+# searchable in the deployment logs panel.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("rutasmart")
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="RutaSmart API", version="1.0.0")
@@ -47,15 +59,40 @@ app.add_middleware(
 API_KEY = os.getenv("RUTASMART_API_KEY", "")
 EXEMPT_PATHS = {"/", "/docs", "/openapi.json", "/redoc"}
 
+# ── Request logging + API key middleware ──────────────────────────────────────
+# Logs every request with method, path, status code, and response time.
+# This gives us full observability on Railway without a separate APM tool.
 @app.middleware("http")
-async def api_key_middleware(request: Request, call_next):
+async def request_logger_and_api_key(request: Request, call_next):
+    start = time.perf_counter()
+    # API key gate
     if API_KEY and request.url.path not in EXEMPT_PATHS:
         client_key = request.headers.get("X-API-Key", "")
         if client_key != API_KEY:
+            logger.warning("Rejected request — invalid API key | path=%s ip=%s",
+                           request.url.path, request.client.host if request.client else "?")
             raise HTTPException(status_code=401, detail="Missing or invalid API key.")
-    return await call_next(request)
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info("%s %s → %d  (%.1fms)",
+                request.method, request.url.path, response.status_code, elapsed_ms)
+    return response
+
+# ── Global exception handler ──────────────────────────────────────────────────
+# Catches any unhandled exception that bubbles out of a route, logs it with
+# full context (path + error message), and returns a clean 500 rather than
+# leaking a raw Python traceback to the client.
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception | path=%s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Check server logs."},
+    )
 
 Base.metadata.create_all(bind=engine)
+
+logger.info("RutaSmart backend starting up — tables verified")
 
 app.include_router(auth_router)
 app.include_router(trip_router)
