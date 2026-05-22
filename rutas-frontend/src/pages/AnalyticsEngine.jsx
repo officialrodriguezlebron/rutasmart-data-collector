@@ -992,6 +992,75 @@ export default function AnalyticsEngine() {
                     )}
                   </div>
 
+                  {/* ── Stop clusters card — wireframe design ─────────────── */}
+                  {db.clusters.length > 0 && (() => {
+                    const TIER_COLOR = {
+                      Normal:   { bg:"#e8f5e9", txt:"#2e7d32", badge:"#2e7d32" },
+                      Moderate: { bg:"#fff8e1", txt:"#f57f17", badge:"#f9a825" },
+                      High:     { bg:"#fff3e0", txt:"#e65100", badge:"#ef6c00" },
+                      Critical: { bg:"#ffebee", txt:"#c62828", badge:"#c62828" },
+                    };
+                    const TYPE_LABEL = {
+                      TRUE_STOP:      "TRUE_STOP",
+                      CREEPING_QUEUE: "CREEPING_QUEUE",
+                      MOVING:         "MOVING",
+                    };
+                    // Sort by load factor descending so busiest stops are first
+                    const sorted = [...db.clusters].sort((a,b) => b.load_factor_pct - a.load_factor_pct);
+                    return (
+                      <div className="ae-card" style={{ padding:0, overflow:"hidden" }}>
+                        <div style={{ padding:"13px 16px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                          <span style={{ fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", color:"#8e9ab0" }}>
+                            Stop clusters
+                          </span>
+                          <span style={{ fontSize:11, color:"#aab", background:"#f3f4f6", padding:"2px 9px", borderRadius:6 }}>
+                            ε={db.eps_m}m · {db.clusters.length} clusters
+                          </span>
+                        </div>
+                        {/* Scrollable list — max 320px so it never dominates the page */}
+                        <div style={{ maxHeight:320, overflowY:"auto", padding:"0 12px 12px" }}>
+                          {sorted.map((c, idx) => {
+                            const tier  = TIER_COLOR[c.demand_tier] || TIER_COLOR.Normal;
+                            const lf    = c.load_factor_pct.toFixed(1) + "%";
+                            return (
+                              <div key={c.cluster_id} style={{
+                                display:"flex", alignItems:"center", gap:9,
+                                padding:"8px 10px", borderRadius:8,
+                                background:"var(--color-background-secondary)",
+                                border:"0.5px solid var(--color-border-tertiary)",
+                                marginBottom:5,
+                              }}>
+                                {/* Badge */}
+                                <div style={{
+                                  width:24, height:24, borderRadius:"50%", flexShrink:0,
+                                  background:tier.badge, display:"flex",
+                                  alignItems:"center", justifyContent:"center",
+                                  fontSize:9, fontWeight:800, color:"#fff",
+                                }}>
+                                  C{idx+1}
+                                </div>
+                                {/* Info */}
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-primary)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                                    {c.centroid_lat.toFixed(4)}, {c.centroid_lon.toFixed(4)}
+                                  </div>
+                                  <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:1 }}>
+                                    {TYPE_LABEL[c.cluster_type] || c.cluster_type} · {c.point_count} pts ·{" "}
+                                    <span style={{ color:tier.txt, fontWeight:600 }}>{c.demand_tier}</span>
+                                  </div>
+                                </div>
+                                {/* Load factor */}
+                                <div style={{ fontSize:13, fontWeight:700, color:tier.badge, flexShrink:0 }}>
+                                  {lf}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="ae-card">
                     <SectionHeader title="Time period distribution" badge="PHT (UTC+8)" />
                     <div className="ae-bars">
