@@ -269,6 +269,9 @@ export default function AdminDashboard() {
           </div>
 
           {loading && <div className="admin-loading">Loading…</div>}
+          {tab === "trips" && dragOver && !importing && (
+            <div className="admin-drag-overlay">Drop CSV file to import</div>
+          )}
 
           {/* ── OVERVIEW ─────────────────────────────────────── */}
           {!loading && tab === "overview" && stats && (<>
@@ -351,70 +354,30 @@ export default function AdminDashboard() {
           </>)}
 
           {/* ── TRIPS ────────────────────────────────────────── */}
-          {!loading && tab === "trips" && (<>
-            <div className="admin-card">
-              <div className="admin-card-title">Import Trip from CSV</div>
-              <p className="admin-card-desc">
-                Required columns: latitude, longitude, accuracy, occupancy_count, timestamp
-              </p>
-              <div
-                className={`admin-dropzone${dragOver ? " admin-dropzone--over" : ""}${dropFile ? " admin-dropzone--ready" : ""}${importing ? " admin-dropzone--loading" : ""}`}
-                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={e => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const f = e.dataTransfer.files[0];
-                  if (f && f.name.endsWith(".csv")) {
-                    setDropFile(f);
-                    handleImportFile(f);
-                  }
-                }}
-                onClick={() => !importing && document.getElementById("csv-input-hidden").click()}
-                tabIndex={0}
-                onKeyDown={e => (e.key === "Enter" || e.key === " ") && !importing && document.getElementById("csv-input-hidden").click()}
-                role="button"
-                aria-label="Upload CSV file"
-              >
-                <div className="admin-dropzone__icon">
-                  {importing
-                    ? <span className="admin-dropzone__spinner" />
-                    : dropFile
-                    ? <span className="admin-dropzone__check">✓</span>
-                    : <span className="admin-dropzone__arrow">↑</span>
-                  }
-                </div>
-                <div className="admin-dropzone__label">
-                  {importing
-                    ? "Importing…"
-                    : dropFile
-                    ? dropFile.name
-                    : dragOver
-                    ? "Release to upload"
-                    : "Drag CSV here, or click to browse"
-                  }
-                </div>
-                {dropFile && !importing && (
-                  <button
-                    className="admin-dropzone__clear"
-                    onClick={e => { e.stopPropagation(); setDropFile(null); }}
-                    title="Remove file"
-                  >✕</button>
-                )}
-              </div>
-              <input id="csv-input-hidden" type="file" accept=".csv"
-                style={{ display:"none" }}
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  if (f) { setDropFile(f); handleImportFile(f); }
-                  e.target.value = "";
-                }}
-                disabled={importing}
-              />
-              {importMessage && (
-                <div className={`admin-msg ${importMessage.type}`}>{importMessage.text}</div>
-              )}
-            </div>
+          {!loading && tab === "trips" && (
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+              onDrop={e => {
+                e.preventDefault(); setDragOver(false);
+                const f = e.dataTransfer.files[0];
+                if (f && f.name.endsWith(".csv")) { setDropFile(f); handleImportFile(f); }
+              }}
+              style={{ display:"contents" }}
+            ><>
+            {/* invisible input — drag CSV onto page to import */}
+            <input id="csv-input-hidden" type="file" accept=".csv"
+              style={{ display:"none" }}
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) { setDropFile(f); handleImportFile(f); }
+                e.target.value = "";
+              }}
+              disabled={importing}
+            />
+            {importMessage && (
+              <div className={`admin-msg ${importMessage.type}`} style={{ marginBottom:12 }}>{importMessage.text}</div>
+            )}
 
             <div className="admin-card" style={{ padding:0, overflow:"hidden" }}>
 
@@ -545,7 +508,7 @@ export default function AdminDashboard() {
               )}
 
             </div>
-          </>)}
+          </></div>)}
 
           {/* ── CONDUCTORS ───────────────────────────────────── */}
           {!loading && tab === "conductors" && (<>

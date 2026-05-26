@@ -1108,3 +1108,19 @@
   border-radius: 50%;
   animation: admin-spin 0.65s linear infinite;
 }
+
+/* ── Drag-anywhere overlay (trips tab) ──────────────────────── */
+.admin-drag-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 999;
+  padding: 10px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #90caf9;
+  background: rgba(21, 101, 192, 0.12);
+  border-bottom: 1.5px solid rgba(66, 165, 245, 0.4);
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
