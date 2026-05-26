@@ -26,10 +26,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-
-// leaflet.heat — imported at module level but wrapped so it never
-// crashes the page on devices where it fails to load.
-import "leaflet.heat";
+import "leaflet.heat";  // eager import — guarantees L.heatLayer exists before first render
 import { getRawLogs, runAllAnalytics } from "../services/api";
 import "./TripMap.css";
 
@@ -188,39 +185,37 @@ function HeatmapLayer({ points, visible, intensity }) {
       map.removeLayer(heatRef.current);
       heatRef.current = null;
     }
-    // Guard: leaflet.heat may not have loaded on all devices/browsers
-    if (!visible || !points.length || typeof L.heatLayer !== "function") return;
+    if (!visible || !points.length) return;
 
     const maxOcc = Math.max(...points.map(p => p.occupancy ?? 0), 1);
+    // Each heat point: [lat, lon, weight]. Weight = normalized occupancy
+    // scaled by intensity multiplier so the conductor / admin can dial
+    // the heatmap brightness up or down without reloading the data.
     const heatPoints = points.map(p => [
       p.lat,
       p.lon,
       Math.min(1, (p.occupancy / maxOcc) * intensity),
     ]);
 
-    try {
-      heatRef.current = L.heatLayer(heatPoints, {
-        radius: 28,
-        blur: 22,
-        maxZoom: 17,
-        max: 1.0,
-        minOpacity: 0.35,
-        gradient: {
-          0.0: "#1a237e",
-          0.2: "#1976d2",
-          0.4: "#00acc1",
-          0.6: "#ffd54f",
-          0.8: "#fb8c00",
-          1.0: "#c62828",
-        },
-      }).addTo(map);
-    } catch (err) {
-      console.warn("RutaSmart: heatmap layer failed to render.", err);
-    }
+    heatRef.current = L.heatLayer(heatPoints, {
+      radius: 28,
+      blur: 22,
+      maxZoom: 17,
+      max: 1.0,
+      minOpacity: 0.35,
+      gradient: {
+        0.0: "#1a237e",
+        0.2: "#1976d2",
+        0.4: "#00acc1",
+        0.6: "#ffd54f",
+        0.8: "#fb8c00",
+        1.0: "#c62828",
+      },
+    }).addTo(map);
 
     return () => {
       if (heatRef.current) {
-        try { map.removeLayer(heatRef.current); } catch {}
+        map.removeLayer(heatRef.current);
         heatRef.current = null;
       }
     };
@@ -264,8 +259,7 @@ export default function TripMap({ tripId, onClose }) {
   const [logs,        setLogs]        = useState([]);
   const [clusterErr,  setClusterErr]  = useState(null);
   const [clusters,    setClusters]    = useState([]);
-  const [loading,        setLoading]        = useState(true);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [stats,       setStats]       = useState(null);
 
@@ -287,34 +281,42 @@ export default function TripMap({ tripId, onClose }) {
   // View
   const [fitTrigger,  setFitTrigger]  = useState(0);
 
-  // ── Load data — two-phase so map never fails just because analytics is slow ──
+  // ── Load data ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!tripId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true); setError(null); setClusterErr(null);
-    setClusters([]); setStats(null);
 
-    // Track which phase failed without depending on the `logs` state, which
-    // would be a stale closure value (setLogs above is async and the catch
-    // handler still sees whatever logs was when the effect first ran).
-    let phase = "logs";
+    const analyticsPromise = runAllAnalytics(tripId).catch(e => {
+      setClusterErr(
+        e.response?.data?.detail ||
+        "Cluster analysis failed — the trip may have too few logs."
+      );
+      return null;
+    });
 
-    // Phase 1 — load raw GPS logs first. This is fast and always works.
-    // The map renders as soon as logs arrive, even if analytics is still running.
-    getRawLogs(tripId, qualFilter)
-      .then(logsRes => {
+    Promise.all([getRawLogs(tripId, qualFilter), analyticsPromise])
+      .then(([logsRes, analyticsRes]) => {
         const raw = logsRes.data || [];
         setLogs(raw);
 
-        // Compute stats from logs immediately — no need to wait for analytics
+        const clusterList = analyticsRes?.data?.dbscan?.clusters || [];
+        setClusters(clusterList);
+
+        // ── Trip-level stats ────────────────────────────────────────────
         const good = raw.filter(l => l.quality === "GOOD").length;
         const acc  = raw.filter(l => l.quality === "ACCEPTABLE").length;
         const poor = raw.filter(l => l.quality === "POOR").length;
         const maxOcc = Math.max(...raw.map(l => l.occupancy ?? 0), 0);
+
+        // Off-corridor count
         const [[minLat, minLon], [maxLat, maxLon]] = CORRIDOR_BOUNDS;
         const outOfCorridor = raw.filter(
           l => l.lat < minLat || l.lat > maxLat ||
                l.lon < minLon || l.lon > maxLon
         ).length;
+
+        // Total distance traveled = sum of haversine between successive logs
         let distM = 0;
         for (let i = 1; i < raw.length; i++) {
           distM += haversineMeters(
@@ -323,54 +325,28 @@ export default function TripMap({ tripId, onClose }) {
           );
         }
 
-        setStats({
-          total: raw.length, good, acc, poor, maxOcc,
-          clusters: 0, trueStops: 0, queues: 0, moving: 0,
-          outOfCorridor, distanceKm: distM / 1000, avgLF: 0,
-        });
-
-        setLoading(false); // map is ready — show it now
-        phase = "analytics"; // any error past this point is analytics, not logs
-
-        // Phase 2 — run analytics in the background.
-        setAnalyticsLoading(true);
-        return runAllAnalytics(tripId);
-      })
-      .then(analyticsRes => {
-        if (!analyticsRes) return;
-        setAnalyticsLoading(false);
-        const clusterList = analyticsRes?.data?.dbscan?.clusters || [];
-        setClusters(clusterList);
-
+        // Avg load factor — point average of occupancy / capacity
+        // Backend doesn't return capacity per log; we estimate from clusters
+        // (a cluster's load_factor_pct uses the trip's stored capacity).
         const avgLF = clusterList.length
           ? clusterList.reduce((s, c) => s + (c.load_factor_pct || 0), 0) / clusterList.length
           : 0;
 
-        // Update stats to include cluster data
-        setStats(prev => prev
-          ? {
-              ...prev,
-              clusters:  clusterList.length,
-              trueStops: clusterList.filter(c => c.cluster_type === "TRUE_STOP").length,
-              queues:    clusterList.filter(c => c.cluster_type === "CREEPING_QUEUE").length,
-              moving:    clusterList.filter(c => c.cluster_type === "MOVING").length,
-              avgLF,
-            }
-          : prev
-        );
+        setStats({
+          total: raw.length,
+          good, acc, poor,
+          maxOcc,
+          clusters: clusterList.length,
+          trueStops: clusterList.filter(c => c.cluster_type === "TRUE_STOP").length,
+          queues:    clusterList.filter(c => c.cluster_type === "CREEPING_QUEUE").length,
+          moving:    clusterList.filter(c => c.cluster_type === "MOVING").length,
+          outOfCorridor,
+          distanceKm: distM / 1000,
+          avgLF,
+        });
       })
-      .catch(e => {
-        setAnalyticsLoading(false);
-        if (phase === "logs") {
-          setError("Failed to load trip data. Please try again.");
-          setLoading(false);
-        } else {
-          setClusterErr(
-            e.response?.data?.detail ||
-            "Cluster analysis unavailable — the server may be starting up. Try again in a moment."
-          );
-        }
-      });
+      .catch(e => setError(e.response?.data?.detail || "Failed to load map data."))
+      .finally(() => setLoading(false));
   }, [tripId, qualFilter]);
 
   // ── Derived: filtered logs for rendering ───────────────────────────────
@@ -404,23 +380,6 @@ export default function TripMap({ tripId, onClose }) {
             >
               🎯 Fit to Data
             </button>
-            {/* Fullscreen button — uses Browser Fullscreen API, helpful on mobile */}
-            {document.fullscreenEnabled && (
-              <button
-                className="tripmap-close"
-                title="Toggle fullscreen"
-                onClick={() => {
-                  const el = document.querySelector(".tripmap-container");
-                  if (!document.fullscreenElement) {
-                    el?.requestFullscreen?.();
-                  } else {
-                    document.exitFullscreen?.();
-                  }
-                }}
-              >
-                ⛶
-              </button>
-            )}
             <button className="tripmap-close" onClick={onClose}>✕ Close</button>
           </div>
         </div>
@@ -433,11 +392,6 @@ export default function TripMap({ tripId, onClose }) {
             <span>🚏 <strong>{stats.trueStops}</strong> true stops</span>
             <span>👥 <strong>{stats.maxOcc}</strong> max occupancy</span>
             <span>📊 <strong>{stats.avgLF.toFixed(0)}%</strong> avg load factor</span>
-            {analyticsLoading && (
-              <span style={{ color: "#888", fontStyle: "italic", fontSize: 12 }}>
-                ⏳ Running cluster analysis…
-              </span>
-            )}
           </div>
         )}
 
@@ -537,42 +491,7 @@ export default function TripMap({ tripId, onClose }) {
         )}
 
         {clusterErr && (
-          <div className="rs-banner rs-banner-warn">
-            ⚠️ {clusterErr}
-            <button
-              onClick={() => {
-                setClusterErr(null);
-                runAllAnalytics(tripId)
-                  .then(res => {
-                    const clusterList = res?.data?.dbscan?.clusters || [];
-                    setClusters(clusterList);
-                    const avgLF = clusterList.length
-                      ? clusterList.reduce((s, c) => s + (c.load_factor_pct || 0), 0) / clusterList.length
-                      : 0;
-                    setStats(prev => prev ? {
-                      ...prev,
-                      clusters:  clusterList.length,
-                      trueStops: clusterList.filter(c => c.cluster_type === "TRUE_STOP").length,
-                      queues:    clusterList.filter(c => c.cluster_type === "CREEPING_QUEUE").length,
-                      moving:    clusterList.filter(c => c.cluster_type === "MOVING").length,
-                      avgLF,
-                    } : prev);
-                  })
-                  .catch(e => setClusterErr(
-                    e.response?.data?.detail || "Still unavailable. Try again shortly."
-                  ));
-              }}
-              style={{
-                marginLeft: 12, padding: "3px 12px",
-                borderRadius: 8, border: "1.5px solid currentColor",
-                background: "transparent", color: "inherit",
-                fontWeight: 700, cursor: "pointer", fontSize: 12,
-                fontFamily: "inherit",
-              }}
-            >
-              Retry
-            </button>
-          </div>
+          <div className="rs-banner rs-banner-warn">⚠️ {clusterErr}</div>
         )}
         {stats && stats.outOfCorridor > 0 && (
           <div className="rs-banner rs-banner-info">
