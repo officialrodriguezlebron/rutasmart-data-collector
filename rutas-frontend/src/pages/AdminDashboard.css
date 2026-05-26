@@ -965,3 +965,146 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ── Drag-drop import zone ───────────────────────────────────────────────── */
+.admin-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1.5px dashed rgba(83, 74, 183, 0.35);
+  border-radius: 10px;
+  background: rgba(83, 74, 183, 0.05);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+  outline: none;
+  position: relative;
+}
+.admin-dropzone:hover,
+.admin-dropzone:focus-visible {
+  background: rgba(83, 74, 183, 0.1);
+  border-color: rgba(83, 74, 183, 0.55);
+}
+.admin-dropzone--over {
+  background: rgba(83, 74, 183, 0.16);
+  border-style: solid;
+  border-color: rgba(83, 74, 183, 0.7);
+}
+.admin-dropzone--ready {
+  border-style: solid;
+  border-color: rgba(21, 101, 192, 0.5);
+  background: rgba(21, 101, 192, 0.06);
+}
+.admin-dropzone--loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.admin-dropzone__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(83, 74, 183, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 16px;
+  color: rgba(83, 74, 183, 0.9);
+  transition: background 0.15s;
+}
+.admin-dropzone--ready .admin-dropzone__icon {
+  background: rgba(21, 101, 192, 0.12);
+  color: #1565c0;
+}
+.admin-dropzone--over .admin-dropzone__icon {
+  background: rgba(83, 74, 183, 0.22);
+}
+
+.admin-dropzone__label {
+  flex: 1;
+  font-size: 13px;
+  color: #ccd3e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-dropzone--ready .admin-dropzone__label {
+  color: #90caf9;
+  font-weight: 500;
+}
+.admin-dropzone--over .admin-dropzone__label {
+  color: #b8b0ff;
+}
+
+.admin-dropzone__arrow,
+.admin-dropzone__check {
+  font-weight: 600;
+  line-height: 1;
+}
+.admin-dropzone__check { color: #42a5f5; }
+
+@keyframes admin-spin {
+  to { transform: rotate(360deg); }
+}
+.admin-dropzone__spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(83, 74, 183, 0.25);
+  border-top-color: rgba(83, 74, 183, 0.8);
+  border-radius: 50%;
+  animation: admin-spin 0.65s linear infinite;
+}
+
+.admin-dropzone__clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #8e9ab0;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.admin-dropzone__clear:hover {
+  color: #ff4535;
+  background: rgba(255, 69, 53, 0.1);
+}
+
+/* ── Export CSV button (trip row) ────────────────────────────────────────── */
+.admin-action-btn.export {
+  color: #42a5f5;
+  border-color: rgba(66, 165, 245, 0.35);
+  background: rgba(66, 165, 245, 0.07);
+  min-width: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.admin-action-btn.export:hover:not(:disabled) {
+  background: rgba(66, 165, 245, 0.18);
+  border-color: rgba(66, 165, 245, 0.6);
+}
+.admin-action-btn.export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.admin-action-btn.export.export-done {
+  color: #30d158;
+  border-color: rgba(48, 209, 88, 0.4);
+  background: rgba(48, 209, 88, 0.07);
+}
+
+.admin-export-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(66, 165, 245, 0.25);
+  border-top-color: #42a5f5;
+  border-radius: 50%;
+  animation: admin-spin 0.65s linear infinite;
+}

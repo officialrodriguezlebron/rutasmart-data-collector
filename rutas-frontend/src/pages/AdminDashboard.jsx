@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  getAdminStats, getAdminTrips, deleteTrip,
+  getAdminStats, getAdminTrips, deleteTrip, exportTrip,
   importTripCSV, createUser, getConductors,
   getAggregateDashboard,
 } from "../services/api";
@@ -23,7 +23,11 @@ export default function AdminDashboard() {
 
   const [importing,      setImporting]      = useState(false);
   const [importMessage,  setImportMessage]  = useState(null);
+  const [dragOver,       setDragOver]       = useState(false);
+  const [dropFile,       setDropFile]       = useState(null);
   const [deletingId,     setDeletingId]     = useState(null);
+  const [exportingId,    setExportingId]    = useState(null);
+  const [exportDoneId,   setExportDoneId]   = useState(null);
   const [mapTripId,      setMapTripId]      = useState(null);
 
   // ── Trips tab — filter, pagination, multi-select ────────────────────────
@@ -84,6 +88,31 @@ export default function AdminDashboard() {
     } finally { setDeletingId(null); }
   };
 
+  const handleExport = async (tripId, jeepCode) => {
+    if (exportingId === tripId) return;
+    setExportingId(tripId);
+    setExportDoneId(null);
+    try {
+      const res = await exportTrip(tripId);
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `rutasmart_${(jeepCode || "trip").replace(/[^a-zA-Z0-9]/g, "_")}_${tripId.slice(-8)}_${date}.csv`;
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.setAttribute("download", filename);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setExportDoneId(tripId);
+      setTimeout(() => setExportDoneId(null), 2500);
+    } catch (e) {
+      setImportMessage({ type: "error", text: e.response?.data?.detail || "Export failed." });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (selected.size === 0) return;
     if (!window.confirm(`Delete ${selected.size} selected trip(s)?\n\nThis permanently removes all GPS logs for each trip.`)) return;
@@ -132,6 +161,19 @@ export default function AdminDashboard() {
     } else {
       setSelected(prev => { const s = new Set(prev); paginated.forEach(t => s.add(t.trip_id)); return s; });
     }
+  };
+
+  const handleImportFile = async (file) => {
+    if (!file) return;
+    setImporting(true); setImportMessage(null);
+    try {
+      const res = await importTripCSV(file);
+      setImportMessage({ type: "success", text: `Imported "${res.data.imported}" — ${res.data.logs_imported} logs added.` });
+      setDropFile(null);
+      fetchData();
+    } catch (err) {
+      setImportMessage({ type: "error", text: err.response?.data?.detail || "Import failed." });
+    } finally { setImporting(false); }
   };
 
   const handleImport = async (e) => {
@@ -315,12 +357,60 @@ export default function AdminDashboard() {
               <p className="admin-card-desc">
                 Required columns: latitude, longitude, accuracy, occupancy_count, timestamp
               </p>
-              <label htmlFor="csv-input" className="admin-import-btn"
-                style={{ opacity: importing ? 0.6 : 1, cursor: importing ? "not-allowed" : "pointer" }}>
-                {importing ? "Importing…" : "📂 Choose CSV file to import"}
-              </label>
-              <input id="csv-input" type="file" accept=".csv"
-                style={{ display:"none" }} onChange={handleImport} disabled={importing} />
+              <div
+                className={`admin-dropzone${dragOver ? " admin-dropzone--over" : ""}${dropFile ? " admin-dropzone--ready" : ""}${importing ? " admin-dropzone--loading" : ""}`}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const f = e.dataTransfer.files[0];
+                  if (f && f.name.endsWith(".csv")) {
+                    setDropFile(f);
+                    handleImportFile(f);
+                  }
+                }}
+                onClick={() => !importing && document.getElementById("csv-input-hidden").click()}
+                tabIndex={0}
+                onKeyDown={e => (e.key === "Enter" || e.key === " ") && !importing && document.getElementById("csv-input-hidden").click()}
+                role="button"
+                aria-label="Upload CSV file"
+              >
+                <div className="admin-dropzone__icon">
+                  {importing
+                    ? <span className="admin-dropzone__spinner" />
+                    : dropFile
+                    ? <span className="admin-dropzone__check">✓</span>
+                    : <span className="admin-dropzone__arrow">↑</span>
+                  }
+                </div>
+                <div className="admin-dropzone__label">
+                  {importing
+                    ? "Importing…"
+                    : dropFile
+                    ? dropFile.name
+                    : dragOver
+                    ? "Release to upload"
+                    : "Drag CSV here, or click to browse"
+                  }
+                </div>
+                {dropFile && !importing && (
+                  <button
+                    className="admin-dropzone__clear"
+                    onClick={e => { e.stopPropagation(); setDropFile(null); }}
+                    title="Remove file"
+                  >✕</button>
+                )}
+              </div>
+              <input id="csv-input-hidden" type="file" accept=".csv"
+                style={{ display:"none" }}
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) { setDropFile(f); handleImportFile(f); }
+                  e.target.value = "";
+                }}
+                disabled={importing}
+              />
               {importMessage && (
                 <div className={`admin-msg ${importMessage.type}`}>{importMessage.text}</div>
               )}
@@ -402,6 +492,19 @@ export default function AdminDashboard() {
                                 onClick={() => navigate(`/analytics?trip=${t.trip_id}`)}>Analyse</button>
                               <button className="admin-action-btn map"
                                 onClick={() => setMapTripId(t.trip_id)}>🗺</button>
+                              <button
+                                className={`admin-action-btn export${exportDoneId === t.trip_id ? " export-done" : ""}`}
+                                onClick={() => handleExport(t.trip_id, t.jeep_code)}
+                                disabled={exportingId === t.trip_id}
+                                title="Download GPS log CSV"
+                              >
+                                {exportingId === t.trip_id
+                                  ? <span className="admin-export-spinner" />
+                                  : exportDoneId === t.trip_id
+                                  ? "✓ CSV"
+                                  : "↓ CSV"
+                                }
+                              </button>
                             </>)}
                             <button className="admin-action-btn danger"
                               onClick={() => handleDelete(t.trip_id)}
