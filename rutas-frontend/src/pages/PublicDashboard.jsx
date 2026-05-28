@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import "./PublicDashboard.css";
+import StopZoneMap from "./StopZoneMap";
 
 const API = import.meta.env.VITE_API_URL;
 if (!API && typeof window !== "undefined") {
@@ -270,6 +271,9 @@ export default function PublicDashboard() {
         )}
 
       </div>
+
+      {/* Stop Zone Map */}
+      <StopZoneMap routeId={routeId} />
 
       {/* Footer */}
       <div className="pd-footer">
