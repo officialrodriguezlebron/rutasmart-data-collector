@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   getAdminStats, getAdminTrips, deleteTrip, exportTrip,
@@ -80,6 +81,7 @@ function PublishStopZonesPanel() {
     </div>
   );
 }
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const user     = authService.getUser();
@@ -123,7 +125,6 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
-  // Lazy-load aggregate data only when the tab is opened
   useEffect(() => {
     if (tab !== "aggregate" || aggregate) return;
     setAggLoading(true);
@@ -188,9 +189,6 @@ export default function AdminDashboard() {
     if (selected.size === 0) return;
     if (!window.confirm(`Delete ${selected.size} selected trip(s)?\n\nThis permanently removes all GPS logs for each trip.`)) return;
     setBulkDeleting(true);
-    // Parallelize deletes — sequential await blocked the UI for many seconds
-    // on slow Railway responses. Promise.allSettled keeps the request order
-    // independent and resilient to individual 404s.
     const results = await Promise.allSettled(
       Array.from(selected).map(id => deleteTrip(id))
     );
@@ -205,7 +203,6 @@ export default function AdminDashboard() {
     fetchData();
   };
 
-  // Filtered + paginated trips
   const filteredTrips = trips.filter(t => {
     const q = tripSearch.toLowerCase();
     const matchSearch = !q ||
@@ -260,37 +257,16 @@ export default function AdminDashboard() {
     } finally { setImporting(false); e.target.value = ""; }
   };
 
-  const handleCreateConductor = async (e) => {
-    e.preventDefault();
-    setCreateMsg(null);
-    if (!newName || !newEmpId || !newPin) {
-      setCreateMsg({ type: "error", text: "Name, Employee ID and PIN are required." });
-      return;
-    }
-    setCreating(true);
-    try {
-      await createUser({
-        role: "CONDUCTOR",
-        display_name: newName,
-        employee_id:  newEmpId,
-        pin:          newPin,
-        jeep_code:    newJeep || undefined,
-      });
-      setCreateMsg({ type: "success", text: `Conductor "${newName}" (${newEmpId}) created.` });
-      setNewName(""); setNewEmpId(""); setNewPin(""); setNewJeep("");
-      fetchData();
-    } catch (err) {
-      setCreateMsg({ type: "error", text: err.response?.data?.detail || "Failed to create account." });
-    } finally { setCreating(false); }
-  };
-
   const statusColor = (s) =>
     s === "ACTIVE" ? "#00c853" : s === "COMPLETED" ? "#1565c0" : "#888";
+
+  const COLOR = { "Morning Peak": "#ef6c00", "Midday": "#1565c0", "Afternoon Peak": "#c62828", "Evening": "#6a1b9a", "Off-Peak": "#555" };
 
   const TABS = [
     { key: "overview",   label: "Overview"   },
     { key: "trips",      label: "Trips"      },
     { key: "conductors", label: "Conductors" },
+    { key: "aggregate",  label: "Aggregate"  },
     { key: "analytics",  label: "Analytics"  },
   ];
 
@@ -335,6 +311,7 @@ export default function AdminDashboard() {
               {tab === "overview"   && "Overview"}
               {tab === "trips"      && "Trips"}
               {tab === "conductors" && "Conductors"}
+              {tab === "aggregate"  && "Aggregate Dashboard"}
             </h1>
             <button className="admin-refresh" onClick={fetchData}>↺ Refresh</button>
           </div>
@@ -360,8 +337,7 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
-            {/* Publish Stop Zones */}
-            <PublishStopZonesPanel /> 
+            <PublishStopZonesPanel />
             <div className="admin-card">
               <div className="admin-card-title">
                 Active Jeepneys
@@ -437,7 +413,6 @@ export default function AdminDashboard() {
               }}
               style={{ display:"contents" }}
             ><>
-            {/* invisible input — drag CSV onto page to import */}
             <input id="csv-input-hidden" type="file" accept=".csv"
               style={{ display:"none" }}
               onChange={e => {
@@ -452,8 +427,6 @@ export default function AdminDashboard() {
             )}
 
             <div className="admin-card" style={{ padding:0, overflow:"hidden" }}>
-
-              {/* ── Filter bar ──────────────────────────── */}
               <div className="trips-filter-bar">
                 <input
                   className="trips-search"
@@ -480,7 +453,6 @@ export default function AdminDashboard() {
                 </span>
               </div>
 
-              {/* ── Bulk action bar ─────────────────────── */}
               {selected.size > 0 && (
                 <div className="trips-bulk-bar">
                   <span className="trips-bulk-label">{selected.size} selected</span>
@@ -491,370 +463,405 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* ── Table ───────────────────────────────── */}
               <div className="admin-table-wrap">
                 <table className="admin-table">
-                  <thead><tr>
-                    <th style={{ width:36 }}>
-                      <input type="checkbox" checked={allPageSelected} onChange={togglePage}
-                        title="Select all on this page" />
-                    </th>
-                    <th>Trip ID</th><th>Jeep</th><th>Direction</th>
-                    <th>Cap</th><th>Status</th><th>Start</th><th>Actions</th>
-                  </tr></thead>
+                  <thead>
+                    <tr>
+                      <th style={{ width:36 }}>
+                        <input type="checkbox" checked={allPageSelected} onChange={togglePage}
+                          style={{ cursor:"pointer", accentColor:"#1565c0" }} />
+                      </th>
+                      <th>Trip ID</th>
+                      <th>Jeep</th>
+                      <th>Direction</th>
+                      <th>Status</th>
+                      <th>Logs</th>
+                      <th>Start</th>
+                      <th style={{ width:200 }}>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
+                    {paginated.length === 0 && (
+                      <tr><td colSpan={8} style={{ textAlign:"center", color:"#8e9ab0", padding:"32px 0" }}>
+                        No trips match your filters.
+                      </td></tr>
+                    )}
                     {paginated.map(t => (
                       <tr key={t.trip_id} className={selected.has(t.trip_id) ? "trips-row-selected" : ""}>
                         <td>
                           <input type="checkbox" checked={selected.has(t.trip_id)}
-                            onChange={() => toggleSelect(t.trip_id)} />
+                            onChange={() => toggleSelect(t.trip_id)}
+                            style={{ cursor:"pointer", accentColor:"#1565c0" }} />
                         </td>
-                        <td className="admin-mono" style={{ fontSize:11, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.trip_id}</td>
-                        <td style={{ fontWeight:600 }}>{t.jeep_code}</td>
-                        <td style={{ fontSize:11 }}>{t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : "Recto → Malanday"}</td>
-                        <td style={{ textAlign:"center" }}>{t.official_capacity}</td>
+                        <td className="admin-mono" style={{ fontSize:12 }}>{t.trip_id.slice(-12)}</td>
+                        <td>{t.jeep_code}</td>
+                        <td style={{ fontSize:12 }}>{t.direction?.replace("-","→") || "—"}</td>
                         <td>
                           <span className="admin-status-badge"
                             style={{ background: statusColor(t.status)+"22", color: statusColor(t.status) }}>
                             {t.status}
                           </span>
                         </td>
-                        <td className="admin-mono" style={{ color:"#8e9ab0", fontSize:11 }}>{t.start_time?.slice(0,16)}</td>
+                        <td className="admin-mono">{t.log_count ?? "—"}</td>
+                        <td className="admin-mono" style={{ color:"#8e9ab0", fontSize:12 }}>{t.start_time?.slice(0,16)}</td>
                         <td>
-                          <div className="admin-action-group">
-                            {t.status === "COMPLETED" && (<>
-                              <button className="admin-action-btn"
-                                onClick={() => navigate(`/analytics?trip=${t.trip_id}`)}>Analyse</button>
-                              <button className="admin-action-btn map"
-                                onClick={() => setMapTripId(t.trip_id)}>🗺</button>
-                              <button
-                                className={`admin-action-btn export${exportDoneId === t.trip_id ? " export-done" : ""}`}
-                                onClick={() => handleExport(t.trip_id, t.jeep_code)}
-                                disabled={exportingId === t.trip_id}
-                                title="Download GPS log CSV"
-                              >
-                                {exportingId === t.trip_id
-                                  ? <span className="admin-export-spinner" />
-                                  : exportDoneId === t.trip_id
-                                  ? "✓ CSV"
-                                  : "↓ CSV"
-                                }
-                              </button>
-                            </>)}
-                            <button className="admin-action-btn danger"
+                          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                            {/* ✅ FIX 2 — Map button opens TripMap with map-matching + full legend */}
+                            <button
+                              className="trips-action-btn"
+                              style={{ background:"#1565c020", color:"#1565c0", border:"1px solid #1565c040" }}
+                              onClick={() => setMapTripId(t.trip_id)}
+                              title="View map with matched path, clusters & legend"
+                            >
+                              🗺 Map
+                            </button>
+                            <button
+                              className="trips-action-btn"
+                              style={exportDoneId === t.trip_id
+                                ? { background:"#2e7d3220", color:"#2e7d32", border:"1px solid #2e7d3240" }
+                                : { background:"#0277bd20", color:"#0277bd", border:"1px solid #0277bd40" }}
+                              onClick={() => handleExport(t.trip_id, t.jeep_code)}
+                              disabled={exportingId === t.trip_id}
+                            >
+                              {exportingId === t.trip_id ? "…" : exportDoneId === t.trip_id ? "✓ Done" : "⬇ CSV"}
+                            </button>
+                            <button
+                              className="trips-action-btn"
+                              style={{ background:"#c6282820", color:"#c62828", border:"1px solid #c6282840" }}
                               onClick={() => handleDelete(t.trip_id)}
-                              disabled={deletingId === t.trip_id}>
-                              {deletingId === t.trip_id ? "…" : "Del"}
+                              disabled={deletingId === t.trip_id}
+                            >
+                              {deletingId === t.trip_id ? "…" : "🗑"}
                             </button>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {paginated.length === 0 && (
-                      <tr><td colSpan={8} style={{ textAlign:"center", padding:40, color:"#8e9ab0" }}>
-                        {tripSearch || tripStatus !== "all" || tripDir !== "all"
-                          ? "No trips match your filters. Try clearing them."
-                          : "No trips yet. Run a field ride or import a CSV above."}
-                      </td></tr>
-                    )}
                   </tbody>
                 </table>
               </div>
 
-              {/* ── Pagination ──────────────────────────── */}
+              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="trips-pagination">
-                  <button className="trips-page-btn" disabled={tripPage===1} onClick={() => setTripPage(1)}>«</button>
-                  <button className="trips-page-btn" disabled={tripPage===1} onClick={() => setTripPage(p=>p-1)}>‹</button>
-                  {Array.from({length:totalPages},(_,i)=>i+1)
-                    .filter(p=>p===1||p===totalPages||Math.abs(p-tripPage)<=1)
-                    .reduce((acc,p,i,arr)=>{ if(i>0&&p-arr[i-1]>1)acc.push("…"); acc.push(p); return acc; },[])
-                    .map((p,i)=>p==="…"
-                      ?<span key={`e${i}`} className="trips-page-ellipsis">…</span>
-                      :<button key={p} className={`trips-page-btn${tripPage===p?" active":""}`} onClick={()=>setTripPage(p)}>{p}</button>
-                    )}
-                  <button className="trips-page-btn" disabled={tripPage===totalPages} onClick={()=>setTripPage(p=>p+1)}>›</button>
-                  <button className="trips-page-btn" disabled={tripPage===totalPages} onClick={()=>setTripPage(totalPages)}>»</button>
-                  <span className="trips-page-info">Page {tripPage} / {totalPages} · {filteredTrips.length} trips</span>
+                  <button className="trips-page-btn" onClick={() => setTripPage(1)} disabled={tripPage === 1}>«</button>
+                  <button className="trips-page-btn" onClick={() => setTripPage(p => Math.max(1, p-1))} disabled={tripPage === 1}>‹</button>
+                  <span className="trips-page-info">Page {tripPage} of {totalPages}</span>
+                  <button className="trips-page-btn" onClick={() => setTripPage(p => Math.min(totalPages, p+1))} disabled={tripPage === totalPages}>›</button>
+                  <button className="trips-page-btn" onClick={() => setTripPage(totalPages)} disabled={tripPage === totalPages}>»</button>
                 </div>
               )}
-
             </div>
-          </></div>)}
+
+            {/* Import panel */}
+            <div className="admin-card">
+              <div className="admin-card-title">Import Trip CSV</div>
+              <p style={{ fontSize:13, color:"#8e9ab0", margin:"0 0 14px" }}>
+                Drag a CSV file onto the page or click below to import a previously exported trip.
+              </p>
+              <label style={{
+                display:"inline-block", background:"#1565c0", color:"#fff",
+                borderRadius:10, padding:"10px 22px", fontSize:14, fontWeight:700,
+                cursor: importing ? "not-allowed" : "pointer",
+                opacity: importing ? 0.6 : 1,
+              }}>
+                {importing ? "Importing…" : dropFile ? `📄 ${dropFile.name}` : "📂 Choose CSV"}
+                <input type="file" accept=".csv" style={{ display:"none" }} onChange={handleImport} disabled={importing} />
+              </label>
+            </div>
+            </></div>
+          )}
 
           {/* ── CONDUCTORS ───────────────────────────────────── */}
           {!loading && tab === "conductors" && (<>
-
-            {/* Create form */}
             <div className="admin-card">
-              <div className="admin-card-title">Create Conductor Account</div>
-              <form className="admin-conductor-form" onSubmit={handleCreateConductor}>
-                <div className="admin-form-row">
-                  <div className="admin-form-field">
-                    <label>Full Name *</label>
-                    <input type="text" value={newName}
-                      onChange={e => setNewName(e.target.value)}
-                      placeholder="e.g. Juan dela Cruz" required />
-                  </div>
-                  <div className="admin-form-field">
-                    <label>Employee ID *</label>
-                    <input type="text" value={newEmpId}
-                      onChange={e => setNewEmpId(e.target.value)}
-                      placeholder="e.g. CDR-2024-099" required />
-                  </div>
-                </div>
-                <div className="admin-form-row">
-                  <div className="admin-form-field">
-                    <label>PIN Code *</label>
-                    <input type="password" value={newPin}
-                      onChange={e => setNewPin(e.target.value.replace(/\D/g,""))}
-                      placeholder="4–8 digits" maxLength={8}
-                      inputMode="numeric" required />
-                  </div>
-                  <div className="admin-form-field">
-                    <label>Jeep Code <span style={{ fontWeight:400, color:"#aaa" }}>(optional)</span></label>
-                    <input type="text" value={newJeep}
-                      onChange={e => setNewJeep(e.target.value)}
-                      placeholder="e.g. JPN-003" />
-                  </div>
-                </div>
-                {createMsg && (
-                  <div className={`admin-msg ${createMsg.type}`}>{createMsg.text}</div>
-                )}
-                <button type="submit" className="admin-create-btn" disabled={creating}>
-                  {creating ? "Creating…" : "+ Create Conductor Account"}
-                </button>
-              </form>
-            </div>
-
-            {/* Conductor list */}
-            <div className="admin-card" style={{ padding:0, overflow:"hidden" }}>
-              <div style={{ padding:"16px 22px 12px" }}>
-                <div className="admin-card-title" style={{ marginBottom:0 }}>
-                  Conductor Accounts ({conductors.length})
-                </div>
-              </div>
+              <div className="admin-card-title">Conductors ({conductors.length})</div>
               <div className="admin-table-wrap">
                 <table className="admin-table">
                   <thead><tr>
-                    <th>Name</th><th>Employee ID</th><th>Jeep</th>
-                    <th>Status</th><th>Created</th>
+                    <th>Name</th><th>Employee ID</th><th>Jeep</th><th>Created</th>
                   </tr></thead>
                   <tbody>
-                    {conductors.map(c => (
-                      <tr key={c.employee_id}>
-                        <td style={{ fontWeight:600 }}>{c.display_name}</td>
-                        <td className="admin-mono">{c.employee_id}</td>
-                        <td className="admin-mono">{c.jeep_code || "—"}</td>
-                        <td>
-                          <span className="admin-status-badge"
-                            style={{ background: c.is_active ? "#00c85322" : "#88888822",
-                                     color: c.is_active ? "#00c853" : "#888" }}>
-                            {c.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="admin-mono" style={{ color:"#8e9ab0" }}>
-                          {c.created_at?.slice(0,10) || "—"}
-                        </td>
-                      </tr>
-                    ))}
                     {conductors.length === 0 && (
-                      <tr><td colSpan={5} style={{ textAlign:"center", padding:32, color:"#8e9ab0" }}>
-                        No conductors yet. Create one above.
+                      <tr><td colSpan={4} style={{ textAlign:"center", color:"#8e9ab0", padding:"24px 0" }}>
+                        No conductors yet.
                       </td></tr>
                     )}
+                    {conductors.map(c => (
+                      <tr key={c.user_id}>
+                        <td>{c.display_name}</td>
+                        <td className="admin-mono">{c.employee_id}</td>
+                        <td>{c.jeep_code || "—"}</td>
+                        <td className="admin-mono" style={{ color:"#8e9ab0", fontSize:12 }}>{c.created_at?.slice(0,10)}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
+
+            <div className="admin-card">
+              <div className="admin-card-title">Create Conductor Account</div>
+              {createMsg && (
+                <div className={`admin-msg ${createMsg.type}`} style={{ marginBottom:12 }}>{createMsg.text}</div>
+              )}
+              <div className="admin-form-grid">
+                {[
+                  { label:"Display Name", value:newName,  setter:setNewName,  placeholder:"e.g. Juan dela Cruz" },
+                  { label:"Employee ID",  value:newEmpId, setter:setNewEmpId, placeholder:"e.g. EMP-001" },
+                  { label:"PIN (6 digits)", value:newPin, setter:setNewPin,   placeholder:"6-digit PIN", type:"password" },
+                  { label:"Jeep Code",    value:newJeep,  setter:setNewJeep,  placeholder:"e.g. MR-001 (optional)" },
+                ].map(({ label, value, setter, placeholder, type }) => (
+                  <div key={label} className="admin-form-field">
+                    <label className="admin-form-label">{label}</label>
+                    <input
+                      className="admin-form-input"
+                      type={type || "text"}
+                      value={value}
+                      onChange={e => setter(e.target.value)}
+                      placeholder={placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
+              <button
+                className="admin-form-submit"
+                onClick={async () => {
+                  if (!newName || !newEmpId || newPin.length !== 6) {
+                    setCreateMsg({ type:"error", text:"All fields required. PIN must be 6 digits." });
+                    return;
+                  }
+                  setCreating(true);
+                  try {
+                    await createUser({ role:"CONDUCTOR", display_name:newName, employee_id:newEmpId, pin:newPin, jeep_code:newJeep||undefined });
+                    setCreateMsg({ type:"success", text:`Conductor "${newName}" (${newEmpId}) created.` });
+                    setNewName(""); setNewEmpId(""); setNewPin(""); setNewJeep("");
+                    fetchData();
+                  } catch (err) {
+                    setCreateMsg({ type:"error", text: err.response?.data?.detail || "Failed to create account." });
+                  } finally { setCreating(false); }
+                }}
+                disabled={creating}
+              >
+                {creating ? "Creating…" : "➕ Create Conductor"}
+              </button>
+            </div>
           </>)}
 
-          {/* ── ALL TRIPS AGGREGATE TAB ──────────────────────────── */}
+          {/* ── AGGREGATE ────────────────────────────────────── */}
           {tab === "aggregate" && (
-            <div className="agg-container">
-              <div className="agg-header">
-                <h2 className="agg-title">All Trips — Aggregate Summary</h2>
-                <button
-                  className="agg-refresh-btn"
-                  onClick={() => {
-                    setAggregate(null);
-                    setAggLoading(true);
-                    getAggregateDashboard()
-                      .then(r => setAggregate(r.data))
-                      .catch(e => console.error(e))
-                      .finally(() => setAggLoading(false));
-                  }}
-                >↻ Refresh</button>
-              </div>
-
+            <div>
               {aggLoading && (
-                <div className="agg-loading">
-                  <div className="tripmap-spinner" />
+                <div style={{ textAlign:"center", padding:"48px 0", color:"#8e9ab0" }}>
+                  <div className="admin-loading" />
                   <p>Computing aggregate data across all trips…</p>
                 </div>
               )}
-
               {aggregate && !aggLoading && (<>
-
-                {/* ── KPI strip ─────────────────────────────────── */}
-                <div className="agg-kpi-strip">
+                {/* KPI strip */}
+                <div className="admin-metrics">
                   {[
-                    { label: "Trips Analyzed",     value: aggregate.total_trips,           color: "#1565c0" },
-                    { label: "Total GPS Logs",      value: aggregate.total_logs.toLocaleString(), color: "#42a5f5" },
-                    { label: "Avg Load Factor",     value: `${aggregate.avg_load_factor_pct}%`,   color: aggregate.avg_load_factor_pct > 100 ? "#c62828" : "#2e7d32" },
-                    { label: "Peak Critical Period", value: aggregate.peak_critical_period || "—", color: "#ef6c00" },
+                    { label: "Trips Analyzed",     value: aggregate.total_trips,                  color: "#1565c0" },
+                    { label: "Total GPS Logs",      value: aggregate.total_logs.toLocaleString(),  color: "#42a5f5" },
+                    { label: "Avg Load Factor",     value: `${aggregate.avg_load_factor_pct}%`,    color: aggregate.avg_load_factor_pct > 100 ? "#c62828" : "#2e7d32" },
+                    { label: "Peak Critical Period",value: aggregate.peak_critical_period || "—",  color: "#ef6c00" },
                   ].map(({ label, value, color }) => (
-                    <div key={label} className="agg-kpi-card">
-                      <div className="agg-kpi-value" style={{ color }}>{value}</div>
-                      <div className="agg-kpi-label">{label}</div>
+                    <div key={label} className="admin-metric-card">
+                      <div className="admin-metric-accent" style={{ background: color }} />
+                      <div className="admin-metric-label">{label}</div>
+                      <div className="admin-metric-value" style={{ color }}>{value}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* ── Two-column charts ─────────────────────────── */}
-                <div className="agg-charts-row">
-
-                  {/* Time period distribution */}
-                  <div className="agg-chart-card">
-                    <div className="agg-chart-title">
-                      Time Period Distribution
-                      <span className="agg-chart-subtitle">GPS logs across all trips</span>
+                {/* ✅ FIX 3 — Legend explanation panel for cluster map */}
+                <div style={{
+                  background:"rgba(21,101,192,0.07)", border:"1px solid rgba(21,101,192,0.20)",
+                  borderRadius:14, padding:"14px 18px", margin:"0 0 16px",
+                  fontSize:13, color:"#444", lineHeight:1.6,
+                }}>
+                  <strong style={{ color:"#1565c0" }}>🗺 Map Legend — same as Public Map</strong>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"18px", marginTop:10 }}>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:11, color:"#888", marginBottom:4 }}>CLUSTER TYPE</div>
+                      {[["TRUE_STOP","#1565c0"],["CREEPING_QUEUE","#ef6c00"],["MOVING","#c62828"]].map(([lbl,col])=>(
+                        <div key={lbl} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                          <span style={{ width:12, height:12, borderRadius:"50%", background:col, display:"inline-block" }}/>
+                          <span>{lbl.replace("_"," ")}</span>
+                        </div>
+                      ))}
                     </div>
-                    {(() => {
-                      const d = aggregate.time_distribution;
-                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
-                      const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
-                      return Object.entries(d).map(([period, count]) => (
-                        <div key={period} className="agg-bar-row">
-                          <span className="agg-bar-label">{period}</span>
-                          <div className="agg-bar-track">
-                            <div
-                              className="agg-bar-fill"
-                              style={{ width: `${(count / total) * 100}%`, background: COLOR[period] }}
-                            />
-                          </div>
-                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
-                          <span className="agg-bar-count">({count.toLocaleString()})</span>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:11, color:"#888", marginBottom:4 }}>DEMAND TIER</div>
+                      {[["Normal","#2e7d32"],["Moderate","#f9a825"],["High","#ef6c00"],["Critical","#c62828"]].map(([lbl,col])=>(
+                        <div key={lbl} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                          <span style={{ width:12, height:12, borderRadius:"50%", background:col, display:"inline-block" }}/>
+                          <span>{lbl}</span>
                         </div>
-                      ));
-                    })()}
-                  </div>
-
-                  {/* Demand intensity distribution */}
-                  <div className="agg-chart-card">
-                    <div className="agg-chart-title">
-                      Demand Intensity Distribution
-                      <span className="agg-chart-subtitle">across all GPS log records</span>
+                      ))}
                     </div>
-                    {(() => {
-                      const d = aggregate.demand_distribution;
-                      const total = Object.values(d).reduce((a, b) => a + b, 0) || 1;
-                      const COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
-                      return Object.entries(d).map(([tier, count]) => (
-                        <div key={tier} className="agg-bar-row">
-                          <span className="agg-bar-label">{tier}</span>
-                          <div className="agg-bar-track">
-                            <div
-                              className="agg-bar-fill"
-                              style={{ width: `${(count / total) * 100}%`, background: COLOR[tier] }}
-                            />
-                          </div>
-                          <span className="agg-bar-pct">{((count / total) * 100).toFixed(1)}%</span>
-                          <span className="agg-bar-count">({count.toLocaleString()})</span>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:11, color:"#888", marginBottom:4 }}>GPS QUALITY</div>
+                      {[["GOOD","#2e7d32"],["ACCEPTABLE","#f9a825"],["POOR","#c62828"]].map(([lbl,col])=>(
+                        <div key={lbl} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                          <span style={{ width:12, height:12, borderRadius:"50%", background:col, display:"inline-block" }}/>
+                          <span>{lbl}</span>
                         </div>
-                      ));
-                    })()}
-                  </div>
-
-                </div>
-
-                {/* ── Critical demand by period ──────────────────── */}
-                <div className="agg-chart-card" style={{ marginBottom: 20 }}>
-                  <div className="agg-chart-title">
-                    Critical Demand Logs by Time Period
-                    <span className="agg-chart-subtitle">which period has the most overcrowded moments</span>
-                  </div>
-                  {(() => {
-                    const d = aggregate.critical_by_period;
-                    const max = Math.max(...Object.values(d), 1);
-                    const COLOR = { "Morning Peak": "#1565c0", "Midday": "#00acc1", "Afternoon Peak": "#ef6c00", "Off-Peak": "#8e9ab0" };
-                    return Object.entries(d).map(([period, count]) => (
-                      <div key={period} className="agg-bar-row">
-                        <span className="agg-bar-label">
-                          {period}
-                          {period === aggregate.peak_critical_period && (
-                            <span className="agg-peak-badge">WORST</span>
-                          )}
-                        </span>
-                        <div className="agg-bar-track">
-                          <div
-                            className="agg-bar-fill"
-                            style={{
-                              width: `${(count / max) * 100}%`,
-                              background: period === aggregate.peak_critical_period ? "#c62828" : COLOR[period],
-                            }}
-                          />
-                        </div>
-                        <span className="agg-bar-count">{count.toLocaleString()} critical logs</span>
+                      ))}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:11, color:"#888", marginBottom:4 }}>PATH</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                        <span style={{ width:28, height:4, background:"#1565c0", borderRadius:2, display:"inline-block" }}/>
+                        <span>Corridor</span>
                       </div>
-                    ));
-                  })()}
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                        <span style={{ width:28, height:0, borderTop:"3px dashed #ff6f00", display:"inline-block", verticalAlign:"middle" }}/>
+                        <span>Trip Path</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* ── Per-trip breakdown table ───────────────────── */}
-                <div className="agg-chart-card">
-                  <div className="agg-chart-title">
-                    Per-Trip Breakdown
+                {/* Charts */}
+                <div className="agg-grid">
+                  {/* Time distribution */}
+                  {aggregate.time_distribution && (
+                    <div className="admin-card agg-card">
+                      <div className="admin-card-title">Trips by Time Period</div>
+                      <div className="agg-bar-chart">
+                        {(() => {
+                          const d = aggregate.time_distribution;
+                          const max = Math.max(...Object.values(d), 1);
+                          return Object.entries(d).map(([period, count]) => (
+                            <div key={period} className="agg-bar-row">
+                              <span className="agg-bar-label">{period}</span>
+                              <div className="agg-bar-track">
+                                <div className="agg-bar-fill" style={{ width:`${(count/max)*100}%`, background: COLOR[period] || "#42a5f5" }}/>
+                              </div>
+                              <span className="agg-bar-val">{count}</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Demand distribution */}
+                  {aggregate.demand_distribution && (
+                    <div className="admin-card agg-card">
+                      <div className="admin-card-title">Demand Distribution</div>
+                      <div className="agg-bar-chart">
+                        {(() => {
+                          const d = aggregate.demand_distribution;
+                          const max = Math.max(...Object.values(d), 1);
+                          const DCOL = { Normal:"#2e7d32", Moderate:"#f9a825", High:"#ef6c00", Critical:"#c62828" };
+                          return Object.entries(d).map(([tier, count]) => (
+                            <div key={tier} className="agg-bar-row">
+                              <span className="agg-bar-label">{tier}</span>
+                              <div className="agg-bar-track">
+                                <div className="agg-bar-fill" style={{ width:`${(count/max)*100}%`, background: DCOL[tier] || "#42a5f5" }}/>
+                              </div>
+                              <span className="agg-bar-val">{count}</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Critical by period */}
+                {aggregate.critical_by_period && (
+                  <div className="admin-card">
+                    <div className="admin-card-title">Critical Clusters by Period</div>
+                    <div className="agg-critical-grid">
+                      {Object.entries(aggregate.critical_by_period).map(([period, count]) => (
+                        <div key={period} className="agg-critical-cell"
+                          style={{ borderColor: period === aggregate.peak_critical_period ? "#c62828" : "transparent",
+                                   background: period === aggregate.peak_critical_period ? "rgba(198,40,40,0.07)" : "rgba(255,255,255,0.03)" }}>
+                          <div className="agg-critical-val"
+                            style={{ color: period === aggregate.peak_critical_period ? "#c62828" : COLOR[period] || "#42a5f5" }}>
+                            {count}
+                          </div>
+                          <div className="agg-critical-period">{period}</div>
+                          {period === aggregate.peak_critical_period && (
+                            <div style={{ fontSize:10, color:"#c62828", fontWeight:700, marginTop:2 }}>⚠ PEAK</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ FIX 3 — Trip summaries with 🗺 Map button → opens TripMap
+                    (same map-matching algorithm + cluster circles + full legend as public map) */}
+                <div className="admin-card">
+                  <div className="admin-card-title">
+                    Trip Summaries
                     <span className="agg-chart-subtitle">{aggregate.trip_summaries.length} completed trips</span>
                   </div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table className="admin-table" style={{ fontSize: 12 }}>
-                      <thead>
-                        <tr>
-                          <th>Trip ID</th>
-                          <th>Jeep</th>
-                          <th>Direction</th>
-                          <th>Date</th>
-                          <th>Logs</th>
-                          <th>Avg LF</th>
-                          <th>Max Occ</th>
-                          <th>Cap</th>
-                          <th>Dominant Tier</th>
-                          <th>Peak Period</th>
-                        </tr>
-                      </thead>
+                  <p style={{ fontSize:12, color:"#8e9ab0", margin:"0 0 10px", padding:"0 0 0 0" }}>
+                    Click <strong>🗺 Map</strong> on any trip to inspect its map-matched path, DBSCAN clusters, heatmap, and full legend — identical to the public passenger map.
+                  </p>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead><tr>
+                        <th>Trip ID</th>
+                        <th>Period</th>
+                        <th>Clusters</th>
+                        <th>Peak Occ</th>
+                        <th>Load Factor</th>
+                        <th>Logs</th>
+                        <th>Map</th>
+                      </tr></thead>
                       <tbody>
+                        {aggregate.trip_summaries.length === 0 && (
+                          <tr><td colSpan={7} style={{ textAlign:"center", color:"#8e9ab0", padding:"24px 0" }}>
+                            No completed trips to analyze.
+                          </td></tr>
+                        )}
                         {aggregate.trip_summaries.map(t => {
-                          const TIER_COLOR = { Normal: "#2e7d32", Moderate: "#f9a825", High: "#ef6c00", Critical: "#c62828" };
+                          const lf = typeof t.avg_load_factor_pct === "number" ? t.avg_load_factor_pct : null;
+                          const lfColor = lf == null ? "#8e9ab0" : lf > 120 ? "#c62828" : lf > 80 ? "#ef6c00" : "#2e7d32";
                           return (
                             <tr key={t.trip_id}>
-                              <td className="admin-mono" style={{ fontSize: 10, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
-                              <td className="admin-mono" style={{ fontWeight: 700 }}>{t.jeep_code}</td>
-                              <td style={{ fontSize: 11 }}>{t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : "Recto → Malanday"}</td>
-                              <td className="admin-mono">{t.date}</td>
-                              <td className="admin-mono">{t.log_count}</td>
-                              <td className="admin-mono" style={{ color: t.avg_lf_pct > 100 ? "#c62828" : "#2e7d32", fontWeight: 700 }}>{t.avg_lf_pct}%</td>
-                              <td className="admin-mono">{t.max_occupancy}</td>
-                              <td className="admin-mono">{t.capacity}</td>
+                              <td className="admin-mono" style={{ fontSize:11 }}>{t.trip_id.slice(-12)}</td>
                               <td>
-                                <span className="admin-status-badge" style={{ background: TIER_COLOR[t.dominant_tier] + "22", color: TIER_COLOR[t.dominant_tier] }}>
-                                  {t.dominant_tier}
+                                <span style={{ fontSize:12, fontWeight:600, color: COLOR[t.time_period] || "#42a5f5" }}>
+                                  {t.time_period || "—"}
                                 </span>
                               </td>
-                              <td style={{ fontSize: 11 }}>{t.dominant_period}</td>
+                              <td className="admin-mono">{t.cluster_count ?? "—"}</td>
+                              <td className="admin-mono">{t.peak_occupancy ?? "—"}</td>
+                              <td>
+                                {lf != null
+                                  ? <span style={{ fontWeight:700, color:lfColor }}>{lf.toFixed(0)}%</span>
+                                  : <span style={{ color:"#8e9ab0" }}>—</span>}
+                              </td>
+                              <td className="admin-mono">{t.log_count ?? "—"}</td>
+                              <td>
+                                {/* ✅ FIX 3 — Map button per trip in aggregate view */}
+                                <button
+                                  onClick={() => setMapTripId(t.trip_id)}
+                                  title="Open map with map-matched path, clusters & legend"
+                                  style={{
+                                    background:"#1565c015", color:"#1565c0",
+                                    border:"1px solid #1565c030", borderRadius:8,
+                                    padding:"5px 10px", fontSize:12, fontWeight:700,
+                                    cursor:"pointer", fontFamily:"inherit",
+                                  }}
+                                >
+                                  🗺 Map
+                                </button>
+                              </td>
                             </tr>
                           );
                         })}
-                        {aggregate.trip_summaries.length === 0 && (
-                          <tr><td colSpan={10} style={{ textAlign: "center", padding: 32, color: "#8e9ab0" }}>
-                            No completed trips found.
-                          </td></tr>
-                        )}
                       </tbody>
                     </table>
                   </div>
                 </div>
-
               </>)}
             </div>
           )}
@@ -862,7 +869,18 @@ export default function AdminDashboard() {
         </main>
       </div>
 
-      {mapTripId && <TripMap tripId={mapTripId} onClose={() => setMapTripId(null)} />}
+      {/*
+        ✅ FIX 1 — TripMap rendered via React portal directly on document.body.
+        This escapes admin-main's overflow:hidden + CSS stacking context so:
+          • The legend bar at the bottom is never clipped
+          • The overlay fills the full viewport (not just admin-main's scroll area)
+          • z-index works correctly (no stacking context interference)
+        Same pattern used by the public map modal.
+      */}
+      {mapTripId && createPortal(
+        <TripMap tripId={mapTripId} onClose={() => setMapTripId(null)} />,
+        document.body
+      )}
     </>
   );
 }
