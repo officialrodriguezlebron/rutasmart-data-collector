@@ -196,6 +196,12 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  padding-right: 16px;
+  border-right: 1px solid #e5e7eb;
+}
+.tripmap-legend-group:last-child {
+  border-right: none;
+  padding-right: 0;
 }
 
 .tripmap-legend-title {
@@ -204,7 +210,8 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #aaa;
-  margin-right: 2px;
+  margin-right: 6px;
+  white-space: nowrap;
 }
 
 .tripmap-legend-item {

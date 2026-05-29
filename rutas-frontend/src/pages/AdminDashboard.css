@@ -1124,3 +1124,18 @@
   pointer-events: none;
   letter-spacing: 0.02em;
 }
+
+/* ── Trip action buttons ─────────────────────────────────────────────────── */
+.trips-action-btn {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.trips-action-btn:hover:not(:disabled) { opacity: 0.8; transform: translateY(-1px); }
+.trips-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }

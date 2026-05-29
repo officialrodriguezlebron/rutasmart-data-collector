@@ -384,7 +384,7 @@ export default function AdminDashboard() {
                   <tbody>
                     {trips.slice(0,5).map(t => (
                       <tr key={t.trip_id}>
-                        <td className="admin-mono">{t.trip_id}</td>
+                        <td className="admin-mono">{t.trip_id.slice(-12)}</td>
                         <td>{t.jeep_code}</td>
                         <td>
                           <span className="admin-status-badge"
