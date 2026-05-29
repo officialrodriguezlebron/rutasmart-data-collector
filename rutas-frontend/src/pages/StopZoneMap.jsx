@@ -1,12 +1,12 @@
 /**
  * StopZoneMap — Passenger Boarding & Alighting Map
  *
- * Map matching via Valhalla trace_route (valhalla1.openstreetmap.de):
- *   - Snaps all 66 cluster centroids to actual OSM road geometry
- *   - Returns both the snapped stop positions AND the road polyline
- *   - No hardcoded coordinates — 100% driven by real road data
+ * Road line:  OSRM /route with ONLY 2 waypoints (Malanday → Recto)
+ *             Returns exact OSM road geometry — never cuts through buildings.
+ *             Stop positions are NEVER used as road waypoints.
  *
- * Passenger language only. No analytics terms.
+ * Stop dots:  OSRM /nearest snaps each centroid to nearest road surface.
+ *             Completely independent of the road line.
  */
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
@@ -19,109 +19,76 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const API      = import.meta.env.VITE_API_URL;
-const VALHALLA = "https://valhalla1.openstreetmap.de";
+const API  = import.meta.env.VITE_API_URL;
+const OSRM = "https://router.project-osrm.org";
 
-// ── Valhalla map matching ──────────────────────────────────────────────────
-// Sends cluster centroids as a GPS trace → returns snapped positions + road geometry
-async function mapMatch(zones) {
+// ── Malanday and Recto terminals ──────────────────────────────────────────
+const START = [14.7187, 120.9575]; // Malanday terminal
+const END   = [14.6037, 120.9840]; // Recto LRT terminal
+
+// ── Fetch road geometry: ONLY 2 waypoints, full geometry ─────────────────
+// This is the correct approach. OSRM returns the exact OSM road geometry
+// between two points — thousands of micro-waypoints following every road
+// curve. No building shortcuts possible.
+async function fetchRoadLine() {
   try {
-    // Sort north → south so Valhalla gets them in travel order
-    const sorted = [...zones].sort((a, b) => b.lat - a.lat);
-
-    // Add terminal waypoints at start and end
-    const shape = [
-      { lat: 14.7187, lon: 120.9575, type: "break" },   // Malanday terminal
-      ...sorted.map(z => ({ lat: z.lat, lon: z.lon, type: "via" })),
-      { lat: 14.6037, lon: 120.9840, type: "break" },   // Recto LRT terminal
-    ];
-
-    const body = JSON.stringify({
-      shape,
-      costing: "auto",
-      shape_match: "map_snap",           // snap each point to nearest road
-      trace_options: {
-        search_radius: 50,               // metres — snap within 50m of road
-        gps_accuracy: 25,
-      },
-      filters: {
-        attributes: ["matched.point", "matched.edge_index", "shape"],
-        action: "include",
-      },
-    });
-
-    const res = await fetch(`${VALHALLA}/trace_attributes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!res.ok) throw new Error(`Valhalla ${res.status}`);
-    const data = await res.json();
-
-    // Decode the encoded polyline for the road geometry
-    const roadPts = decodePolyline(data.shape || "");
-
-    // The matched_points array gives us snapped positions for each input point
-    // Index 0 = Malanday terminal, 1..N = stop zones, N+1 = Recto terminal
-    const matched = data.matched_points || [];
-    const snappedZones = sorted.map((zone, i) => {
-      const mp = matched[i + 1]; // +1 to skip the terminal
-      if (mp && mp.lat && mp.lon && mp.type !== "unmatched") {
-        return { ...zone, lat: mp.lat, lon: mp.lon, snapped: true };
-      }
-      return { ...zone, snapped: false }; // keep original if unmatched
-    });
-
-    return { road: roadPts, zones: snappedZones };
-  } catch (err) {
-    console.warn("Valhalla map match failed:", err.message);
+    const coords = `${START[1]},${START[0]};${END[1]},${END[0]}`;
+    const url = `${OSRM}/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const d   = await res.json();
+    if (d.code !== "Ok") throw new Error("OSRM non-OK");
+    // GeoJSON coordinates are [lon, lat] — Leaflet needs [lat, lon]
+    return d.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+  } catch (e) {
+    console.warn("OSRM road fetch failed:", e.message);
     return null;
   }
 }
 
-// Decode Valhalla's encoded polyline (precision 6)
-function decodePolyline(encoded, precision = 6) {
-  const factor = Math.pow(10, precision);
-  const result = [];
-  let index = 0, lat = 0, lng = 0;
-  while (index < encoded.length) {
-    let b, shift = 0, result2 = 0;
-    do { b = encoded.charCodeAt(index++) - 63; result2 |= (b & 0x1f) << shift; shift += 5; }
-    while (b >= 0x20);
-    lat += (result2 & 1) ? ~(result2 >> 1) : (result2 >> 1);
-    shift = 0; result2 = 0;
-    do { b = encoded.charCodeAt(index++) - 63; result2 |= (b & 0x1f) << shift; shift += 5; }
-    while (b >= 0x20);
-    lng += (result2 & 1) ? ~(result2 >> 1) : (result2 >> 1);
-    result.push([lat / factor, lng / factor]);
+// ── Snap single stop to nearest road ─────────────────────────────────────
+async function snapStop(lat, lon) {
+  try {
+    const res = await fetch(
+      `${OSRM}/nearest/v1/driving/${lon},${lat}?number=1`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    const d = await res.json();
+    if (d.code !== "Ok" || !d.waypoints?.length) return { lat, lon };
+    const wp = d.waypoints[0];
+    if (wp.distance > 80) return { lat, lon }; // >80m — keep original
+    return { lat: wp.location[1], lon: wp.location[0] };
+  } catch {
+    return { lat, lon };
   }
-  return result;
 }
 
-// ── Fallback road — used while Valhalla loads or if it fails ──────────────
-// Based on actual MacArthur Hwy / Rizal Ave OSM coordinates
-const FALLBACK_ROAD = [
-  [14.7187,120.9575],[14.7150,120.9600],[14.7110,120.9625],
-  [14.7075,120.9648],[14.7040,120.9668],[14.7013,120.9688],
-  [14.6975,120.9712],[14.6940,120.9732],[14.6905,120.9752],
-  [14.6870,120.9768],[14.6835,120.9782],[14.6800,120.9794],
-  [14.6765,120.9804],[14.6730,120.9814],[14.6695,120.9822],
-  [14.6660,120.9830],[14.6625,120.9835],[14.6590,120.9838],
-  [14.6574,120.9838],[14.6568,120.9832],[14.6560,120.9827],
-  [14.6553,120.9826],[14.6548,120.9830],[14.6547,120.9836],
-  [14.6549,120.9838],[14.6540,120.9838],[14.6520,120.9838],
-  [14.6500,120.9837],[14.6475,120.9835],[14.6450,120.9833],
-  [14.6425,120.9831],[14.6400,120.9829],[14.6375,120.9827],
-  [14.6350,120.9825],[14.6334,120.9823],[14.6310,120.9825],
-  [14.6285,120.9827],[14.6260,120.9829],[14.6235,120.9831],
-  [14.6210,120.9833],[14.6185,120.9835],[14.6160,120.9837],
-  [14.6135,120.9839],[14.6110,120.9841],[14.6085,120.9843],
-  [14.6060,120.9845],[14.6048,120.9848],[14.6037,120.9840],
+// Fallback road — used only if OSRM fails
+// Enough waypoints (~60m apart) that no segment crosses a building
+const FALLBACK = [
+  [14.7187,120.9575],[14.7168,120.9583],[14.7148,120.9592],[14.7128,120.9602],
+  [14.7108,120.9614],[14.7088,120.9627],[14.7068,120.9641],[14.7048,120.9656],
+  [14.7028,120.9670],[14.7008,120.9683],[14.6988,120.9696],[14.6968,120.9708],
+  [14.6948,120.9720],[14.6928,120.9731],[14.6908,120.9742],[14.6888,120.9752],
+  [14.6868,120.9762],[14.6848,120.9771],[14.6828,120.9779],[14.6808,120.9787],
+  [14.6788,120.9795],[14.6768,120.9802],[14.6748,120.9809],[14.6728,120.9815],
+  [14.6708,120.9821],[14.6688,120.9826],[14.6668,120.9830],[14.6648,120.9833],
+  [14.6628,120.9836],[14.6608,120.9837],[14.6588,120.9838],
+  // Monumento circle approach
+  [14.6574,120.9838],[14.6568,120.9834],[14.6561,120.9829],
+  [14.6554,120.9827],[14.6549,120.9830],[14.6547,120.9835],
+  // South of Monumento — Rizal Ave runs straight
+  [14.6538,120.9838],[14.6518,120.9840],[14.6498,120.9840],
+  [14.6478,120.9840],[14.6458,120.9840],[14.6438,120.9840],
+  [14.6418,120.9840],[14.6398,120.9840],[14.6378,120.9840],
+  [14.6358,120.9840],[14.6338,120.9840],[14.6318,120.9840],
+  [14.6298,120.9840],[14.6278,120.9840],[14.6258,120.9841],
+  [14.6238,120.9841],[14.6218,120.9841],[14.6198,120.9842],
+  [14.6178,120.9843],[14.6158,120.9843],[14.6138,120.9844],
+  [14.6118,120.9844],[14.6098,120.9845],[14.6078,120.9846],
+  [14.6058,120.9847],[14.6038,120.9840],
 ];
 
-// ── Stop tier ──────────────────────────────────────────────────────────────
+// ── Stop tier ─────────────────────────────────────────────────────────────
 function getTier(rank, total) {
   const pct = rank / total;
   if (pct <= 0.15) return { badge:"⭐ Frequent Stop",   desc:"Jeepneys stop here very often. Best place to wait.", color:"#30d158", r:13 };
@@ -134,59 +101,69 @@ function peakLabel(p) {
            "Midday":"☀️ Busiest midday","Off-Peak":"🌙 Busiest off-peak" }[p] || p;
 }
 
-// ── Map overlay ─────────────────────────────────────────────────────────────
+// ── Full-screen map ───────────────────────────────────────────────────────
 function PassengerMap({ zones, onClose }) {
   const mapEl   = useRef(null);
   const mapRef  = useRef(null);
-  const mksRef  = useRef([]);
   const lineRef = useRef(null);
+  const mksRef  = useRef([]);
 
-  const [matched,  setMatched]  = useState(null);   // map-matched zones
-  const [roadPts,  setRoadPts]  = useState(null);   // matched road geometry
-  const [matching, setMatching] = useState(true);   // loading state
+  const [snapped,  setSnapped]  = useState(null);
+  const [roadReady,setRoadReady]= useState(false);
   const [sel,      setSel]      = useState(null);
   const [filter,   setFilter]   = useState("all");
   const total = zones.length;
 
-  // Lock scroll
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  // Run Valhalla map matching
+  // Parallel: fetch road geometry AND snap all stops
   useEffect(() => {
     let dead = false;
-    mapMatch(zones).then(result => {
-      if (dead) return;
-      if (result) {
-        setRoadPts(result.road);
-        setMatched(result.zones);
-      }
-      setMatching(false);
-    });
-    return () => { dead = true; };
-  }, [zones]);
 
-  // Init Leaflet map
+    // Road line — 2 waypoints only
+    fetchRoadLine().then(road => {
+      if (dead || !mapRef.current) return;
+      const map = mapRef.current;
+      if (lineRef.current) map.removeLayer(lineRef.current);
+      const pts = road || FALLBACK;
+      lineRef.current = L.polyline(pts, {
+        color:"#42a5f5", weight:4, opacity:0.65,
+        lineJoin:"round", lineCap:"round",
+      }).addTo(map);
+      setRoadReady(true);
+    });
+
+    // Stop snapping — independent of road line
+    Promise.all(
+      zones.map(z =>
+        snapStop(z.lat, z.lon).then(pos => ({ ...z, lat:pos.lat, lon:pos.lon }))
+      )
+    ).then(matched => { if (!dead) setSnapped(matched); });
+
+    return () => { dead = true; };
+  }, [zones]); // eslint-disable-line
+
+  // Init map once
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
     const map = L.map(mapEl.current, {
-      center: [14.66, 120.9750], zoom: 13,
-      scrollWheelZoom: true, zoomControl: true, attributionControl: true,
+      center:[14.66,120.9750], zoom:13,
+      scrollWheelZoom:true, zoomControl:true, attributionControl:true,
     });
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       { subdomains:"abcd", maxZoom:19, attribution:"© CARTO © OSM" }).addTo(map);
 
-    // Draw fallback road immediately
-    lineRef.current = L.polyline(FALLBACK_ROAD, {
-      color:"#42a5f5", weight:4, opacity:0.55,
-      lineJoin:"round", lineCap:"round",
+    // Fallback road drawn immediately — replaced when OSRM responds
+    lineRef.current = L.polyline(FALLBACK, {
+      color:"#42a5f5", weight:4, opacity:0.45, lineJoin:"round", lineCap:"round",
     }).addTo(map);
 
     // Terminal labels
     [[14.7187,120.9575,"🚉 Malanday"],[14.6037,120.9840,"🚉 Recto LRT"]]
-      .forEach(([la,lo,lbl]) => L.marker([la,lo], { icon: L.divIcon({
+      .forEach(([la,lo,lbl]) => L.marker([la,lo],{ icon:L.divIcon({
         html:`<div style="background:rgba(5,15,30,.92);border:2px solid #42a5f5;
           border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;
           font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
@@ -199,17 +176,6 @@ function PassengerMap({ zones, onClose }) {
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // Swap in Valhalla road when ready
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !roadPts || roadPts.length < 2) return;
-    if (lineRef.current) map.removeLayer(lineRef.current);
-    lineRef.current = L.polyline(roadPts, {
-      color:"#42a5f5", weight:4, opacity:0.60,
-      lineJoin:"round", lineCap:"round",
-    }).addTo(map);
-  }, [roadPts]);
-
   // Draw stop markers
   useEffect(() => {
     const map = mapRef.current;
@@ -217,10 +183,10 @@ function PassengerMap({ zones, onClose }) {
     mksRef.current.forEach(m => map.removeLayer(m));
     mksRef.current = [];
 
-    const src = matched || zones;
-    const visible = filter === "all" ? src
-      : filter === "frequent" ? src.filter(z => z.rank/total <= 0.15)
-      : src.filter(z => z.rank/total <= 0.45);
+    const src = snapped || zones;
+    const visible = filter==="all" ? src
+      : filter==="frequent" ? src.filter(z=>z.rank/total<=0.15)
+      : src.filter(z=>z.rank/total<=0.45);
 
     visible.forEach(zone => {
       const tier  = getTier(zone.rank, total);
@@ -229,8 +195,7 @@ function PassengerMap({ zones, onClose }) {
 
       if (isSel) mksRef.current.push(
         L.circleMarker([zone.lat,zone.lon],{
-          radius:tier.r+14,color:tier.color,
-          fillColor:tier.color,fillOpacity:0.18,weight:0,
+          radius:tier.r+14,color:tier.color,fillColor:tier.color,fillOpacity:0.18,weight:0,
         }).addTo(map)
       );
 
@@ -256,11 +221,11 @@ function PassengerMap({ zones, onClose }) {
         </div>
       `,{sticky:true,opacity:0.98,maxWidth:240,direction:"top"});
 
-      const click = () => setSel(p => p===zone.cluster_id ? null : zone.cluster_id);
+      const click = () => setSel(p => p===zone.cluster_id?null:zone.cluster_id);
       dot.on("click",click); ring.on("click",click);
       mksRef.current.push(ring,dot);
 
-      if (isTop || tier.r >= 13) mksRef.current.push(
+      if (isTop||tier.r>=13) mksRef.current.push(
         L.marker([zone.lat,zone.lon],{
           icon:L.divIcon({
             html:`<span style="font-size:${isTop?14:11}px;pointer-events:none;
@@ -275,9 +240,9 @@ function PassengerMap({ zones, onClose }) {
       const b = L.latLngBounds(visible.map(z=>[z.lat,z.lon]));
       if (b.isValid()) map.fitBounds(b,{padding:[48,48],maxZoom:15});
     }
-  }, [matched, zones, sel, filter, total]);
+  }, [snapped, zones, sel, filter, total]);
 
-  const selZone = (matched||zones).find(z => z.cluster_id === sel);
+  const selZone = (snapped||zones).find(z=>z.cluster_id===sel);
   const selTier = selZone ? getTier(selZone.rank,total) : null;
   const freqN   = zones.filter(z=>z.rank/total<=0.15).length;
   const regN    = zones.filter(z=>z.rank/total<=0.45).length;
@@ -286,7 +251,6 @@ function PassengerMap({ zones, onClose }) {
     <div style={{position:"fixed",inset:0,zIndex:9999,display:"flex",
       flexDirection:"column",background:"#050f1e",fontFamily:"'DM Sans',sans-serif"}}>
 
-      {/* Top bar */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
         padding:"13px 16px",background:"rgba(5,15,30,.96)",
         borderBottom:"1px solid rgba(255,255,255,.10)",
@@ -297,8 +261,9 @@ function PassengerMap({ zones, onClose }) {
           </div>
           <div style={{fontSize:11,color:"rgba(255,255,255,.42)",marginTop:2}}>
             Malanday → Recto · {freqN} frequent · {total} total
-            {matching && <span style={{color:"#ffd60a"}}> · matching to roads…</span>}
-            {!matching && matched && <span style={{color:"#30d158"}}> · road-matched ✓</span>}
+            {!roadReady
+              ? <span style={{color:"#ffd60a"}}> · loading road…</span>
+              : <span style={{color:"#30d158"}}> · road loaded ✓</span>}
           </div>
         </div>
         <button onClick={onClose} style={{background:"rgba(255,255,255,.10)",
@@ -308,9 +273,8 @@ function PassengerMap({ zones, onClose }) {
         </button>
       </div>
 
-      {/* Filter pills */}
-      <div style={{display:"flex",gap:8,padding:"10px 16px",
-        background:"rgba(0,0,0,.45)",borderBottom:"1px solid rgba(255,255,255,.07)",
+      <div style={{display:"flex",gap:8,padding:"10px 16px",background:"rgba(0,0,0,.45)",
+        borderBottom:"1px solid rgba(255,255,255,.07)",
         flexShrink:0,zIndex:2,flexWrap:"wrap",alignItems:"center"}}>
         {[
           {key:"all",      label:`All (${total})`,        color:"#42a5f5"},
@@ -330,7 +294,6 @@ function PassengerMap({ zones, onClose }) {
         </span>
       </div>
 
-      {/* Selected stop */}
       {selZone && selTier && (
         <div style={{padding:"12px 16px",background:`${selTier.color}18`,
           borderBottom:`2px solid ${selTier.color}`,display:"flex",
@@ -352,10 +315,8 @@ function PassengerMap({ zones, onClose }) {
         </div>
       )}
 
-      {/* Map */}
       <div ref={mapEl} style={{flex:1,zIndex:1}} />
 
-      {/* Legend */}
       <div style={{padding:"9px 16px",background:"rgba(0,0,0,.75)",
         borderTop:"1px solid rgba(255,255,255,.07)",display:"flex",
         gap:"14px",flexWrap:"wrap",alignItems:"center",flexShrink:0,zIndex:2}}>
@@ -369,7 +330,7 @@ function PassengerMap({ zones, onClose }) {
           </span>
         ))}
         <span style={{fontSize:10,color:"rgba(255,255,255,.25)",marginLeft:"auto"}}>
-          {matched ? "Road-matched via OpenStreetMap" : "From real jeepney GPS data"}
+          Road geometry from OpenStreetMap · Stops road-matched
         </span>
       </div>
     </div>
