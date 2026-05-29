@@ -272,3 +272,42 @@ def get_route_path(route_id: str, db: Session = Depends(get_db)):
         "path": path,
     }
 
+@router.get("/public/route/{route_id}/stop-zones", tags=["Public"])
+def get_public_stop_zones(route_id: str, db: Session = Depends(get_db)):
+    zones = (
+        db.query(PublishedStopZone)
+        .filter(PublishedStopZone.route_id == route_id)
+        .order_by(PublishedStopZone.rank)
+        .all()
+    )
+    if not zones:
+        return {
+            "route_id":   route_id,
+            "published":  False,
+            "stop_zones": [],
+            "total_trips_analyzed": 0,
+            "message": "Stop zones have not been published for this route yet.",
+        }
+    return {
+        "route_id":             route_id,
+        "published":            True,
+        "published_at":         zones[0].published_at.isoformat() + "Z",
+        "total_trips_analyzed": zones[0].trips_analyzed,
+        "total_logs_clustered": zones[0].logs_analyzed,
+        "stop_zones": [
+            {
+                "cluster_id":      z.cluster_id,
+                "lat":             z.lat,
+                "lon":             z.lon,
+                "point_count":     z.point_count,
+                "demand_tier":     z.demand_tier,
+                "avg_occupancy":   z.avg_occupancy,
+                "peak_period":     z.peak_period,
+                "load_factor_pct": z.load_factor_pct,
+                "color":           z.color,
+                "rank":            z.rank,
+            }
+            for z in zones
+        ],
+        "parameters": {"eps_m": 15.0, "min_samples": 10},
+    }
