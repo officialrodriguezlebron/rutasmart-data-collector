@@ -136,7 +136,8 @@ const GROUND_TRUTH = [
 ];
 
 // ── Corridor polyline ─────────────────────────────────────────────────────
-const CORRIDOR_ROUTE = GROUND_TRUTH.map(([lat, lon]) => [lat, lon]);
+import { CORRIDOR } from "../data/corridor";
+const CORRIDOR_ROUTE = CORRIDOR;
 
 // ── Distance utility (Haversine, meters) ──────────────────────────────────
 function haversineMeters(a, b) {
