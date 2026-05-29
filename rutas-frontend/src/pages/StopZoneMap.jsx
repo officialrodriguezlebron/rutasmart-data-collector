@@ -1,13 +1,12 @@
 /**
  * StopZoneMap — Passenger Boarding & Alighting Map
  *
- * Map matching: nearest-point-on-polyline against a hardcoded dense corridor.
- * The corridor is calibrated to actual cluster centroid positions.
- * Snapping runs synchronously before any marker is drawn.
- * No external API calls for stop positions.
+ * Corridor: sourced from LTFRB GTFS data (LTFRB_PUJ1426/1427)
+ *   "Malanday - Recto via F. Huertas, Oroquieta"
+ *   MacArthur Highway → Rizal Avenue → Oroquieta → Recto LRT
  *
- * Road line: fetched from /public/route/{id}/path (our real GPS data).
- * Falls back to the same hardcoded corridor if the endpoint fails.
+ * Map matching: nearest-point-on-polyline (pure geometry, no API)
+ *   Run synchronously before any marker is drawn — zero race conditions.
  */
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
@@ -22,38 +21,83 @@ L.Icon.Default.mergeOptions({
 
 const API = import.meta.env.VITE_API_URL;
 
-// ── Calibrated corridor: MacArthur Highway → Rizal Avenue ─────────────────
-// Dense enough for accurate snapping (~30-50m between points).
-// Passes through actual cluster centroid positions so snapping is precise.
-// Malanday (north) → joins MacArthur Hwy → Monumento → Rizal Ave → Recto
+// ── GTFS corridor: LTFRB_PUJ1426 — Malanday to Recto ─────────────────────
+// Sourced from LTFRB GTFS stops.txt (stop coordinates on MacArthur Hwy /
+// Rizal Ave / Oroquieta). This is the actual licensed jeepney route path.
 const CORRIDOR = [
-  [14.7187, 120.9575], [14.7160, 120.9585], [14.7140, 120.9595],
-  [14.7120, 120.9603], [14.7100, 120.9611], [14.7080, 120.9619],
-  [14.7060, 120.9627], [14.7013, 120.9635], // rank 1 area
-  [14.6990, 120.9670], [14.6960, 120.9710], [14.6930, 120.9745],
-  [14.6900, 120.9775], [14.6870, 120.9798], [14.6840, 120.9815],
-  [14.6810, 120.9825], [14.6780, 120.9832], [14.6750, 120.9836],
-  [14.6720, 120.9838], [14.6690, 120.9839], [14.6660, 120.9839],
-  [14.6630, 120.9839], [14.6600, 120.9839],
-  // Monumento
-  [14.6574, 120.9838], [14.6571, 120.9840], // rank 2
-  [14.6564, 120.9840], // rank 3
-  [14.6550, 120.9839], [14.6530, 120.9839], [14.6510, 120.9839],
-  // Rizal Avenue — straight south at lon ~120.984
-  [14.6490, 120.9838], [14.6470, 120.9838], [14.6462, 120.9840],
-  [14.6440, 120.9838], [14.6420, 120.9837], [14.6400, 120.9836],
-  [14.6380, 120.9836], [14.6360, 120.9836], [14.6340, 120.9836],
-  [14.6334, 120.9836], // rank 4 anchor
-  [14.6310, 120.9836], [14.6290, 120.9836], [14.6270, 120.9836],
-  [14.6256, 120.9836], // rank 10 anchor
-  [14.6240, 120.9837], [14.6220, 120.9838], [14.6200, 120.9839],
-  [14.6180, 120.9840], [14.6160, 120.9841], [14.6140, 120.9843],
-  [14.6120, 120.9844], [14.6100, 120.9845], [14.6080, 120.9847],
-  [14.6060, 120.9848], [14.6048, 120.9850], // rank 65
-  [14.6037, 120.9840], // Recto LRT
+  [14.7180, 120.957],  // Malanday Terminal
+  [14.7122, 120.959],  // MacArthur Hwy Dalandanan
+  [14.7041, 120.961],  // Dalandanan Fire Station
+  [14.7036, 120.962],  // Dalandanan Health Centre
+  [14.7022, 120.962],  // Santos Encamacion Elem School
+  [14.7013, 120.962],  // Iglesia Ni Cristo Dalandanan
+  [14.6970, 120.964],  // MacArthur Hwy / San Miguel
+  [14.6956, 120.964],  // Parish Church Isidro Labrador
+  [14.6929, 120.964],  // Jollibee Malinta
+  [14.6925, 120.965],  // Malinta Elementary School
+  [14.6911, 120.973],  // Bureau of Telecom
+  [14.6899, 120.974],  // Karuhatan Public Market
+  [14.6886, 120.975],  // Macro LPG
+  [14.6877, 120.975],  // MacArthur Hwy / San Francisco
+  [14.6862, 120.976],  // SM Center Valenzuela
+  [14.6852, 120.977],  // MacArthur Hwy / Cayetano
+  [14.6837, 120.978],  // Novo Dep Store
+  [14.6815, 120.979],  // Bread of Life
+  [14.6779, 120.980],  // Our Lady of Fatima University
+  [14.6749, 120.981],  // Bearsea Auto Supply
+  [14.6732, 120.982],  // Calalang General Hospital
+  [14.6700, 120.982],  // CDC Manufacturing
+  [14.6677, 120.982],  // MacArthur Hwy / Del Monte
+  [14.6663, 120.984],  // Potrero Heights Elementary School
+  [14.6650, 120.984],  // Malabon City / Victoneta Ave
+  [14.6617, 120.984],  // MacArthur Hwy / Lanzones
+  [14.6601, 120.984],  // Floresco North Mortuary
+  [14.6587, 120.985],  // General Rosendo Simon / Calle Uno
+  [14.6576, 120.984],  // Bonifacio Market / Hypermarket Monumento
+  [14.6571, 120.984],  // Araneta Square Mall (Samson Rd)
+  [14.6564, 120.984],  // Monumento, Rizal Avenue
+  [14.6561, 120.984],  // Monumento LRT
+  [14.6556, 120.984],  // Ever Gotesco Grand Central
+  [14.6538, 120.984],  // MacDonalds Rizal Ave
+  [14.6516, 120.984],  // Rizal Ave / Asistio
+  [14.6488, 120.984],  // Rizal Ave / 8th Ave West
+  [14.6474, 120.984],  // Rizal Ave / 7th Ave West
+  [14.6462, 120.984],  // Asia Trust Bank
+  [14.6459, 120.984],  // JCSGO Caloocan
+  [14.6445, 120.984],  // Circumferential Rd 3 / M.H. Del Pilar
+  [14.6444, 120.984],  // 5th Ave LRT
+  [14.6431, 120.984],  // 4th Ave East
+  [14.6417, 120.984],  // 3rd Ave East
+  [14.6412, 120.984],  // Banco De Oro
+  [14.6400, 120.984],  // Baliwag Transit Bus Station
+  [14.6374, 120.983],  // Rizal Ave / Road 1
+  [14.6362, 120.982],  // LRT Papa Station
+  [14.6360, 120.982],  // R. Papa LRT
+  [14.6334, 120.981],  // P. Sevilla / 2nd Ave West
+  [14.6320, 120.981],  // Rizal Ave / Jose Abad Santos Ave
+  [14.6306, 120.982],  // Abad Santos LRT
+  [14.6286, 120.983],  // Rizal Ave near Aurora Blvd
+  [14.6268, 120.983],  // Blumentritt area
+  [14.6228, 120.983],  // Blumentritt LRT
+  [14.6227, 120.984],  // New Antipolo / Oroquieta
+  [14.6206, 120.984],  // Oroquieta / Batangas
+  [14.6181, 120.984],  // Camarines
+  [14.6168, 120.983],  // Tayuman LRT
+  [14.6163, 120.984],  // Oroquieta
+  [14.6143, 120.984],  // San Lazaro / Oroquieta
+  [14.6130, 120.984],  // Quiricada / Felix Huertas
+  [14.6117, 120.983],  // Rizal Ave Manila
+  [14.6109, 120.983],  // Oroquieta / Bambang
+  [14.6109, 120.982],  // Bambang LRT
+  [14.6087, 120.983],  // Oroquieta / Mayhaligue
+  [14.6076, 120.984],  // Sulu
+  [14.6067, 120.983],  // Lope De Vega / Oroquieta
+  [14.6051, 120.983],  // Oroquieta
+  [14.6037, 120.983],  // LRT Doroteo Jose-Recto Station
+  [14.6035, 120.983],  // Recto LRT
 ];
 
-// ── Haversine distance in metres ──────────────────────────────────────────
+// ── Nearest-point-on-polyline map matching ────────────────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000, p = Math.PI / 180;
   const a = Math.sin((lat2-lat1)*p/2)**2
@@ -61,16 +105,14 @@ function haversine(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-// ── Snap a point to nearest position on the corridor ─────────────────────
 function snapToRoad(lat, lon) {
   let bLat = lat, bLon = lon, bDist = Infinity;
   for (let i = 0; i < CORRIDOR.length - 1; i++) {
-    const [ax, ay] = CORRIDOR[i];
-    const [bx, by] = CORRIDOR[i + 1];
+    const [ax, ay] = CORRIDOR[i], [bx, by] = CORRIDOR[i + 1];
     const dx = bx - ax, dy = by - ay;
     const t = dx === 0 && dy === 0 ? 0
       : Math.max(0, Math.min(1, ((lat-ax)*dx + (lon-ay)*dy) / (dx*dx + dy*dy)));
-    const sLat = ax + t * dx, sLon = ay + t * dy;
+    const sLat = ax + t*dx, sLon = ay + t*dy;
     const d = haversine(lat, lon, sLat, sLon);
     if (d < bDist) { bDist = d; bLat = sLat; bLon = sLon; }
   }
@@ -91,46 +133,40 @@ function peakLabel(p) {
 }
 
 // ── Full-screen map ───────────────────────────────────────────────────────
-function PassengerMap({ zones, routeId, onClose }) {
+function PassengerMap({ zones, onClose }) {
   const mapEl  = useRef(null);
   const mapRef = useRef(null);
   const mksRef = useRef([]);
-
   const [sel,    setSel]    = useState(null);
   const [filter, setFilter] = useState("all");
   const total = zones.length;
 
-  // Snap ALL stops synchronously before any state is set
-  // This runs once and never changes — snapping is deterministic
-  const snapped = zones.map(z => {
-    const { lat, lon } = snapToRoad(z.lat, z.lon);
-    return { ...z, lat, lon };
-  });
+  // Snap synchronously — before any render, zero race condition
+  const snapped = zones.map(z => ({ ...z, ...snapToRoad(z.lat, z.lon) }));
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  // Init map + fetch road line from GPS track
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
     const map = L.map(mapEl.current, {
-      center: [14.66, 120.9750], zoom: 13,
+      center: [14.66, 120.982], zoom: 13,
       scrollWheelZoom: true, zoomControl: true, attributionControl: true,
     });
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       { subdomains:"abcd", maxZoom:19, attribution:"© CARTO © OSM" }).addTo(map);
 
-    // Draw corridor immediately as fallback road
+    // Road line from GTFS corridor
     L.polyline(CORRIDOR, {
-      color:"#42a5f5", weight:3, opacity:0.50,
+      color:"#42a5f5", weight:3, opacity:0.65,
       lineJoin:"round", lineCap:"round",
     }).addTo(map);
 
     // Terminal labels
-    [[14.7187,120.9575,"🚉 Malanday"],[14.6037,120.9840,"🚉 Recto LRT"]]
-      .forEach(([la,lo,lbl]) => L.marker([la,lo],{ icon:L.divIcon({
+    [[14.7180, 120.957, "🚉 Malanday"], [14.6035, 120.983, "🚉 Recto LRT"]]
+      .forEach(([la, lo, lbl]) => L.marker([la, lo], { icon: L.divIcon({
         html:`<div style="background:rgba(5,15,30,.92);border:2px solid #42a5f5;
           border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;
           font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
@@ -140,59 +176,33 @@ function PassengerMap({ zones, routeId, onClose }) {
 
     mapRef.current = map;
     setTimeout(() => map.invalidateSize(), 200);
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
 
-    // Upgrade road line from actual GPS track if available
-    let dead = false;
-    fetch(`${API}/public/route/${routeId}/path`)
-      .then(r => r.json())
-      .then(d => {
-        if (dead || !mapRef.current || !d.path?.length) return;
-        // Remove corridor fallback layers and add real GPS track
-        mapRef.current.eachLayer(l => {
-          if (l instanceof L.Polyline) mapRef.current.removeLayer(l);
-        });
-        const lls = d.path.map(p => [p.lat, p.lon]);
-        L.polyline(lls, {
-          color:"#42a5f5", weight:3, opacity:0.65,
-          lineJoin:"round", lineCap:"round",
-        }).addTo(mapRef.current);
-      })
-      .catch(() => {}); // corridor fallback stays
-
-    return () => {
-      dead = true;
-      map.remove();
-      mapRef.current = null;
-    };
-  }, []); // eslint-disable-line
-
-  // Draw markers from snapped positions
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     mksRef.current.forEach(m => map.removeLayer(m));
     mksRef.current = [];
 
-    const visible = filter === "all"     ? snapped
-      : filter === "frequent" ? snapped.filter(z => z.rank/total <= 0.15)
-      : snapped.filter(z => z.rank/total <= 0.45);
+    const visible = filter==="all" ? snapped
+      : filter==="frequent" ? snapped.filter(z=>z.rank/total<=0.15)
+      : snapped.filter(z=>z.rank/total<=0.45);
 
     visible.forEach(zone => {
       const tier  = getTier(zone.rank, total);
-      const isSel = sel === zone.cluster_id;
-      const isTop = zone.rank === 1;
+      const isSel = sel===zone.cluster_id;
+      const isTop = zone.rank===1;
 
       if (isSel) mksRef.current.push(
         L.circleMarker([zone.lat,zone.lon],{
           radius:tier.r+14,color:tier.color,fillColor:tier.color,fillOpacity:0.18,weight:0,
         }).addTo(map)
       );
-
       const ring = L.circleMarker([zone.lat,zone.lon],{
         radius:tier.r+3,color:"#fff",fillColor:"transparent",fillOpacity:0,
         weight:isSel?2.5:1.8,opacity:isSel?1:0.35,
       }).addTo(map);
-
       const dot = L.circleMarker([zone.lat,zone.lon],{
         radius:tier.r,color:"transparent",
         fillColor:tier.color,fillOpacity:isSel?1:0.88,weight:0,
@@ -210,7 +220,7 @@ function PassengerMap({ zones, routeId, onClose }) {
         </div>
       `,{sticky:true,opacity:0.98,maxWidth:240,direction:"top"});
 
-      const click = () => setSel(p => p===zone.cluster_id?null:zone.cluster_id);
+      const click=()=>setSel(p=>p===zone.cluster_id?null:zone.cluster_id);
       dot.on("click",click); ring.on("click",click);
       mksRef.current.push(ring,dot);
 
@@ -226,15 +236,15 @@ function PassengerMap({ zones, routeId, onClose }) {
     });
 
     if (visible.length) {
-      const b = L.latLngBounds(visible.map(z=>[z.lat,z.lon]));
+      const b=L.latLngBounds(visible.map(z=>[z.lat,z.lon]));
       if (b.isValid()) map.fitBounds(b,{padding:[48,48],maxZoom:15});
     }
-  }, [snapped, sel, filter, total]); // eslint-disable-line
+  },[snapped,sel,filter,total]); // eslint-disable-line
 
-  const selZone = snapped.find(z => z.cluster_id === sel);
-  const selTier = selZone ? getTier(selZone.rank, total) : null;
-  const freqN   = zones.filter(z=>z.rank/total<=0.15).length;
-  const regN    = zones.filter(z=>z.rank/total<=0.45).length;
+  const selZone=snapped.find(z=>z.cluster_id===sel);
+  const selTier=selZone?getTier(selZone.rank,total):null;
+  const freqN=zones.filter(z=>z.rank/total<=0.15).length;
+  const regN=zones.filter(z=>z.rank/total<=0.45).length;
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:9999,display:"flex",
@@ -249,7 +259,7 @@ function PassengerMap({ zones, routeId, onClose }) {
             🚏 Where to Board &amp; Alight
           </div>
           <div style={{fontSize:11,color:"rgba(255,255,255,.42)",marginTop:2}}>
-            Malanday → Recto · {freqN} frequent · {total} total stops · road-matched ✓
+            Malanday → Recto · {freqN} frequent · {total} total · road-matched ✓
           </div>
         </div>
         <button onClick={onClose} style={{background:"rgba(255,255,255,.10)",
@@ -275,16 +285,13 @@ function PassengerMap({ zones, routeId, onClose }) {
             fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
           }}>{label}</button>
         ))}
-        <span style={{fontSize:10,color:"rgba(255,255,255,.28)",marginLeft:"auto"}}>
-          Bigger = more reliable
-        </span>
+        <span style={{fontSize:10,color:"rgba(255,255,255,.28)",marginLeft:"auto"}}>Bigger = more reliable</span>
       </div>
 
-      {selZone && selTier && (
+      {selZone&&selTier&&(
         <div style={{padding:"12px 16px",background:`${selTier.color}18`,
           borderBottom:`2px solid ${selTier.color}`,display:"flex",
-          alignItems:"flex-start",justifyContent:"space-between",gap:12,
-          flexShrink:0,zIndex:2}}>
+          alignItems:"flex-start",justifyContent:"space-between",gap:12,flexShrink:0,zIndex:2}}>
           <div style={{flex:1}}>
             <div style={{fontWeight:800,fontSize:15,color:"#fff",marginBottom:4}}>
               {selTier.badge}
@@ -295,13 +302,13 @@ function PassengerMap({ zones, routeId, onClose }) {
               <span style={{color:"#42a5f5",fontWeight:600}}>{peakLabel(selZone.peak_period)}</span>
             </div>
           </div>
-          <button onClick={()=>setSel(null)} style={{background:"rgba(255,255,255,.10)",
-            border:"none",borderRadius:8,color:"rgba(255,255,255,.50)",
-            padding:"6px 12px",cursor:"pointer",fontSize:14,fontFamily:"inherit",flexShrink:0}}>✕</button>
+          <button onClick={()=>setSel(null)} style={{background:"rgba(255,255,255,.10)",border:"none",
+            borderRadius:8,color:"rgba(255,255,255,.50)",padding:"6px 12px",
+            cursor:"pointer",fontSize:14,fontFamily:"inherit",flexShrink:0}}>✕</button>
         </div>
       )}
 
-      <div ref={mapEl} style={{flex:1,zIndex:1}} />
+      <div ref={mapEl} style={{flex:1,zIndex:1}}/>
 
       <div style={{padding:"9px 16px",background:"rgba(0,0,0,.75)",
         borderTop:"1px solid rgba(255,255,255,.07)",display:"flex",
@@ -310,13 +317,12 @@ function PassengerMap({ zones, routeId, onClose }) {
           .map(([c,l,r])=>(
           <span key={l} style={{display:"flex",alignItems:"center",gap:6,
             fontSize:11,color:"rgba(255,255,255,.65)",fontWeight:600}}>
-            <span style={{width:r,height:r,borderRadius:"50%",background:c,
-              display:"inline-block",flexShrink:0}}/>
+            <span style={{width:r,height:r,borderRadius:"50%",background:c,display:"inline-block",flexShrink:0}}/>
             {l}
           </span>
         ))}
         <span style={{fontSize:10,color:"rgba(255,255,255,.25)",marginLeft:"auto"}}>
-          Stops road-matched to MacArthur Hwy / Rizal Ave corridor
+          Road-matched to LTFRB route corridor
         </span>
       </div>
     </div>
@@ -324,10 +330,10 @@ function PassengerMap({ zones, routeId, onClose }) {
 }
 
 // ── Pill button ───────────────────────────────────────────────────────────
-export default function StopZoneMap({ routeId="MR-001" }) {
-  const [zones,   setZones]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [open,    setOpen]    = useState(false);
+export default function StopZoneMap({routeId="MR-001"}) {
+  const [zones,setZones]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [open,setOpen]=useState(false);
 
   useEffect(()=>{
     let dead=false;
@@ -338,7 +344,7 @@ export default function StopZoneMap({ routeId="MR-001" }) {
     return ()=>{dead=true;};
   },[routeId]);
 
-  if (loading) return (
+  if(loading) return(
     <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",
       background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.10)",
       borderRadius:99,color:"rgba(255,255,255,.40)",
@@ -351,10 +357,10 @@ export default function StopZoneMap({ routeId="MR-001" }) {
     </div>
   );
 
-  if (!zones.length) return null;
-  const freqN = zones.filter(z=>z.rank/zones.length<=0.15).length;
+  if(!zones.length) return null;
+  const freqN=zones.filter(z=>z.rank/zones.length<=0.15).length;
 
-  return (<>
+  return(<>
     <button onClick={()=>setOpen(true)} style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",
       width:"100%",padding:"14px 18px",
@@ -381,6 +387,6 @@ export default function StopZoneMap({ routeId="MR-001" }) {
         fontSize:12,fontWeight:800,color:"#fff",flexShrink:0,
         boxShadow:"0 2px 8px rgba(25,118,210,.40)"}}>View Map →</span>
     </button>
-    {open && <PassengerMap zones={zones} routeId={routeId} onClose={()=>setOpen(false)}/>}
+    {open&&<PassengerMap zones={zones} onClose={()=>setOpen(false)}/>}
   </>);
 }
