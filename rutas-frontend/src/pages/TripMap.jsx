@@ -373,11 +373,15 @@ export default function TripMap({ tripId, onClose }) {
         return { ...l, lat: s.lat, lon: s.lon };
       }), [logs]);
   // ── Derived: filtered clusters by demand tier ──────────────────────────
-  const filteredClusters = useMemo(() => (
-    tierFilter === "all"
-      ? clusters
-      : clusters.filter(c => c.demand_tier === tierFilter)
-  ), [clusters, tierFilter]);
+      const filteredClusters = useMemo(() => {
+      const base = tierFilter === "all"
+        ? clusters
+        : clusters.filter(c => c.demand_tier === tierFilter);
+      return base.map(c => {
+        const s = snapToRoad(c.centroid_lat, c.centroid_lon);
+        return { ...c, centroid_lat: s.lat, centroid_lon: s.lon };
+      });
+    }, [clusters, tierFilter]);
 
   if (!tripId) return null;
 
