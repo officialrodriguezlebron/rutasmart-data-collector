@@ -1,15 +1,13 @@
 /**
  * StopZoneMap — Passenger Boarding & Alighting Map
  *
- * Backend publish flow (confirmed working):
- *   Admin → publish → DBSCAN on ALL completed trips → saved to DB
- *   Public → reads published stops from DB (no live DBSCAN)
+ * Road line: fetched from our OWN GPS logs via /public/route/{id}/path
+ *            Conductors drove the exact route 8 times. That data IS the road.
+ *            No routing engine. No OSRM. No detours.
  *
- * Frontend map:
- *   Road line  → OSRM /route with 2 waypoints ONLY (Malanday → Recto)
- *                Returns exact OSM road geometry. Stops never used as waypoints.
- *   Stop dots  → OSRM /nearest snaps each centroid to nearest road.
- *                Completely independent of road line.
+ * Stop dots: raw published centroids from DBSCAN.
+ *            Already on the road — no snapping needed.
+ *            DBSCAN centroid = mean of GPS points that were ON the road.
  */
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
@@ -22,72 +20,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const API  = import.meta.env.VITE_API_URL;
-const OSRM = "https://router.project-osrm.org";
-
-// Terminal coordinates
-const MALANDAY = [14.7187, 120.9575];
-const RECTO    = [14.6037, 120.9840];
-
-// ── Road line: OSRM /route with ONLY start + end ──────────────────────────
-// Returns exact OSM road geometry — thousands of micro-points.
-// Never routes through stops. No detours. No building shortcuts.
-async function fetchRoadLine() {
-  try {
-    const url = `${OSRM}/route/v1/driving/${MALANDAY[1]},${MALANDAY[0]};${RECTO[1]},${RECTO[0]}?overview=full&geometries=geojson&steps=false`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    const d   = await res.json();
-    if (d.code !== "Ok") throw new Error("non-OK");
-    // GeoJSON is [lon,lat] — Leaflet needs [lat,lon]
-    return d.routes[0].geometry.coordinates.map(([lo, la]) => [la, lo]);
-  } catch (e) {
-    console.warn("OSRM road failed:", e.message);
-    return null;
-  }
-}
-
-// ── Snap single stop to nearest road ─────────────────────────────────────
-async function snapStop(lat, lon) {
-  try {
-    const res = await fetch(
-      `${OSRM}/nearest/v1/driving/${lon},${lat}?number=1`,
-      { signal: AbortSignal.timeout(5000) }
-    );
-    const d = await res.json();
-    if (d.code !== "Ok" || !d.waypoints?.length) return { lat, lon };
-    const wp = d.waypoints[0];
-    if (wp.distance > 80) return { lat, lon }; // too far — keep original
-    return { lat: wp.location[1], lon: wp.location[0] };
-  } catch {
-    return { lat, lon };
-  }
-}
-
-// ── Fallback road — used instantly while OSRM loads ───────────────────────
-// Dense enough (~60m apart) that no segment crosses a building block
-const FALLBACK = [
-  [14.7187,120.9575],[14.7168,120.9583],[14.7148,120.9592],[14.7128,120.9602],
-  [14.7108,120.9614],[14.7088,120.9627],[14.7068,120.9641],[14.7048,120.9656],
-  [14.7028,120.9670],[14.7008,120.9683],[14.6988,120.9696],[14.6968,120.9708],
-  [14.6948,120.9720],[14.6928,120.9731],[14.6908,120.9742],[14.6888,120.9752],
-  [14.6868,120.9762],[14.6848,120.9771],[14.6828,120.9779],[14.6808,120.9787],
-  [14.6788,120.9795],[14.6768,120.9802],[14.6748,120.9809],[14.6728,120.9815],
-  [14.6708,120.9821],[14.6688,120.9826],[14.6668,120.9830],[14.6648,120.9833],
-  [14.6628,120.9836],[14.6608,120.9837],[14.6588,120.9838],
-  // Monumento circle - west side
-  [14.6574,120.9838],[14.6568,120.9834],[14.6561,120.9829],
-  [14.6554,120.9827],[14.6549,120.9830],[14.6547,120.9835],[14.6549,120.9838],
-  // Rizal Avenue - straight south
-  [14.6538,120.9840],[14.6518,120.9840],[14.6498,120.9840],
-  [14.6478,120.9840],[14.6458,120.9840],[14.6438,120.9840],
-  [14.6418,120.9840],[14.6398,120.9840],[14.6378,120.9840],
-  [14.6358,120.9840],[14.6338,120.9840],[14.6318,120.9840],
-  [14.6298,120.9840],[14.6278,120.9840],[14.6258,120.9841],
-  [14.6238,120.9841],[14.6218,120.9841],[14.6198,120.9842],
-  [14.6178,120.9843],[14.6158,120.9843],[14.6138,120.9844],
-  [14.6118,120.9844],[14.6098,120.9845],[14.6078,120.9846],
-  [14.6058,120.9847],[14.6037,120.9840],
-];
+const API = import.meta.env.VITE_API_URL;
 
 // ── Stop frequency tier ───────────────────────────────────────────────────
 function getTier(rank, total) {
@@ -119,95 +52,88 @@ function peakLabel(p) {
 }
 
 // ── Full-screen passenger map ─────────────────────────────────────────────
-function PassengerMap({ zones, onClose }) {
-  const mapEl   = useRef(null);
-  const mapRef  = useRef(null);
-  const lineRef = useRef(null);
-  const mksRef  = useRef([]);
+function PassengerMap({ zones, routeId, onClose }) {
+  const mapEl  = useRef(null);
+  const mapRef = useRef(null);
+  const mksRef = useRef([]);
 
-  const [snapped,   setSnapped]   = useState(null);
   const [roadReady, setRoadReady] = useState(false);
   const [sel,       setSel]       = useState(null);
   const [filter,    setFilter]    = useState("all");
   const total = zones.length;
 
-  // Lock body scroll
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  // Init Leaflet map once
+  // Init map + fetch road from our own GPS data
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
+
     const map = L.map(mapEl.current, {
       center: [14.66, 120.9750], zoom: 13,
       scrollWheelZoom: true, zoomControl: true, attributionControl: true,
     });
+
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       { subdomains: "abcd", maxZoom: 19, attribution: "© CARTO © OSM" }
     ).addTo(map);
 
-    // Draw fallback road immediately — replaced when OSRM responds
-    lineRef.current = L.polyline(FALLBACK, {
-      color: "#42a5f5", weight: 4, opacity: 0.45,
-      lineJoin: "round", lineCap: "round",
-    }).addTo(map);
-
     // Terminal labels
-    [[MALANDAY, "🚉 Malanday"], [RECTO, "🚉 Recto LRT"]].forEach(([pos, lbl]) =>
-      L.marker(pos, { icon: L.divIcon({
-        html: `<div style="background:rgba(5,15,30,.92);border:2px solid #42a5f5;
-          border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;
-          font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
-          box-shadow:0 2px 8px rgba(0,0,0,.5)">${lbl}</div>`,
-        className: "", iconAnchor: [45, 14],
-      })}).addTo(map)
-    );
+    [[14.7187, 120.9575, "🚉 Malanday"], [14.6037, 120.9840, "🚉 Recto LRT"]]
+      .forEach(([la, lo, lbl]) =>
+        L.marker([la, lo], { icon: L.divIcon({
+          html: `<div style="background:rgba(5,15,30,.92);border:2px solid #42a5f5;
+            border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;
+            font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
+            box-shadow:0 2px 8px rgba(0,0,0,.5)">${lbl}</div>`,
+          className: "", iconAnchor: [45, 14],
+        })}).addTo(map)
+      );
 
     mapRef.current = map;
     setTimeout(() => map.invalidateSize(), 200);
-    return () => { map.remove(); mapRef.current = null; };
-  }, []);
 
-  // Parallel async: fetch road + snap stops — completely independent
-  useEffect(() => {
+    // Fetch road path from our own GPS logs — this IS the actual road
     let dead = false;
+    fetch(`${API}/public/route/${routeId}/path`)
+      .then(r => r.json())
+      .then(d => {
+        if (dead || !mapRef.current) return;
+        if (d.path && d.path.length > 5) {
+          const latlngs = d.path.map(p => [p.lat, p.lon]);
+          L.polyline(latlngs, {
+            color: "#42a5f5", weight: 3, opacity: 0.65,
+            lineJoin: "round", lineCap: "round",
+          }).addTo(mapRef.current);
+          setRoadReady(true);
+        }
+      })
+      .catch(() => {
+        // Silently fail — map still works without road line
+        if (!dead) setRoadReady(false);
+      });
 
-    // Road: 2 waypoints only — OSRM returns full road geometry
-    fetchRoadLine().then(road => {
-      if (dead || !mapRef.current) return;
-      if (road && road.length > 5) {
-        if (lineRef.current) mapRef.current.removeLayer(lineRef.current);
-        lineRef.current = L.polyline(road, {
-          color: "#42a5f5", weight: 4, opacity: 0.65,
-          lineJoin: "round", lineCap: "round",
-        }).addTo(mapRef.current);
-        setRoadReady(true);
-      }
-    });
+    return () => {
+      dead = true;
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []); // eslint-disable-line
 
-    // Stops: snap each independently — never used for road routing
-    Promise.all(
-      zones.map(z =>
-        snapStop(z.lat, z.lon).then(pos => ({ ...z, lat: pos.lat, lon: pos.lon }))
-      )
-    ).then(matched => { if (!dead) setSnapped(matched); });
-
-    return () => { dead = true; };
-  }, [zones]); // eslint-disable-line
-
-  // Draw stop markers
+  // Draw stop markers whenever filter/selection changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     mksRef.current.forEach(m => map.removeLayer(m));
     mksRef.current = [];
 
-    const src = snapped || zones;
-    const visible = filter === "all"     ? src
-      : filter === "frequent" ? src.filter(z => z.rank / total <= 0.15)
-      : src.filter(z => z.rank / total <= 0.45);
+    const visible = filter === "all"
+      ? zones
+      : filter === "frequent"
+        ? zones.filter(z => z.rank / total <= 0.15)
+        : zones.filter(z => z.rank / total <= 0.45);
 
     visible.forEach(zone => {
       const tier  = getTier(zone.rank, total);
@@ -229,17 +155,24 @@ function PassengerMap({ zones, onClose }) {
 
       const dot = L.circleMarker([zone.lat, zone.lon], {
         radius: tier.r, color: "transparent",
-        fillColor: tier.color, fillOpacity: isSel ? 1 : 0.88, weight: 0,
+        fillColor: tier.color,
+        fillOpacity: isSel ? 1 : 0.88,
+        weight: 0,
       }).addTo(map);
 
       dot.bindTooltip(`
-        <div style="font-family:'DM Sans',sans-serif;min-width:185px;line-height:1.6;padding:4px 2px">
+        <div style="font-family:'DM Sans',sans-serif;
+          min-width:185px;line-height:1.6;padding:4px 2px">
           <div style="font-weight:800;font-size:13px;color:#111;margin-bottom:3px">
-            ${tier.badge}${isTop ? " <small style='color:#888'>— Busiest on route</small>" : ""}
+            ${tier.badge}
+            ${isTop ? " <small style='color:#888'>— Busiest on route</small>" : ""}
           </div>
-          <div style="font-size:11px;color:#555;border-top:1px solid #eee;padding-top:5px;margin-top:3px">
+          <div style="font-size:11px;color:#555;
+            border-top:1px solid #eee;padding-top:5px;margin-top:3px">
             ${tier.desc}<br/>
-            <span style="color:#1976d2;font-weight:600">${peakLabel(zone.peak_period)}</span>
+            <span style="color:#1976d2;font-weight:600">
+              ${peakLabel(zone.peak_period)}
+            </span>
           </div>
         </div>
       `, { sticky: true, opacity: 0.98, maxWidth: 240, direction: "top" });
@@ -252,8 +185,10 @@ function PassengerMap({ zones, onClose }) {
       if (isTop || tier.r >= 13) mksRef.current.push(
         L.marker([zone.lat, zone.lon], {
           icon: L.divIcon({
-            html: `<span style="font-size:${isTop ? 14 : 11}px;pointer-events:none;
-              text-shadow:0 1px 4px rgba(0,0,0,.8)">${isTop ? "⭐" : "🚏"}</span>`,
+            html: `<span style="font-size:${isTop ? 14 : 11}px;
+              pointer-events:none;
+              text-shadow:0 1px 4px rgba(0,0,0,.8)">
+              ${isTop ? "⭐" : "🚏"}</span>`,
             className: "", iconAnchor: [8, 8],
           }),
           interactive: false, zIndexOffset: 1000,
@@ -265,20 +200,22 @@ function PassengerMap({ zones, onClose }) {
       const b = L.latLngBounds(visible.map(z => [z.lat, z.lon]));
       if (b.isValid()) map.fitBounds(b, { padding: [48, 48], maxZoom: 15 });
     }
-  }, [snapped, zones, sel, filter, total]);
+  }, [zones, sel, filter, total]);
 
-  const selZone = (snapped || zones).find(z => z.cluster_id === sel);
+  const selZone = zones.find(z => z.cluster_id === sel);
   const selTier = selZone ? getTier(selZone.rank, total) : null;
   const freqN   = zones.filter(z => z.rank / total <= 0.15).length;
   const regN    = zones.filter(z => z.rank / total <= 0.45).length;
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:9999, display:"flex",
-      flexDirection:"column", background:"#050f1e", fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:9999,
+      display:"flex", flexDirection:"column",
+      background:"#050f1e", fontFamily:"'DM Sans',sans-serif" }}>
 
       {/* Top bar */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"13px 16px", background:"rgba(5,15,30,.96)",
+      <div style={{ display:"flex", alignItems:"center",
+        justifyContent:"space-between", padding:"13px 16px",
+        background:"rgba(5,15,30,.96)",
         borderBottom:"1px solid rgba(255,255,255,.10)",
         backdropFilter:"blur(20px)", flexShrink:0, zIndex:2 }}>
         <div>
@@ -286,10 +223,8 @@ function PassengerMap({ zones, onClose }) {
             🚏 Where to Board &amp; Alight
           </div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,.42)", marginTop:2 }}>
-            Malanday → Recto · {freqN} frequent · {total} total
-            {!roadReady
-              ? <span style={{ color:"#ffd60a" }}> · loading road…</span>
-              : <span style={{ color:"#30d158" }}> · road loaded ✓</span>}
+            Malanday → Recto · {freqN} frequent · {total} total stops
+            {roadReady && <span style={{ color:"#30d158" }}> · route loaded ✓</span>}
           </div>
         </div>
         <button onClick={onClose} style={{ background:"rgba(255,255,255,.10)",
@@ -300,7 +235,8 @@ function PassengerMap({ zones, onClose }) {
 
       {/* Filter pills */}
       <div style={{ display:"flex", gap:8, padding:"10px 16px",
-        background:"rgba(0,0,0,.45)", borderBottom:"1px solid rgba(255,255,255,.07)",
+        background:"rgba(0,0,0,.45)",
+        borderBottom:"1px solid rgba(255,255,255,.07)",
         flexShrink:0, zIndex:2, flexWrap:"wrap", alignItems:"center" }}>
         {[
           { key:"all",      label:`All (${total})`,        color:"#42a5f5" },
@@ -321,17 +257,21 @@ function PassengerMap({ zones, onClose }) {
         </span>
       </div>
 
-      {/* Selected stop */}
+      {/* Selected stop panel */}
       {selZone && selTier && (
-        <div style={{ padding:"12px 16px", background:`${selTier.color}18`,
-          borderBottom:`2px solid ${selTier.color}`, display:"flex",
-          alignItems:"flex-start", justifyContent:"space-between",
-          gap:12, flexShrink:0, zIndex:2 }}>
+        <div style={{ padding:"12px 16px",
+          background:`${selTier.color}18`,
+          borderBottom:`2px solid ${selTier.color}`,
+          display:"flex", alignItems:"flex-start",
+          justifyContent:"space-between", gap:12,
+          flexShrink:0, zIndex:2 }}>
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:800, fontSize:15, color:"#fff", marginBottom:4 }}>
               {selTier.badge}
-              {selZone.rank===1 &&
-                <span style={{ color:"#ffd60a", marginLeft:8, fontSize:12 }}>★ Busiest on route</span>}
+              {selZone.rank === 1 &&
+                <span style={{ color:"#ffd60a", marginLeft:8, fontSize:12 }}>
+                  ★ Busiest on route
+                </span>}
             </div>
             <div style={{ fontSize:13, color:"rgba(255,255,255,.65)", lineHeight:1.55 }}>
               {selTier.desc}<br/>
@@ -340,10 +280,12 @@ function PassengerMap({ zones, onClose }) {
               </span>
             </div>
           </div>
-          <button onClick={() => setSel(null)} style={{ background:"rgba(255,255,255,.10)",
-            border:"none", borderRadius:8, color:"rgba(255,255,255,.50)",
-            padding:"6px 12px", cursor:"pointer", fontSize:14,
-            fontFamily:"inherit", flexShrink:0 }}>✕</button>
+          <button onClick={() => setSel(null)} style={{
+            background:"rgba(255,255,255,.10)", border:"none",
+            borderRadius:8, color:"rgba(255,255,255,.50)",
+            padding:"6px 12px", cursor:"pointer",
+            fontSize:14, fontFamily:"inherit", flexShrink:0,
+          }}>✕</button>
         </div>
       )}
 
@@ -352,20 +294,23 @@ function PassengerMap({ zones, onClose }) {
 
       {/* Legend */}
       <div style={{ padding:"9px 16px", background:"rgba(0,0,0,.75)",
-        borderTop:"1px solid rgba(255,255,255,.07)", display:"flex",
-        gap:"14px", flexWrap:"wrap", alignItems:"center",
-        flexShrink:0, zIndex:2 }}>
-        {[["#30d158","Frequent stop",13],["#ffd60a","Regular stop",9],["#8e9ab0","Occasional stop",6]]
-          .map(([c, l, r]) => (
-            <span key={l} style={{ display:"flex", alignItems:"center", gap:6,
-              fontSize:11, color:"rgba(255,255,255,.65)", fontWeight:600 }}>
-              <span style={{ width:r, height:r, borderRadius:"50%",
-                background:c, display:"inline-block", flexShrink:0 }}/>
-              {l}
-            </span>
-          ))}
+        borderTop:"1px solid rgba(255,255,255,.07)",
+        display:"flex", gap:"14px", flexWrap:"wrap",
+        alignItems:"center", flexShrink:0, zIndex:2 }}>
+        {[
+          ["#30d158","Frequent stop", 13],
+          ["#ffd60a","Regular stop",  9],
+          ["#8e9ab0","Occasional stop",6],
+        ].map(([c, l, r]) => (
+          <span key={l} style={{ display:"flex", alignItems:"center", gap:6,
+            fontSize:11, color:"rgba(255,255,255,.65)", fontWeight:600 }}>
+            <span style={{ width:r, height:r, borderRadius:"50%",
+              background:c, display:"inline-block", flexShrink:0 }}/>
+            {l}
+          </span>
+        ))}
         <span style={{ fontSize:10, color:"rgba(255,255,255,.25)", marginLeft:"auto" }}>
-          Road from OpenStreetMap · Stops road-matched
+          Route from real jeepney GPS data
         </span>
       </div>
     </div>
@@ -382,25 +327,31 @@ export default function StopZoneMap({ routeId = "MR-001" }) {
     let dead = false;
     fetch(`${API}/public/route/${routeId}/stop-zones`)
       .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(d => { if (!dead) { setZones(d.stop_zones || []); setLoading(false); } })
+      .then(d => {
+        if (!dead) { setZones(d.stop_zones || []); setLoading(false); }
+      })
       .catch(() => { if (!dead) setLoading(false); });
     return () => { dead = true; };
   }, [routeId]);
 
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px",
-      background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.10)",
+      background:"rgba(255,255,255,.05)",
+      border:"1px solid rgba(255,255,255,.10)",
       borderRadius:99, color:"rgba(255,255,255,.40)",
       fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>
-      <span style={{ width:13, height:13, border:"2px solid rgba(255,255,255,.12)",
-        borderTopColor:"rgba(255,255,255,.55)", borderRadius:"50%",
-        animation:"szm-s .8s linear infinite", display:"inline-block", flexShrink:0 }}/>
+      <span style={{ width:13, height:13,
+        border:"2px solid rgba(255,255,255,.12)",
+        borderTopColor:"rgba(255,255,255,.55)",
+        borderRadius:"50%", animation:"szm-s .8s linear infinite",
+        display:"inline-block", flexShrink:0 }}/>
       Finding boarding stops…
       <style>{`@keyframes szm-s{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
   if (!zones.length) return null;
+
   const freqN = zones.filter(z => z.rank / zones.length <= 0.15).length;
 
   return (<>
@@ -417,10 +368,12 @@ export default function StopZoneMap({ routeId = "MR-001" }) {
       onMouseLeave={e => e.currentTarget.style.background = "rgba(25,118,210,.14)"}
     >
       <span style={{ display:"flex", alignItems:"center", gap:12 }}>
-        <span style={{ fontSize:26, background:"rgba(25,118,210,.22)", borderRadius:12,
-          padding:"6px 10px", display:"flex", alignItems:"center" }}>🚏</span>
+        <span style={{ fontSize:26, background:"rgba(25,118,210,.22)",
+          borderRadius:12, padding:"6px 10px",
+          display:"flex", alignItems:"center" }}>🚏</span>
         <span>
-          <span style={{ display:"block", fontSize:15, fontWeight:800, letterSpacing:"-0.3px" }}>
+          <span style={{ display:"block", fontSize:15,
+            fontWeight:800, letterSpacing:"-0.3px" }}>
             Where to Board &amp; Alight
           </span>
           <span style={{ display:"block", fontSize:11,
@@ -429,11 +382,12 @@ export default function StopZoneMap({ routeId = "MR-001" }) {
           </span>
         </span>
       </span>
-      <span style={{ background:"#1976d2", borderRadius:99, padding:"6px 16px",
-        fontSize:12, fontWeight:800, color:"#fff", flexShrink:0,
+      <span style={{ background:"#1976d2", borderRadius:99,
+        padding:"6px 16px", fontSize:12, fontWeight:800,
+        color:"#fff", flexShrink:0,
         boxShadow:"0 2px 8px rgba(25,118,210,.40)" }}>View Map →</span>
     </button>
 
-    {open && <PassengerMap zones={zones} onClose={() => setOpen(false)} />}
+    {open && <PassengerMap zones={zones} routeId={routeId} onClose={() => setOpen(false)} />}
   </>);
 }

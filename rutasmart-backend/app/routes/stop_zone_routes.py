@@ -214,49 +214,61 @@ def get_published_stops_admin(route_id: str, db: Session = Depends(get_db)):
 
 # ── Public: read published stop zones (no auth, no DBSCAN on request) ────────
 
-@router.get("/public/route/{route_id}/stop-zones", tags=["Public"])
-def get_public_stop_zones(route_id: str, db: Session = Depends(get_db)):
+# Add this to stop_zone_routes.py — new public endpoint
+
+@router.get("/public/route/{route_id}/path", tags=["Public"])
+def get_route_path(route_id: str, db: Session = Depends(get_db)):
     """
-    Public read-only endpoint — no authentication required.
-    Returns the admin-published stop zone centroids for the route.
-    Fast: reads from the published_stop_zones table, no DBSCAN on request.
+    Returns the GPS track of the best completed trip as a polyline.
+    Used by the passenger map to draw the road line from REAL field data.
+    No routing engine — this is the actual path conductors drove.
     """
-    zones = (
-        db.query(PublishedStopZone)
-        .filter(PublishedStopZone.route_id == route_id)
-        .order_by(PublishedStopZone.rank)
+    trips = _get_completed_trips(route_id, db)
+    if not trips:
+        return {"route_id": route_id, "path": []}
+
+    # Pick the trip with the most GOOD GPS logs — cleanest track
+    best_trip = None
+    best_count = 0
+    for trip in trips:
+        count = (
+            db.query(GPSLog)
+            .filter(
+                GPSLog.trip_id == trip.trip_id,
+                GPSLog.gps_quality_flag == GPSQualityEnum.GOOD,
+            )
+            .count()
+        )
+        if count > best_count:
+            best_count = count
+            best_trip = trip
+
+    if not best_trip:
+        return {"route_id": route_id, "path": []}
+
+    logs = (
+        db.query(GPSLog.latitude, GPSLog.longitude, GPSLog.timestamp)
+        .filter(
+            GPSLog.trip_id == best_trip.trip_id,
+            GPSLog.gps_quality_flag == GPSQualityEnum.GOOD,
+        )
+        .order_by(GPSLog.timestamp)
         .all()
     )
 
-    if not zones:
-        return {
-            "route_id":   route_id,
-            "published":  False,
-            "stop_zones": [],
-            "total_trips_analyzed": 0,
-            "message": "Stop zones have not been published for this route yet.",
-        }
+    # Downsample: take every 3rd point to reduce payload
+    # ~1500 GOOD logs → ~500 points still gives a smooth line
+    path = [
+        {"lat": round(log.latitude, 6), "lon": round(log.longitude, 6)}
+        for i, log in enumerate(logs)
+        if i % 3 == 0
+    ]
 
     return {
-        "route_id":             route_id,
-        "published":            True,
-        "published_at":         zones[0].published_at.isoformat() + "Z",
-        "total_trips_analyzed": zones[0].trips_analyzed,
-        "total_logs_clustered": zones[0].logs_analyzed,
-        "stop_zones": [
-            {
-                "cluster_id":      z.cluster_id,
-                "lat":             z.lat,
-                "lon":             z.lon,
-                "point_count":     z.point_count,
-                "demand_tier":     z.demand_tier,
-                "avg_occupancy":   z.avg_occupancy,
-                "peak_period":     z.peak_period,
-                "load_factor_pct": z.load_factor_pct,
-                "color":           z.color,
-                "rank":            z.rank,
-            }
-            for z in zones
-        ],
-        "parameters": {"eps_m": 15.0, "min_samples": 10},
+        "route_id":   route_id,
+        "trip_id":    best_trip.trip_id,
+        "direction":  best_trip.direction,
+        "point_count": len(path),
+        "path": path,
     }
+
