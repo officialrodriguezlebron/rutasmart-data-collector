@@ -361,8 +361,7 @@ export default function AdminDashboard() {
               ))}
             </div>
             {/* Publish Stop Zones */}
-            <PublishStopZonesPanel />
-
+            <PublishStopZonesPanel /> 
             <div className="admin-card">
               <div className="admin-card-title">
                 Active Jeepneys
