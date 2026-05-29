@@ -266,12 +266,14 @@ def get_public_stop_zones(route_id: str, db: Session = Depends(get_db)):
         )
         for log in logs:
             all_points.append(GPSPoint(
+                log_id=str(log.log_id),
+                trip_id=trip.trip_id,
                 latitude=log.latitude,
                 longitude=log.longitude,
                 accuracy=log.accuracy,
-                occupancy=log.occupancy_count,
+                occupancy_count=log.occupancy_count,
                 timestamp=log.timestamp,
-                gps_quality=str(log.gps_quality_flag.value
+                gps_quality_flag=str(log.gps_quality_flag.value
                                 if hasattr(log.gps_quality_flag, "value")
                                 else log.gps_quality_flag),
             ))
