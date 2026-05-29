@@ -3,12 +3,83 @@ import { useNavigate } from "react-router-dom";
 import {
   getAdminStats, getAdminTrips, deleteTrip, exportTrip,
   importTripCSV, createUser, getConductors,
-  getAggregateDashboard,
+  getAggregateDashboard, publishStopZones,
 } from "../services/api";
 import { authService } from "../services/authService";
 import TripMap from "./TripMap";
 import "./AdminDashboard.css";
 
+function PublishStopZonesPanel() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handlePublish = async () => {
+    if (!window.confirm(
+      "Publish stop zones for MR-001?\n\n" +
+      "This runs DBSCAN across all completed trips and updates the passenger map. " +
+      "The current published map will be replaced."
+    )) return;
+    setLoading(true);
+    setStatus(null);
+    try {
+      const res = await publishStopZones("MR-001");
+      setStatus({ ok: true, msg: res.data.message });
+    } catch (e) {
+      setStatus({ ok: false, msg: e.response?.data?.detail || "Publish failed." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      background: "rgba(21,101,192,0.10)",
+      border: "1px solid rgba(21,101,192,0.30)",
+      borderRadius: 16,
+      padding: "18px 20px",
+      margin: "16px 0",
+    }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#1565c0", marginBottom: 6 }}>
+        🗺 Passenger Stop Zone Map
+      </div>
+      <p style={{ fontSize: 13, color: "#555", margin: "0 0 14px", lineHeight: 1.5 }}>
+        Run DBSCAN across all completed trips and publish the detected stop zones
+        to the passenger dashboard. Review the cluster map in the Analytics Engine
+        before publishing.
+      </p>
+      <button
+        onClick={handlePublish}
+        disabled={loading}
+        style={{
+          background: loading ? "#ccc" : "#1565c0",
+          color: "#fff",
+          border: "none",
+          borderRadius: 10,
+          padding: "10px 22px",
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: loading ? "not-allowed" : "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        {loading ? "Publishing…" : "📤 Publish Stop Zones"}
+      </button>
+      {status && (
+        <div style={{
+          marginTop: 12,
+          padding: "10px 14px",
+          borderRadius: 10,
+          fontSize: 13,
+          background: status.ok ? "rgba(46,125,50,0.10)" : "rgba(198,40,40,0.10)",
+          color: status.ok ? "#2e7d32" : "#c62828",
+          fontWeight: 500,
+        }}>
+          {status.ok ? "✅" : "❌"} {status.msg}
+        </div>
+      )}
+    </div>
+  );
+}
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const user     = authService.getUser();
@@ -289,6 +360,8 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
+            {/* Publish Stop Zones */}
+            <PublishStopZonesPanel />
 
             <div className="admin-card">
               <div className="admin-card-title">
