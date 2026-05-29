@@ -1,12 +1,12 @@
 /**
  * StopZoneMap — Passenger Boarding & Alighting Map
  *
- * Corridor: sourced from LTFRB GTFS data (LTFRB_PUJ1426/1427)
- *   "Malanday - Recto via F. Huertas, Oroquieta"
- *   MacArthur Highway → Rizal Avenue → Oroquieta → Recto LRT
+ * Corridor: sourced stop-by-stop from LTFRB GTFS stops.txt
+ *   Route LTFRB_PUJ1426: Malanday → Recto via F. Huertas, Oroquieta
+ *   78 waypoints = every actual stop location in travel order
  *
- * Map matching: nearest-point-on-polyline (pure geometry, no API)
- *   Run synchronously before any marker is drawn — zero race conditions.
+ * Map matching: nearest-point-on-polyline (pure geometry, synchronous)
+ *   Stop dots are snapped to the GTFS corridor before any marker draws.
  */
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
@@ -21,192 +21,132 @@ L.Icon.Default.mergeOptions({
 
 const API = import.meta.env.VITE_API_URL;
 
-// ── GTFS corridor: LTFRB_PUJ1426 — Malanday to Recto ─────────────────────
-// Sourced from LTFRB GTFS stops.txt (stop coordinates on MacArthur Hwy /
-// Rizal Ave / Oroquieta). This is the actual licensed jeepney route path.
+// GTFS stop coordinates in travel order — LTFRB_PUJ1426
+// MacArthur Hwy (Malanday) → Rizal Ave → Jose Abad Santos → T.Mapua → Oroquieta → Recto
 const CORRIDOR = [
-  [14.7180, 120.957],  // Malanday Terminal
-  [14.7122, 120.959],  // MacArthur Hwy Dalandanan
-  [14.7041, 120.961],  // Dalandanan Fire Station
-  [14.7036, 120.962],  // Dalandanan Health Centre
-  [14.7022, 120.962],  // Santos Encamacion Elem School
-  [14.7013, 120.962],  // Iglesia Ni Cristo Dalandanan
-  [14.6970, 120.964],  // MacArthur Hwy / San Miguel
-  [14.6956, 120.964],  // Parish Church Isidro Labrador
-  [14.6929, 120.964],  // Jollibee Malinta
-  [14.6925, 120.965],  // Malinta Elementary School
-  [14.6911, 120.973],  // Bureau of Telecom
-  [14.6899, 120.974],  // Karuhatan Public Market
-  [14.6886, 120.975],  // Macro LPG
-  [14.6877, 120.975],  // MacArthur Hwy / San Francisco
-  [14.6862, 120.976],  // SM Center Valenzuela
-  [14.6852, 120.977],  // MacArthur Hwy / Cayetano
-  [14.6837, 120.978],  // Novo Dep Store
-  [14.6815, 120.979],  // Bread of Life
-  [14.6779, 120.980],  // Our Lady of Fatima University
-  [14.6749, 120.981],  // Bearsea Auto Supply
-  [14.6732, 120.982],  // Calalang General Hospital
-  [14.6700, 120.982],  // CDC Manufacturing
-  [14.6677, 120.982],  // MacArthur Hwy / Del Monte
-  [14.6663, 120.984],  // Potrero Heights Elementary School
-  [14.6650, 120.984],  // Malabon City / Victoneta Ave
-  [14.6617, 120.984],  // MacArthur Hwy / Lanzones
-  [14.6601, 120.984],  // Floresco North Mortuary
-  [14.6587, 120.985],  // General Rosendo Simon / Calle Uno
-  [14.6576, 120.984],  // Bonifacio Market / Hypermarket Monumento
-  [14.6571, 120.984],  // Araneta Square Mall (Samson Rd)
-  [14.6564, 120.984],  // Monumento, Rizal Avenue
-  [14.6561, 120.984],  // Monumento LRT
-  [14.6556, 120.984],  // Ever Gotesco Grand Central
-  [14.6538, 120.984],  // MacDonalds Rizal Ave
-  [14.6516, 120.984],  // Rizal Ave / Asistio
-  [14.6488, 120.984],  // Rizal Ave / 8th Ave West
-  [14.6474, 120.984],  // Rizal Ave / 7th Ave West
-  [14.6462, 120.984],  // Asia Trust Bank
-  [14.6459, 120.984],  // JCSGO Caloocan
-  [14.6445, 120.984],  // Circumferential Rd 3 / M.H. Del Pilar
-  [14.6444, 120.984],  // 5th Ave LRT
-  [14.6431, 120.984],  // 4th Ave East
-  [14.6417, 120.984],  // 3rd Ave East
-  [14.6412, 120.984],  // Banco De Oro
-  [14.6400, 120.984],  // Baliwag Transit Bus Station
-  [14.6374, 120.983],  // Rizal Ave / Road 1
-  [14.6362, 120.982],  // LRT Papa Station
-  [14.6360, 120.982],  // R. Papa LRT
-  [14.6334, 120.981],  // P. Sevilla / 2nd Ave West
-  [14.6320, 120.981],  // Rizal Ave / Jose Abad Santos Ave
-  [14.6306, 120.982],  // Abad Santos LRT
-  [14.6286, 120.983],  // Rizal Ave near Aurora Blvd
-  [14.6268, 120.983],  // Blumentritt area
-  [14.6228, 120.983],  // Blumentritt LRT
-  [14.6227, 120.984],  // New Antipolo / Oroquieta
-  [14.6206, 120.984],  // Oroquieta / Batangas
-  [14.6181, 120.984],  // Camarines
-  [14.6168, 120.983],  // Tayuman LRT
-  [14.6163, 120.984],  // Oroquieta
-  [14.6143, 120.984],  // San Lazaro / Oroquieta
-  [14.6130, 120.984],  // Quiricada / Felix Huertas
-  [14.6117, 120.983],  // Rizal Ave Manila
-  [14.6109, 120.983],  // Oroquieta / Bambang
-  [14.6109, 120.982],  // Bambang LRT
-  [14.6087, 120.983],  // Oroquieta / Mayhaligue
-  [14.6076, 120.984],  // Sulu
-  [14.6067, 120.983],  // Lope De Vega / Oroquieta
-  [14.6051, 120.983],  // Oroquieta
-  [14.6037, 120.983],  // LRT Doroteo Jose-Recto Station
-  [14.6035, 120.983],  // Recto LRT
+  [14.7203, 120.958], [14.7183, 120.957], [14.7180, 120.957],
+  [14.7173, 120.957], [14.7155, 120.958], [14.7093, 120.960],
+  [14.7085, 120.960], [14.7041, 120.961], [14.7036, 120.962],
+  [14.7022, 120.962], [14.7013, 120.962], [14.6988, 120.963],
+  [14.6970, 120.964], [14.6956, 120.964], [14.6929, 120.964],
+  [14.6925, 120.965], [14.6928, 120.966], [14.6911, 120.973],
+  [14.6899, 120.974], [14.6886, 120.975], [14.6877, 120.975],
+  [14.6862, 120.976], [14.6852, 120.977], [14.6837, 120.978],
+  [14.6815, 120.979], [14.6779, 120.980], [14.6749, 120.981],
+  [14.6732, 120.982], [14.6700, 120.982], [14.6677, 120.982],
+  [14.6650, 120.984], [14.6630, 120.984], [14.6617, 120.984],
+  [14.6601, 120.984], [14.6587, 120.985], [14.6576, 120.984],
+  [14.6571, 120.984], [14.6564, 120.984], [14.6561, 120.984],
+  [14.6556, 120.984], [14.6538, 120.984], [14.6516, 120.984],
+  [14.6488, 120.984], [14.6474, 120.984], [14.6462, 120.984],
+  [14.6459, 120.984], [14.6446, 120.983], [14.6445, 120.984],
+  [14.6417, 120.983], [14.6412, 120.984], [14.6400, 120.984],
+  [14.6374, 120.983], [14.6362, 120.982], [14.6360, 120.982],
+  [14.6334, 120.981], [14.6320, 120.981],
+  // Route turns west: Jose Abad Santos Ave → T. Mapua
+  [14.6304, 120.980], [14.6290, 120.979], [14.6257, 120.979],
+  [14.6256, 120.980], [14.6243, 120.981], [14.6219, 120.982],
+  [14.6206, 120.982], [14.6182, 120.982],
+  // Continues south: Felix Huertas → Oroquieta
+  [14.6181, 120.984], [14.6147, 120.985], [14.6143, 120.984],
+  [14.6130, 120.984], [14.6121, 120.983], [14.6109, 120.983],
+  [14.6087, 120.983], [14.6076, 120.984], [14.6073, 120.986],
+  [14.6063, 120.987], [14.6051, 120.983], [14.6039, 120.982],
+  [14.6037, 120.983], [14.6035, 120.983],  // Recto LRT
 ];
 
-// ── Nearest-point-on-polyline map matching ────────────────────────────────
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371000, p = Math.PI / 180;
-  const a = Math.sin((lat2-lat1)*p/2)**2
-    + Math.cos(lat1*p) * Math.cos(lat2*p) * Math.sin((lon2-lon1)*p/2)**2;
-  return 2 * R * Math.asin(Math.sqrt(a));
+// Haversine + nearest-point-on-segment map matching
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371000,p=Math.PI/180;
+  const a=Math.sin((lat2-lat1)*p/2)**2+Math.cos(lat1*p)*Math.cos(lat2*p)*Math.sin((lon2-lon1)*p/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
 }
 
-function snapToRoad(lat, lon) {
-  let bLat = lat, bLon = lon, bDist = Infinity;
-  for (let i = 0; i < CORRIDOR.length - 1; i++) {
-    const [ax, ay] = CORRIDOR[i], [bx, by] = CORRIDOR[i + 1];
-    const dx = bx - ax, dy = by - ay;
-    const t = dx === 0 && dy === 0 ? 0
-      : Math.max(0, Math.min(1, ((lat-ax)*dx + (lon-ay)*dy) / (dx*dx + dy*dy)));
-    const sLat = ax + t*dx, sLon = ay + t*dy;
-    const d = haversine(lat, lon, sLat, sLon);
-    if (d < bDist) { bDist = d; bLat = sLat; bLon = sLon; }
+function snapToRoad(lat,lon){
+  let bLat=lat,bLon=lon,bDist=Infinity;
+  for(let i=0;i<CORRIDOR.length-1;i++){
+    const[ax,ay]=CORRIDOR[i],[bx,by]=CORRIDOR[i+1];
+    const dx=bx-ax,dy=by-ay;
+    const t=dx===0&&dy===0?0:Math.max(0,Math.min(1,((lat-ax)*dx+(lon-ay)*dy)/(dx*dx+dy*dy)));
+    const sLat=ax+t*dx,sLon=ay+t*dy;
+    const d=haversine(lat,lon,sLat,sLon);
+    if(d<bDist){bDist=d;bLat=sLat;bLon=sLon;}
   }
-  return { lat: bLat, lon: bLon };
+  return{lat:bLat,lon:bLon};
 }
 
-// ── Stop tier ─────────────────────────────────────────────────────────────
-function getTier(rank, total) {
-  const pct = rank / total;
-  if (pct <= 0.15) return { badge:"⭐ Frequent Stop",   desc:"Jeepneys stop here very often. Best place to wait.", color:"#30d158", r:13 };
-  if (pct <= 0.45) return { badge:"🚏 Regular Stop",    desc:"Jeepneys stop here regularly.",                     color:"#ffd60a", r:9  };
-  return               { badge:"🚏 Occasional Stop", desc:"Jeepneys sometimes stop here.",                     color:"#8e9ab0", r:6  };
+function getTier(rank,total){
+  const pct=rank/total;
+  if(pct<=0.15)return{badge:"⭐ Frequent Stop",desc:"Jeepneys stop here very often. Best place to wait.",color:"#30d158",r:13};
+  if(pct<=0.45)return{badge:"🚏 Regular Stop",desc:"Jeepneys stop here regularly.",color:"#ffd60a",r:9};
+  return{badge:"🚏 Occasional Stop",desc:"Jeepneys sometimes stop here.",color:"#8e9ab0",r:6};
 }
 
-function peakLabel(p) {
-  return { "Morning Peak":"🌅 Busiest 6–9 AM","Afternoon Peak":"🌆 Busiest 4–7 PM",
-           "Midday":"☀️ Busiest midday","Off-Peak":"🌙 Busiest off-peak" }[p] || p;
+function peakLabel(p){
+  return{"Morning Peak":"🌅 Busiest 6–9 AM","Afternoon Peak":"🌆 Busiest 4–7 PM",
+         "Midday":"☀️ Busiest midday","Off-Peak":"🌙 Busiest off-peak"}[p]||p;
 }
 
-// ── Full-screen map ───────────────────────────────────────────────────────
-function PassengerMap({ zones, onClose }) {
-  const mapEl  = useRef(null);
-  const mapRef = useRef(null);
-  const mksRef = useRef([]);
-  const [sel,    setSel]    = useState(null);
-  const [filter, setFilter] = useState("all");
-  const total = zones.length;
+function PassengerMap({zones,onClose}){
+  const mapEl=useRef(null),mapRef=useRef(null),mksRef=useRef([]);
+  const[sel,setSel]=useState(null);
+  const[filter,setFilter]=useState("all");
+  const total=zones.length;
 
-  // Snap synchronously — before any render, zero race condition
-  const snapped = zones.map(z => ({ ...z, ...snapToRoad(z.lat, z.lon) }));
+  // Snap synchronously — zero race condition
+  const snapped=zones.map(z=>({...z,...snapToRoad(z.lat,z.lon)}));
 
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
+  useEffect(()=>{
+    document.body.style.overflow="hidden";
+    return()=>{document.body.style.overflow="";};
+  },[]);
 
-  useEffect(() => {
-    if (!mapEl.current || mapRef.current) return;
-    const map = L.map(mapEl.current, {
-      center: [14.66, 120.982], zoom: 13,
-      scrollWheelZoom: true, zoomControl: true, attributionControl: true,
-    });
+  useEffect(()=>{
+    if(!mapEl.current||mapRef.current)return;
+    const map=L.map(mapEl.current,{center:[14.66,120.982],zoom:13,
+      scrollWheelZoom:true,zoomControl:true,attributionControl:true});
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      { subdomains:"abcd", maxZoom:19, attribution:"© CARTO © OSM" }).addTo(map);
+      {subdomains:"abcd",maxZoom:19,attribution:"© CARTO © OSM"}).addTo(map);
 
-    // Road line from GTFS corridor
-    L.polyline(CORRIDOR, {
-      color:"#42a5f5", weight:3, opacity:0.65,
-      lineJoin:"round", lineCap:"round",
-    }).addTo(map);
+    // Road line from GTFS stop coordinates
+    L.polyline(CORRIDOR,{color:"#42a5f5",weight:3,opacity:0.65,lineJoin:"round",lineCap:"round"}).addTo(map);
 
-    // Terminal labels
-    [[14.7180, 120.957, "🚉 Malanday"], [14.6035, 120.983, "🚉 Recto LRT"]]
-      .forEach(([la, lo, lbl]) => L.marker([la, lo], { icon: L.divIcon({
+    [[14.7180,120.957,"🚉 Malanday"],[14.6035,120.983,"🚉 Recto LRT"]]
+      .forEach(([la,lo,lbl])=>L.marker([la,lo],{icon:L.divIcon({
         html:`<div style="background:rgba(5,15,30,.92);border:2px solid #42a5f5;
           border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;
           font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
           box-shadow:0 2px 8px rgba(0,0,0,.5)">${lbl}</div>`,
-        className:"", iconAnchor:[45,14],
+        className:"",iconAnchor:[45,14],
       })}).addTo(map));
 
-    mapRef.current = map;
-    setTimeout(() => map.invalidateSize(), 200);
-    return () => { map.remove(); mapRef.current = null; };
-  }, []);
+    mapRef.current=map;
+    setTimeout(()=>map.invalidateSize(),200);
+    return()=>{map.remove();mapRef.current=null;};
+  },[]);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    mksRef.current.forEach(m => map.removeLayer(m));
-    mksRef.current = [];
+  useEffect(()=>{
+    const map=mapRef.current;
+    if(!map)return;
+    mksRef.current.forEach(m=>map.removeLayer(m));
+    mksRef.current=[];
 
-    const visible = filter==="all" ? snapped
-      : filter==="frequent" ? snapped.filter(z=>z.rank/total<=0.15)
-      : snapped.filter(z=>z.rank/total<=0.45);
+    const visible=filter==="all"?snapped
+      :filter==="frequent"?snapped.filter(z=>z.rank/total<=0.15)
+      :snapped.filter(z=>z.rank/total<=0.45);
 
-    visible.forEach(zone => {
-      const tier  = getTier(zone.rank, total);
-      const isSel = sel===zone.cluster_id;
-      const isTop = zone.rank===1;
+    visible.forEach(zone=>{
+      const tier=getTier(zone.rank,total);
+      const isSel=sel===zone.cluster_id,isTop=zone.rank===1;
 
-      if (isSel) mksRef.current.push(
-        L.circleMarker([zone.lat,zone.lon],{
-          radius:tier.r+14,color:tier.color,fillColor:tier.color,fillOpacity:0.18,weight:0,
-        }).addTo(map)
-      );
-      const ring = L.circleMarker([zone.lat,zone.lon],{
-        radius:tier.r+3,color:"#fff",fillColor:"transparent",fillOpacity:0,
-        weight:isSel?2.5:1.8,opacity:isSel?1:0.35,
-      }).addTo(map);
-      const dot = L.circleMarker([zone.lat,zone.lon],{
-        radius:tier.r,color:"transparent",
-        fillColor:tier.color,fillOpacity:isSel?1:0.88,weight:0,
-      }).addTo(map);
+      if(isSel)mksRef.current.push(
+        L.circleMarker([zone.lat,zone.lon],{radius:tier.r+14,color:tier.color,
+          fillColor:tier.color,fillOpacity:0.18,weight:0}).addTo(map));
+
+      const ring=L.circleMarker([zone.lat,zone.lon],{radius:tier.r+3,color:"#fff",
+        fillColor:"transparent",fillOpacity:0,weight:isSel?2.5:1.8,opacity:isSel?1:0.35}).addTo(map);
+      const dot=L.circleMarker([zone.lat,zone.lon],{radius:tier.r,color:"transparent",
+        fillColor:tier.color,fillOpacity:isSel?1:0.88,weight:0}).addTo(map);
 
       dot.bindTooltip(`
         <div style="font-family:'DM Sans',sans-serif;min-width:185px;line-height:1.6;padding:4px 2px">
@@ -221,23 +161,20 @@ function PassengerMap({ zones, onClose }) {
       `,{sticky:true,opacity:0.98,maxWidth:240,direction:"top"});
 
       const click=()=>setSel(p=>p===zone.cluster_id?null:zone.cluster_id);
-      dot.on("click",click); ring.on("click",click);
+      dot.on("click",click);ring.on("click",click);
       mksRef.current.push(ring,dot);
 
-      if (isTop||tier.r>=13) mksRef.current.push(
-        L.marker([zone.lat,zone.lon],{
-          icon:L.divIcon({
-            html:`<span style="font-size:${isTop?14:11}px;pointer-events:none;
-              text-shadow:0 1px 4px rgba(0,0,0,.8)">${isTop?"⭐":"🚏"}</span>`,
-            className:"",iconAnchor:[8,8],
-          }),interactive:false,zIndexOffset:1000,
-        }).addTo(map)
-      );
+      if(isTop||tier.r>=13)mksRef.current.push(
+        L.marker([zone.lat,zone.lon],{icon:L.divIcon({
+          html:`<span style="font-size:${isTop?14:11}px;pointer-events:none;
+            text-shadow:0 1px 4px rgba(0,0,0,.8)">${isTop?"⭐":"🚏"}</span>`,
+          className:"",iconAnchor:[8,8],
+        }),interactive:false,zIndexOffset:1000}).addTo(map));
     });
 
-    if (visible.length) {
+    if(visible.length){
       const b=L.latLngBounds(visible.map(z=>[z.lat,z.lon]));
-      if (b.isValid()) map.fitBounds(b,{padding:[48,48],maxZoom:15});
+      if(b.isValid())map.fitBounds(b,{padding:[48,48],maxZoom:15});
     }
   },[snapped,sel,filter,total]); // eslint-disable-line
 
@@ -246,14 +183,13 @@ function PassengerMap({ zones, onClose }) {
   const freqN=zones.filter(z=>z.rank/total<=0.15).length;
   const regN=zones.filter(z=>z.rank/total<=0.45).length;
 
-  return (
+  return(
     <div style={{position:"fixed",inset:0,zIndex:9999,display:"flex",
       flexDirection:"column",background:"#050f1e",fontFamily:"'DM Sans',sans-serif"}}>
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
         padding:"13px 16px",background:"rgba(5,15,30,.96)",
-        borderBottom:"1px solid rgba(255,255,255,.10)",
-        backdropFilter:"blur(20px)",flexShrink:0,zIndex:2}}>
+        borderBottom:"1px solid rgba(255,255,255,.10)",backdropFilter:"blur(20px)",flexShrink:0,zIndex:2}}>
         <div>
           <div style={{fontWeight:800,fontSize:16,color:"#fff",letterSpacing:"-0.3px"}}>
             🚏 Where to Board &amp; Alight
@@ -273,9 +209,9 @@ function PassengerMap({ zones, onClose }) {
         borderBottom:"1px solid rgba(255,255,255,.07)",
         flexShrink:0,zIndex:2,flexWrap:"wrap",alignItems:"center"}}>
         {[
-          {key:"all",      label:`All (${total})`,        color:"#42a5f5"},
-          {key:"frequent", label:`⭐ Frequent (${freqN})`, color:"#30d158"},
-          {key:"regular",  label:`Regular+ (${regN})`,    color:"#ffd60a"},
+          {key:"all",label:`All (${total})`,color:"#42a5f5"},
+          {key:"frequent",label:`⭐ Frequent (${freqN})`,color:"#30d158"},
+          {key:"regular",label:`Regular+ (${regN})`,color:"#ffd60a"},
         ].map(({key,label,color})=>(
           <button key={key} onClick={()=>setFilter(key)} style={{
             padding:"6px 14px",borderRadius:99,border:"1.5px solid",
@@ -322,18 +258,17 @@ function PassengerMap({ zones, onClose }) {
           </span>
         ))}
         <span style={{fontSize:10,color:"rgba(255,255,255,.25)",marginLeft:"auto"}}>
-          Road-matched to LTFRB route corridor
+          Road-matched · LTFRB GTFS route data
         </span>
       </div>
     </div>
   );
 }
 
-// ── Pill button ───────────────────────────────────────────────────────────
-export default function StopZoneMap({routeId="MR-001"}) {
-  const [zones,setZones]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [open,setOpen]=useState(false);
+export default function StopZoneMap({routeId="MR-001"}){
+  const[zones,setZones]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[open,setOpen]=useState(false);
 
   useEffect(()=>{
     let dead=false;
@@ -341,10 +276,10 @@ export default function StopZoneMap({routeId="MR-001"}) {
       .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
       .then(d=>{if(!dead){setZones(d.stop_zones||[]);setLoading(false);}})
       .catch(()=>{if(!dead)setLoading(false);});
-    return ()=>{dead=true;};
+    return()=>{dead=true;};
   },[routeId]);
 
-  if(loading) return(
+  if(loading)return(
     <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",
       background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.10)",
       borderRadius:99,color:"rgba(255,255,255,.40)",
@@ -357,7 +292,7 @@ export default function StopZoneMap({routeId="MR-001"}) {
     </div>
   );
 
-  if(!zones.length) return null;
+  if(!zones.length)return null;
   const freqN=zones.filter(z=>z.rank/zones.length<=0.15).length;
 
   return(<>
