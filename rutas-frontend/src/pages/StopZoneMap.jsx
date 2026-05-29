@@ -1,13 +1,15 @@
 /**
  * StopZoneMap — Passenger Boarding & Alighting Map
  *
- * Road line: fetched from our OWN GPS logs via /public/route/{id}/path
- *            Conductors drove the exact route 8 times. That data IS the road.
- *            No routing engine. No OSRM. No detours.
+ * Road line: fetched from /public/route/{id}/path
+ *   — our own GPS logs from 8 completed trips
+ *   — the conductor already drove the exact route
+ *   — this IS the road, no routing engine needed
  *
- * Stop dots: raw published centroids from DBSCAN.
- *            Already on the road — no snapping needed.
- *            DBSCAN centroid = mean of GPS points that were ON the road.
+ * Stop matching: pure geometry — nearest-point-on-polyline
+ *   — for each published centroid, find the closest point on the GPS track
+ *   — snaps scattered DBSCAN centroids onto the actual road
+ *   — zero API calls, runs instantly in the browser
  */
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
@@ -21,6 +23,46 @@ L.Icon.Default.mergeOptions({
 });
 
 const API = import.meta.env.VITE_API_URL;
+
+// ── Haversine distance in metres ──────────────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000, p = Math.PI / 180;
+  const dlat = (lat2 - lat1) * p;
+  const dlon = (lon2 - lon1) * p;
+  const a = Math.sin(dlat/2)**2
+    + Math.cos(lat1*p) * Math.cos(lat2*p) * Math.sin(dlon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// ── Nearest point on a line segment ──────────────────────────────────────
+function nearestOnSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  if (dx === 0 && dy === 0) return { lat: ax, lon: ay };
+  const t = Math.max(0, Math.min(1,
+    ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)
+  ));
+  return { lat: ax + t * dx, lon: ay + t * dy };
+}
+
+// ── Snap a point to the nearest position on a polyline ───────────────────
+// road = array of [lat, lon] from our GPS track
+function snapToRoad(lat, lon, road) {
+  let bestLat = lat, bestLon = lon, bestDist = Infinity;
+  for (let i = 0; i < road.length - 1; i++) {
+    const { lat: slat, lon: slon } = nearestOnSegment(
+      lat, lon,
+      road[i][0], road[i][1],
+      road[i+1][0], road[i+1][1]
+    );
+    const d = haversine(lat, lon, slat, slon);
+    if (d < bestDist) {
+      bestDist = d;
+      bestLat = slat;
+      bestLon = slon;
+    }
+  }
+  return { lat: bestLat, lon: bestLon, dist: bestDist };
+}
 
 // ── Stop frequency tier ───────────────────────────────────────────────────
 function getTier(rank, total) {
@@ -51,15 +93,19 @@ function peakLabel(p) {
   }[p] || p;
 }
 
-// ── Full-screen passenger map ─────────────────────────────────────────────
+// ── Full-screen map ───────────────────────────────────────────────────────
 function PassengerMap({ zones, routeId, onClose }) {
   const mapEl  = useRef(null);
   const mapRef = useRef(null);
   const mksRef = useRef([]);
 
-  const [roadReady, setRoadReady] = useState(false);
-  const [sel,       setSel]       = useState(null);
-  const [filter,    setFilter]    = useState("all");
+  // road = [[lat,lon],...] from GPS track
+  // snapped = zones with lat/lon moved to nearest road point
+  const [road,    setRoad]    = useState(null);
+  const [snapped, setSnapped] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sel,     setSel]     = useState(null);
+  const [filter,  setFilter]  = useState("all");
   const total = zones.length;
 
   useEffect(() => {
@@ -67,15 +113,13 @@ function PassengerMap({ zones, routeId, onClose }) {
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  // Init map + fetch road from our own GPS data
+  // Init Leaflet map
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
-
     const map = L.map(mapEl.current, {
       center: [14.66, 120.9750], zoom: 13,
       scrollWheelZoom: true, zoomControl: true, attributionControl: true,
     });
-
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       { subdomains: "abcd", maxZoom: 19, attribution: "© CARTO © OSM" }
     ).addTo(map);
@@ -94,46 +138,60 @@ function PassengerMap({ zones, routeId, onClose }) {
 
     mapRef.current = map;
     setTimeout(() => map.invalidateSize(), 200);
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
 
-    // Fetch road path from our own GPS logs — this IS the actual road
+  // Fetch road from our own GPS logs, then snap stops to it
+  useEffect(() => {
     let dead = false;
     fetch(`${API}/public/route/${routeId}/path`)
       .then(r => r.json())
       .then(d => {
-        if (dead || !mapRef.current) return;
-        if (d.path && d.path.length > 5) {
-          const latlngs = d.path.map(p => [p.lat, p.lon]);
-          L.polyline(latlngs, {
+        if (dead || !d.path?.length) return;
+
+        // Road is [[lat,lon],...] from actual GPS logs
+        const roadPts = d.path.map(p => [p.lat, p.lon]);
+
+        // Draw road line on map
+        if (mapRef.current) {
+          L.polyline(roadPts, {
             color: "#42a5f5", weight: 3, opacity: 0.65,
             lineJoin: "round", lineCap: "round",
           }).addTo(mapRef.current);
-          setRoadReady(true);
         }
+
+        // Snap every published stop to nearest point on this road
+        const snappedZones = zones.map(zone => {
+          const { lat, lon } = snapToRoad(zone.lat, zone.lon, roadPts);
+          return { ...zone, lat, lon };
+        });
+
+        setRoad(roadPts);
+        setSnapped(snappedZones);
+        setLoading(false);
       })
       .catch(() => {
-        // Silently fail — map still works without road line
-        if (!dead) setRoadReady(false);
+        if (!dead) {
+          // No path endpoint yet — use raw centroids, show warning
+          setSnapped(zones);
+          setLoading(false);
+        }
       });
+    return () => { dead = true; };
+  }, [zones, routeId]); // eslint-disable-line
 
-    return () => {
-      dead = true;
-      map.remove();
-      mapRef.current = null;
-    };
-  }, []); // eslint-disable-line
-
-  // Draw stop markers whenever filter/selection changes
+  // Draw stop markers
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !snapped) return;
     mksRef.current.forEach(m => map.removeLayer(m));
     mksRef.current = [];
 
     const visible = filter === "all"
-      ? zones
+      ? snapped
       : filter === "frequent"
-        ? zones.filter(z => z.rank / total <= 0.15)
-        : zones.filter(z => z.rank / total <= 0.45);
+        ? snapped.filter(z => z.rank / total <= 0.15)
+        : snapped.filter(z => z.rank / total <= 0.45);
 
     visible.forEach(zone => {
       const tier  = getTier(zone.rank, total);
@@ -200,9 +258,9 @@ function PassengerMap({ zones, routeId, onClose }) {
       const b = L.latLngBounds(visible.map(z => [z.lat, z.lon]));
       if (b.isValid()) map.fitBounds(b, { padding: [48, 48], maxZoom: 15 });
     }
-  }, [zones, sel, filter, total]);
+  }, [snapped, sel, filter, total]);
 
-  const selZone = zones.find(z => z.cluster_id === sel);
+  const selZone = snapped?.find(z => z.cluster_id === sel);
   const selTier = selZone ? getTier(selZone.rank, total) : null;
   const freqN   = zones.filter(z => z.rank / total <= 0.15).length;
   const regN    = zones.filter(z => z.rank / total <= 0.45).length;
@@ -223,8 +281,12 @@ function PassengerMap({ zones, routeId, onClose }) {
             🚏 Where to Board &amp; Alight
           </div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,.42)", marginTop:2 }}>
-            Malanday → Recto · {freqN} frequent · {total} total stops
-            {roadReady && <span style={{ color:"#30d158" }}> · route loaded ✓</span>}
+            Malanday → Recto · {freqN} frequent · {total} total
+            {loading
+              ? <span style={{ color:"#ffd60a" }}> · loading route…</span>
+              : road
+                ? <span style={{ color:"#30d158" }}> · road-matched ✓</span>
+                : <span style={{ color:"#ff9f0a" }}> · raw positions</span>}
           </div>
         </div>
         <button onClick={onClose} style={{ background:"rgba(255,255,255,.10)",
@@ -257,7 +319,7 @@ function PassengerMap({ zones, routeId, onClose }) {
         </span>
       </div>
 
-      {/* Selected stop panel */}
+      {/* Selected stop */}
       {selZone && selTier && (
         <div style={{ padding:"12px 16px",
           background:`${selTier.color}18`,
@@ -268,7 +330,7 @@ function PassengerMap({ zones, routeId, onClose }) {
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:800, fontSize:15, color:"#fff", marginBottom:4 }}>
               {selTier.badge}
-              {selZone.rank === 1 &&
+              {selZone.rank===1 &&
                 <span style={{ color:"#ffd60a", marginLeft:8, fontSize:12 }}>
                   ★ Busiest on route
                 </span>}
@@ -310,7 +372,7 @@ function PassengerMap({ zones, routeId, onClose }) {
           </span>
         ))}
         <span style={{ fontSize:10, color:"rgba(255,255,255,.25)", marginLeft:"auto" }}>
-          Route from real jeepney GPS data
+          Road-matched from real jeepney GPS data
         </span>
       </div>
     </div>
@@ -388,6 +450,12 @@ export default function StopZoneMap({ routeId = "MR-001" }) {
         boxShadow:"0 2px 8px rgba(25,118,210,.40)" }}>View Map →</span>
     </button>
 
-    {open && <PassengerMap zones={zones} routeId={routeId} onClose={() => setOpen(false)} />}
+    {open && (
+      <PassengerMap
+        zones={zones}
+        routeId={routeId}
+        onClose={() => setOpen(false)}
+      />
+    )}
   </>);
 }
