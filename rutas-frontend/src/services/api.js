@@ -52,4 +52,4 @@ export default API;
 
 
 // Stop Zones
-export const publishStopZones = (routeId) => API.post("/admin/route/${routeId}/publish-stops");
+export const publishStopZones = (routeId) => API.post(`/admin/route/${routeId}/publish-stops`);
