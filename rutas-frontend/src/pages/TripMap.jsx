@@ -137,7 +137,24 @@ const GROUND_TRUTH = [
 
 // ── Corridor polyline ─────────────────────────────────────────────────────
 import { CORRIDOR } from "../data/corridor";
+
 const CORRIDOR_ROUTE = CORRIDOR;
+function snapToRoad(lat, lon) {
+  let bLat = lat, bLon = lon, bDist = Infinity;
+  for (let i = 0; i < CORRIDOR_ROUTE.length - 1; i++) {
+    const [ax, ay] = CORRIDOR_ROUTE[i];
+    const [bx, by] = CORRIDOR_ROUTE[i + 1];
+    const dx = bx - ax, dy = by - ay;
+    const t = (dx === 0 && dy === 0) ? 0
+      : Math.max(0, Math.min(1,
+          ((lat - ax) * dx + (lon - ay) * dy) / (dx * dx + dy * dy)));
+    const sLat = ax + t * dx, sLon = ay + t * dy;
+    const dLat = lat - sLat, dLon = lon - sLon;
+    const d = Math.sqrt(dLat * dLat + dLon * dLon);
+    if (d < bDist) { bDist = d; bLat = sLat; bLon = sLon; }
+  }
+  return { lat: bLat, lon: bLon };
+}
 
 // ── Distance utility (Haversine, meters) ──────────────────────────────────
 function haversineMeters(a, b) {
@@ -351,8 +368,10 @@ export default function TripMap({ tripId, onClose }) {
   }, [tripId, qualFilter]);
 
   // ── Derived: filtered logs for rendering ───────────────────────────────
-  const filteredLogs = useMemo(() => logs, [logs]);
-
+        const filteredLogs = useMemo(() => logs.map(l => {
+        const s = snapToRoad(l.lat, l.lon);
+        return { ...l, lat: s.lat, lon: s.lon };
+      }), [logs]);
   // ── Derived: filtered clusters by demand tier ──────────────────────────
   const filteredClusters = useMemo(() => (
     tierFilter === "all"
