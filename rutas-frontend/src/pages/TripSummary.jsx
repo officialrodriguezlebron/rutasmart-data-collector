@@ -66,6 +66,47 @@ function TripSummary() {
           </div>
         </div>
 
+        {/* Corridor info card */}
+        <div style={{
+          background: "rgba(21,101,192,0.08)",
+          border: "1px solid rgba(21,101,192,0.22)",
+          borderRadius: 12,
+          padding: "14px 16px",
+          margin: "16px 0 8px",
+          fontSize: 13,
+          lineHeight: 1.6,
+        }}>
+          <div style={{ fontWeight: 700, color: "#1565c0", marginBottom: 6 }}>
+            Passenger Map Updated
+          </div>
+          <p style={{ margin: "0 0 10px", color: "#555" }}>
+            Your trip data will be included in the next admin publish.
+            Passengers can view boarding and alighting stops at:
+          </p>
+          <a
+            href="/route/MR-001"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-block",
+              background: "#1565c0",
+              color: "#fff",
+              borderRadius: 8,
+              padding: "7px 16px",
+              fontSize: 13,
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            View public stop zone map →
+          </a>
+          <div style={{ marginTop: 10, fontSize: 11, color: "#999" }}>
+            {summary?.direction === "RECTO-MALANDAY"
+              ? "Return corridor (Recto → Malanday) will be applied"
+              : "Forward corridor (Malanday → Recto) will be applied"}
+          </div>
+        </div>
+
         <div className="summary-actions">
           <button className="btn btn-primary full" onClick={handleExportCSV}>
             Export CSV

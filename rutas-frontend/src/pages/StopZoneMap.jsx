@@ -64,7 +64,7 @@ const DIR_LABELS = {
 };
 
 // ── Full-screen map ────────────────────────────────────────────────────
-function PassengerMap({ zones, routeId, onClose }) {
+function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
   const mapEl  = useRef(null);
   const mapRef = useRef(null);
   const mksRef = useRef([]);
@@ -103,7 +103,7 @@ function PassengerMap({ zones, routeId, onClose }) {
         if (dead || !mapRef.current) return;
 
         // Detect direction from the path response
-        const dir = d.direction || "MALANDAY-RECTO";
+        const dir = d.direction || preferredDirection || "MALANDAY-RECTO";
         const corridor = dir === "RECTO-MALANDAY" ? RETURN_CORRIDOR : CORRIDOR;
 
         setDirection(dir);
@@ -335,7 +335,7 @@ function PassengerMap({ zones, routeId, onClose }) {
 }
 
 // ── Pill button ────────────────────────────────────────────────────────
-export default function StopZoneMap({ routeId = "MR-001" }) {
+export default function StopZoneMap({ routeId = "MR-001", preferredDirection = null }) {
   const [zones,   setZones]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [open,    setOpen]    = useState(false);
@@ -394,6 +394,6 @@ export default function StopZoneMap({ routeId = "MR-001" }) {
         boxShadow:"0 2px 8px rgba(25,118,210,.40)" }}>View Map</span>
     </button>
 
-    {open && <PassengerMap zones={zones} routeId={routeId} onClose={() => setOpen(false)} />}
+    {open && <PassengerMap zones={zones} routeId={routeId} onClose={() => setOpen(false)} preferredDirection={preferredDirection} />}
   </>);
 }

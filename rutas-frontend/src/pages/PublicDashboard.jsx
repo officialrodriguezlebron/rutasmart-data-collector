@@ -148,7 +148,7 @@ export default function PublicDashboard() {
         )}
 
         {/* Where to Board button — always visible near top */}
-        <StopZoneMap routeId={routeId} />
+        <StopZoneMap routeId={routeId} preferredDirection={dirFilter !== "all" ? dirFilter : null} />
 
         {/* Error */}
         {error && (

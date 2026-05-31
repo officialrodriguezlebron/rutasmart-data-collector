@@ -4,27 +4,40 @@ import { useNavigate } from "react-router-dom";
 import {
   getAdminStats, getAdminTrips, deleteTrip, exportTrip,
   importTripCSV, createUser, getConductors,
-  getAggregateDashboard, publishStopZones,
+  getAggregateDashboard, publishStopZones, getPublishedStops,
 } from "../services/api";
 import { authService } from "../services/authService";
 import TripMap from "./TripMap";
 import "./AdminDashboard.css";
 
 function PublishStopZonesPanel() {
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [status,    setStatus]    = useState(null);
+  const [loading,   setLoading]   = useState(false);
+  const [published, setPublished] = useState(null);  // current published state
+  const [fetching,  setFetching]  = useState(true);
+
+  // Load current published state on mount
+  useEffect(() => {
+    getPublishedStops("MR-001")
+      .then(r => setPublished(r.data))
+      .catch(() => setPublished({ published: false }))
+      .finally(() => setFetching(false));
+  }, []);
 
   const handlePublish = async () => {
     if (!window.confirm(
       "Publish stop zones for MR-001?\n\n" +
-      "This runs DBSCAN across all completed trips and updates the passenger map. " +
-      "The current published map will be replaced."
+      "This runs DBSCAN across all completed trips (both directions) and updates " +
+      "the passenger map. The current published map will be replaced."
     )) return;
     setLoading(true);
     setStatus(null);
     try {
       const res = await publishStopZones("MR-001");
       setStatus({ ok: true, msg: res.data.message });
+      // Refresh published state
+      const r = await getPublishedStops("MR-001");
+      setPublished(r.data);
     } catch (e) {
       setStatus({ ok: false, msg: e.response?.data?.detail || "Publish failed." });
     } finally {
@@ -32,39 +45,138 @@ function PublishStopZonesPanel() {
     }
   };
 
+  const fmtDate = (iso) => iso
+    ? new Date(iso).toLocaleString("en-PH", { dateStyle:"medium", timeStyle:"short" })
+    : "—";
+
   return (
     <div style={{
-      background: "rgba(21,101,192,0.10)",
-      border: "1px solid rgba(21,101,192,0.30)",
+      background: "rgba(21,101,192,0.08)",
+      border: "1px solid rgba(21,101,192,0.28)",
       borderRadius: 16,
       padding: "18px 20px",
       margin: "16px 0",
     }}>
       <div style={{ fontWeight: 700, fontSize: 15, color: "#1565c0", marginBottom: 6 }}>
-        🗺 Passenger Stop Zone Map
+        Passenger Stop Zone Map
       </div>
+
+      {/* Current published state */}
+      {!fetching && (
+        <div style={{
+          display: "flex", gap: 10, flexWrap: "wrap",
+          marginBottom: 14,
+        }}>
+          {published?.published ? (
+            <>
+              <div style={{
+                background: "rgba(46,125,50,0.10)", border: "1px solid rgba(46,125,50,0.25)",
+                borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#2e7d32",
+                display: "flex", flexDirection: "column", gap: 2, minWidth: 120,
+              }}>
+                <span style={{ fontWeight: 700 }}>{published.stop_zones?.length ?? 0} stop zones</span>
+                <span style={{ opacity: 0.75 }}>published</span>
+              </div>
+              <div style={{
+                background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
+                borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#444",
+                display: "flex", flexDirection: "column", gap: 2, minWidth: 120,
+              }}>
+                <span style={{ fontWeight: 700 }}>{published.trips_analyzed} trips</span>
+                <span style={{ opacity: 0.75 }}>analyzed</span>
+              </div>
+              <div style={{
+                background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
+                borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#444",
+                display: "flex", flexDirection: "column", gap: 2,
+              }}>
+                <span style={{ fontWeight: 700 }}>Last published</span>
+                <span style={{ opacity: 0.75 }}>{fmtDate(published.published_at)}</span>
+              </div>
+
+              {/* Direction coverage badges */}
+              {(() => {
+                const zones = published.stop_zones || [];
+                const hasFwd = zones.length > 0;
+                return (
+                  <div style={{
+                    display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap",
+                  }}>
+                    {hasFwd && (
+                      <span style={{
+                        background: "rgba(66,165,245,0.15)",
+                        border: "1px solid rgba(66,165,245,0.35)",
+                        borderRadius: 99, padding: "4px 10px",
+                        fontSize: 11, fontWeight: 700, color: "#1565c0",
+                      }}>
+                        Malanday → Recto
+                      </span>
+                    )}
+                    <span style={{
+                      background: "rgba(255,214,10,0.15)",
+                      border: "1px solid rgba(255,214,10,0.35)",
+                      borderRadius: 99, padding: "4px 10px",
+                      fontSize: 11, fontWeight: 700, color: "#a67c00",
+                    }}>
+                      Recto → Malanday
+                    </span>
+                    <span style={{ fontSize: 11, color: "#888" }}>
+                      (return corridor active)
+                    </span>
+                  </div>
+                );
+              })()}
+            </>
+          ) : (
+            <div style={{
+              background: "rgba(198,40,40,0.08)", border: "1px solid rgba(198,40,40,0.20)",
+              borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#c62828",
+            }}>
+              No stop zones published yet — public map is empty.
+            </div>
+          )}
+        </div>
+      )}
+
       <p style={{ fontSize: 13, color: "#555", margin: "0 0 14px", lineHeight: 1.5 }}>
-        Run DBSCAN across all completed trips and publish the detected stop zones
-        to the passenger dashboard. Review the cluster map in the Analytics Engine
-        before publishing.
+        Runs DBSCAN across all completed trips and publishes detected stop zones to the
+        passenger dashboard. Both forward (Malanday→Recto) and return
+        (Recto→Malanday) corridors are applied automatically based on trip direction.
+        Review the cluster map in the Analytics Engine before publishing.
       </p>
-      <button
-        onClick={handlePublish}
-        disabled={loading}
-        style={{
-          background: loading ? "#ccc" : "#1565c0",
-          color: "#fff",
-          border: "none",
-          borderRadius: 10,
-          padding: "10px 22px",
-          fontSize: 14,
-          fontWeight: 700,
-          cursor: loading ? "not-allowed" : "pointer",
-          fontFamily: "inherit",
-        }}
-      >
-        {loading ? "Publishing…" : "📤 Publish Stop Zones"}
-      </button>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={handlePublish}
+          disabled={loading}
+          style={{
+            background: loading ? "#ccc" : "#1565c0",
+            color: "#fff",
+            border: "none",
+            borderRadius: 10,
+            padding: "10px 22px",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: loading ? "not-allowed" : "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          {loading ? "Publishing…" : "Publish Stop Zones"}
+        </button>
+
+        <a
+          href="/route/MR-001"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            fontSize: 13, color: "#1565c0", fontWeight: 600,
+            textDecoration: "none", padding: "10px 0",
+          }}
+        >
+          View public passenger map →
+        </a>
+      </div>
+
       {status && (
         <div style={{
           marginTop: 12,
@@ -75,7 +187,7 @@ function PublishStopZonesPanel() {
           color: status.ok ? "#2e7d32" : "#c62828",
           fontWeight: 500,
         }}>
-          {status.ok ? "✅" : "❌"} {status.msg}
+          {status.ok ? "✓" : "✗"} {status.msg}
         </div>
       )}
     </div>
