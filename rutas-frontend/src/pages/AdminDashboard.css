@@ -417,6 +417,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .admin-table th {
@@ -446,6 +447,8 @@
   font-size: 11px;
   color: #5a6a85;
   word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-status-badge {

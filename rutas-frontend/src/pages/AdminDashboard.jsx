@@ -480,7 +480,7 @@ export default function AdminDashboard() {
                   <tbody>
                     {trips.slice(0,5).map(t => (
                       <tr key={t.trip_id}>
-                        <td className="admin-mono">{t.trip_id.slice(-12)}</td>
+                        <td className="admin-mono" style={{ fontSize:11, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={t.trip_id}>{t.trip_id}</td>
                         <td>{t.jeep_code}</td>
                         <td>
                           <span className="admin-status-badge"
@@ -581,7 +581,7 @@ export default function AdminDashboard() {
                       <th>Quality</th>
                       <th>Logs</th>
                       <th>Start</th>
-                      <th style={{ width:200 }}>Actions</th>
+                      <th style={{ width:220, minWidth:220 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -597,9 +597,9 @@ export default function AdminDashboard() {
                             onChange={() => toggleSelect(t.trip_id)}
                             style={{ cursor:"pointer", accentColor:"#1565c0" }} />
                         </td>
-                        <td className="admin-mono" style={{ fontSize:12 }}>{t.trip_id.slice(-12)}</td>
+                        <td className="admin-mono" style={{ fontSize:11, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={t.trip_id}>{t.trip_id}</td>
                         <td>{t.jeep_code}</td>
-                        <td style={{ fontSize:12 }}>{t.direction?.replace("-","→") || "—"}</td>
+                        <td style={{ fontSize:12 }}>{(t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : t.direction === "RECTO-MALANDAY" ? "Recto → Malanday" : t.direction || "—")}</td>
                         <td>
                           <span className="admin-status-badge"
                             style={{ background: statusColor(t.status)+"22", color: statusColor(t.status) }}>
@@ -949,7 +949,7 @@ export default function AdminDashboard() {
                           const lfColor = lf == null ? "#8e9ab0" : lf > 120 ? "#c62828" : lf > 80 ? "#ef6c00" : "#2e7d32";
                           return (
                             <tr key={t.trip_id}>
-                              <td className="admin-mono" style={{ fontSize:11 }}>{t.trip_id.slice(-12)}</td>
+                              <td className="admin-mono" style={{ fontSize:11, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={t.trip_id}>{t.trip_id}</td>
                               <td>
                                 <span style={{ fontSize:12, fontWeight:600, color: COLOR[t.time_period] || "#42a5f5" }}>
                                   {t.time_period || "—"}
