@@ -1,10 +1,8 @@
-# FILE: rutasmart-backend/app/routes/stop_zone_routes.py
-# New file — create this in the routes folder
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
+from typing import Optional
 
 from app.database import get_db
 from app.models.trip import Trip, TripStatusEnum
@@ -21,12 +19,18 @@ TIER_COLOR = {
     "Critical": "#c62828",
 }
 
+VALID_DIRECTIONS = {"MALANDAY-RECTO", "RECTO-MALANDAY"}
 
-def _get_completed_trips(route_id: str, db: Session):
-    """Fetch all completed trips for a route, handling MR-001 variants."""
+
+def _get_completed_trips(route_id: str, db: Session, direction: Optional[str] = None):
+    """
+    Fetch completed trips for a route.
+    If direction is given, filter to only that direction.
+    Handles MR-001 variants (MR001, MR_001).
+    """
     normalized = route_id.strip().upper().replace(" ", "")
     if normalized in ("MR-001", "MR001", "MR_001"):
-        return (
+        q = (
             db.query(Trip)
             .filter(
                 Trip.status == TripStatusEnum.COMPLETED,
@@ -34,37 +38,52 @@ def _get_completed_trips(route_id: str, db: Session):
                     func.replace(func.upper(Trip.route_id), "_", ""), "-", ""
                 ).in_(["MR001"])
             )
-            .all()
         )
-    return (
-        db.query(Trip)
-        .filter(Trip.route_id == route_id, Trip.status == TripStatusEnum.COMPLETED)
-        .all()
-    )
+    else:
+        q = db.query(Trip).filter(
+            Trip.route_id == route_id,
+            Trip.status == TripStatusEnum.COMPLETED,
+        )
+
+    if direction and direction in VALID_DIRECTIONS:
+        q = q.filter(Trip.direction == direction)
+
+    return q.all()
 
 
-# ── Admin: publish stop zones for a route ────────────────────────────────────
+# ── Admin: publish stop zones for a route + direction ──────────────────────
 
 @router.post("/admin/route/{route_id}/publish-stops", tags=["Admin"])
-def publish_stop_zones(route_id: str, db: Session = Depends(get_db)):
+def publish_stop_zones(
+    route_id: str,
+    direction: str = Query("MALANDAY-RECTO",
+                           description="MALANDAY-RECTO or RECTO-MALANDAY"),
+    db: Session = Depends(get_db),
+):
     """
-    Admin endpoint — runs DBSCAN across ALL completed trips on the route,
-    validates the clusters, and atomically replaces the published_stop_zones
-    table for this route.
+    Admin endpoint — runs DBSCAN across all completed trips for the given
+    direction, then atomically replaces published stop zones for that
+    route+direction combination only.
 
+    Each direction is published independently so both can coexist in the DB.
     Uses thesis-validated parameters: ε = 15 m, minPts = 10.
-    Only TRUE_STOP clusters are published — traffic queues and moving
-    segments are excluded so passengers only see genuine boarding zones.
     """
-    trips = _get_completed_trips(route_id, db)
-    if not trips:
+    if direction not in VALID_DIRECTIONS:
         raise HTTPException(
-            status_code=404,
-            detail=f"No completed trips found for route {route_id}. "
-                   "Complete and end at least one recorded trip before publishing."
+            status_code=422,
+            detail=f"direction must be one of: {', '.join(VALID_DIRECTIONS)}"
         )
 
-    # ── Pool GPS logs from all trips ─────────────────────────────────────────
+    trips = _get_completed_trips(route_id, db, direction=direction)
+    if not trips:
+        dir_label = "Malanday → Recto" if direction == "MALANDAY-RECTO" else "Recto → Malanday"
+        raise HTTPException(
+            status_code=404,
+            detail=f"No completed {dir_label} trips found for route {route_id}. "
+                   "Record and complete at least one trip in this direction before publishing."
+        )
+
+    # Pool GPS logs from all trips in this direction
     all_points = []
     cap = 26
 
@@ -103,7 +122,7 @@ def publish_stop_zones(route_id: str, db: Session = Depends(get_db)):
             detail="Trips found but no GOOD or ACCEPTABLE GPS logs after quality filtering."
         )
 
-    # ── Run DBSCAN with thesis parameters ────────────────────────────────────
+    # Run DBSCAN
     result = run_dbscan(all_points, cap, eps_m=15.0, min_samples=10)
     clusters = result.get("clusters", [])
 
@@ -111,26 +130,25 @@ def publish_stop_zones(route_id: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=422,
             detail="DBSCAN found no clusters in the pooled GPS data. "
-                   "Try importing more completed trip data before publishing."
+                   "Try importing more trip data before publishing."
         )
 
-    # ── Filter to TRUE_STOP only ──────────────────────────────────────────────
+    # Filter to TRUE_STOP only
     stop_clusters = [
         c for c in clusters
         if getattr(c, "cluster_type", "TRUE_STOP") == "TRUE_STOP"
     ]
-
     if not stop_clusters:
-        stop_clusters = clusters  # fallback: use all if none are TRUE_STOP typed
+        stop_clusters = clusters
 
-    # Sort by activity — busiest first
     stop_clusters.sort(key=lambda c: c.point_count, reverse=True)
 
     now = datetime.utcnow()
 
-    # ── Atomic replace: delete old, insert new ────────────────────────────────
+    # Atomic replace — delete only this direction's zones, keep the other
     db.query(PublishedStopZone).filter(
-        PublishedStopZone.route_id == route_id
+        PublishedStopZone.route_id == route_id,
+        PublishedStopZone.direction == direction,
     ).delete()
 
     for rank, c in enumerate(stop_clusters, start=1):
@@ -138,6 +156,7 @@ def publish_stop_zones(route_id: str, db: Session = Depends(get_db)):
         color = TIER_COLOR.get(tier, "#1565c0")
         db.add(PublishedStopZone(
             route_id        = route_id,
+            direction       = direction,
             cluster_id      = int(c.cluster_id),
             lat             = round(c.centroid_lat, 7),
             lon             = round(c.centroid_lon, 7),
@@ -155,141 +174,142 @@ def publish_stop_zones(route_id: str, db: Session = Depends(get_db)):
 
     db.commit()
 
+    dir_label = "Malanday → Recto" if direction == "MALANDAY-RECTO" else "Recto → Malanday"
     return {
-        "published":        True,
-        "route_id":         route_id,
-        "stop_zones":       len(stop_clusters),
-        "trips_analyzed":   len(trips),
-        "logs_analyzed":    len(all_points),
-        "published_at":     now.isoformat() + "Z",
+        "published":      True,
+        "route_id":       route_id,
+        "direction":      direction,
+        "stop_zones":     len(stop_clusters),
+        "trips_analyzed": len(trips),
+        "logs_analyzed":  len(all_points),
+        "published_at":   now.isoformat() + "Z",
         "message": (
-            f"Successfully published {len(stop_clusters)} stop zones "
-            f"from {len(trips)} trips ({len(all_points)} GPS logs). "
-            "The public passenger map has been updated."
+            f"Published {len(stop_clusters)} stop zones for {dir_label} "
+            f"from {len(trips)} trips ({len(all_points)} GPS logs)."
         ),
     }
 
 
-# ── Admin: view current published stop zones ─────────────────────────────────
+# ── Admin: view published stop zones (per direction) ───────────────────────
 
 @router.get("/admin/route/{route_id}/published-stops", tags=["Admin"])
-def get_published_stops_admin(route_id: str, db: Session = Depends(get_db)):
-    """Admin view of currently published stop zones for a route."""
-    zones = (
-        db.query(PublishedStopZone)
-        .filter(PublishedStopZone.route_id == route_id)
-        .order_by(PublishedStopZone.rank)
-        .all()
-    )
-    if not zones:
-        return {
-            "route_id":   route_id,
-            "published":  False,
-            "stop_zones": [],
-            "message": "No stop zones published yet for this route.",
-        }
-    return {
-        "route_id":         route_id,
-        "published":        True,
-        "published_at":     zones[0].published_at.isoformat() + "Z",
-        "trips_analyzed":   zones[0].trips_analyzed,
-        "logs_analyzed":    zones[0].logs_analyzed,
-        "stop_zones":       [
-            {
-                "cluster_id":    z.cluster_id,
-                "lat":           z.lat,
-                "lon":           z.lon,
-                "point_count":   z.point_count,
-                "demand_tier":   z.demand_tier,
-                "avg_occupancy": z.avg_occupancy,
-                "peak_period":   z.peak_period,
-                "load_factor_pct": z.load_factor_pct,
-                "color":         z.color,
-                "rank":          z.rank,
-            }
-            for z in zones
-        ],
-    }
-
-
-# ── Public: read published stop zones (no auth, no DBSCAN on request) ────────
-
-# Add this to stop_zone_routes.py — new public endpoint
-
-@router.get("/public/route/{route_id}/path", tags=["Public"])
-def get_route_path(route_id: str, db: Session = Depends(get_db)):
+def get_published_stops_admin(
+    route_id: str,
+    direction: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
     """
-    Returns the GPS track of the best completed trip as a polyline.
-    Used by the passenger map to draw the road line from REAL field data.
-    No routing engine — this is the actual path conductors drove.
+    Admin view of currently published stop zones.
+    If direction is given, returns only that direction.
+    Otherwise returns a summary of both directions.
     """
-    trips = _get_completed_trips(route_id, db)
-    if not trips:
-        return {"route_id": route_id, "path": []}
-
-    # Pick the trip with the most GOOD GPS logs — cleanest track
-    best_trip = None
-    best_count = 0
-    for trip in trips:
-        count = (
-            db.query(GPSLog)
+    if direction:
+        zones = (
+            db.query(PublishedStopZone)
             .filter(
-                GPSLog.trip_id == trip.trip_id,
-                GPSLog.gps_quality_flag == GPSQualityEnum.GOOD,
+                PublishedStopZone.route_id == route_id,
+                PublishedStopZone.direction == direction,
             )
-            .count()
+            .order_by(PublishedStopZone.rank)
+            .all()
         )
-        if count > best_count:
-            best_count = count
-            best_trip = trip
+        if not zones:
+            return {
+                "route_id":   route_id,
+                "direction":  direction,
+                "published":  False,
+                "stop_zones": [],
+                "message":    f"No stop zones published for direction {direction}.",
+            }
+        return {
+            "route_id":       route_id,
+            "direction":      direction,
+            "published":      True,
+            "published_at":   zones[0].published_at.isoformat() + "Z",
+            "trips_analyzed": zones[0].trips_analyzed,
+            "logs_analyzed":  zones[0].logs_analyzed,
+            "stop_zones": [
+                {
+                    "cluster_id":      z.cluster_id,
+                    "lat":             z.lat,
+                    "lon":             z.lon,
+                    "point_count":     z.point_count,
+                    "demand_tier":     z.demand_tier,
+                    "avg_occupancy":   z.avg_occupancy,
+                    "peak_period":     z.peak_period,
+                    "load_factor_pct": z.load_factor_pct,
+                    "color":           z.color,
+                    "rank":            z.rank,
+                }
+                for z in zones
+            ],
+        }
 
-    if not best_trip:
-        return {"route_id": route_id, "path": []}
-
-    logs = (
-        db.query(GPSLog.latitude, GPSLog.longitude, GPSLog.timestamp)
-        .filter(
-            GPSLog.trip_id == best_trip.trip_id,
-            GPSLog.gps_quality_flag == GPSQualityEnum.GOOD,
+    # No direction — return summary of both
+    summary = {}
+    for dir_key in VALID_DIRECTIONS:
+        zones = (
+            db.query(PublishedStopZone)
+            .filter(
+                PublishedStopZone.route_id == route_id,
+                PublishedStopZone.direction == dir_key,
+            )
+            .order_by(PublishedStopZone.rank)
+            .all()
         )
-        .order_by(GPSLog.timestamp)
-        .all()
-    )
-
-    # Downsample: take every 3rd point to reduce payload
-    # ~1500 GOOD logs → ~500 points still gives a smooth line
-    path = [
-        {"lat": round(log.latitude, 6), "lon": round(log.longitude, 6)}
-        for i, log in enumerate(logs)
-        if i % 3 == 0
-    ]
+        if zones:
+            summary[dir_key] = {
+                "published":      True,
+                "stop_zones":     len(zones),
+                "trips_analyzed": zones[0].trips_analyzed,
+                "logs_analyzed":  zones[0].logs_analyzed,
+                "published_at":   zones[0].published_at.isoformat() + "Z",
+            }
+        else:
+            summary[dir_key] = {"published": False}
 
     return {
-        "route_id":   route_id,
-        "trip_id":    best_trip.trip_id,
-        "direction":  best_trip.direction,
-        "point_count": len(path),
-        "path": path,
+        "route_id": route_id,
+        "directions": summary,
     }
+
+
+# ── Public: read published stop zones ─────────────────────────────────────
 
 @router.get("/public/route/{route_id}/stop-zones", tags=["Public"])
-def get_public_stop_zones(route_id: str, db: Session = Depends(get_db)):
+def get_public_stop_zones(
+    route_id: str,
+    direction: str = Query("MALANDAY-RECTO"),
+    db: Session = Depends(get_db),
+):
+    """
+    Public read-only endpoint.
+    Returns published stop zones for the given direction.
+    Defaults to MALANDAY-RECTO for backwards compatibility.
+    """
     zones = (
         db.query(PublishedStopZone)
-        .filter(PublishedStopZone.route_id == route_id)
+        .filter(
+            PublishedStopZone.route_id == route_id,
+            PublishedStopZone.direction == direction,
+        )
         .order_by(PublishedStopZone.rank)
         .all()
     )
+
     if not zones:
         return {
             "route_id":   route_id,
+            "direction":  direction,
             "published":  False,
             "stop_zones": [],
             "total_trips_analyzed": 0,
-            "message": "Stop zones have not been published for this route yet.",
+            "message":    f"Stop zones not yet published for {direction}.",
         }
+
     return {
         "route_id":             route_id,
+        "direction":            direction,
         "published":            True,
         "published_at":         zones[0].published_at.isoformat() + "Z",
         "total_trips_analyzed": zones[0].trips_analyzed,
@@ -310,4 +330,63 @@ def get_public_stop_zones(route_id: str, db: Session = Depends(get_db)):
             for z in zones
         ],
         "parameters": {"eps_m": 15.0, "min_samples": 10},
+    }
+
+
+# ── Public: GPS path from best completed trip (per direction) ──────────────
+
+@router.get("/public/route/{route_id}/path", tags=["Public"])
+def get_route_path(
+    route_id: str,
+    direction: str = Query("MALANDAY-RECTO"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns the GPS track of the best completed trip for a given direction.
+    Used by the map to detect direction — NOT used for the road line.
+    """
+    trips = _get_completed_trips(route_id, db, direction=direction)
+    if not trips:
+        return {"route_id": route_id, "direction": direction, "path": []}
+
+    best_trip = None
+    best_count = 0
+    for trip in trips:
+        count = (
+            db.query(GPSLog)
+            .filter(
+                GPSLog.trip_id == trip.trip_id,
+                GPSLog.gps_quality_flag == GPSQualityEnum.GOOD,
+            )
+            .count()
+        )
+        if count > best_count:
+            best_count = count
+            best_trip = trip
+
+    if not best_trip:
+        return {"route_id": route_id, "direction": direction, "path": []}
+
+    logs = (
+        db.query(GPSLog.latitude, GPSLog.longitude, GPSLog.timestamp)
+        .filter(
+            GPSLog.trip_id == best_trip.trip_id,
+            GPSLog.gps_quality_flag == GPSQualityEnum.GOOD,
+        )
+        .order_by(GPSLog.timestamp)
+        .all()
+    )
+
+    path = [
+        {"lat": round(log.latitude, 6), "lon": round(log.longitude, 6)}
+        for i, log in enumerate(logs)
+        if i % 3 == 0
+    ]
+
+    return {
+        "route_id":    route_id,
+        "direction":   direction,
+        "trip_id":     best_trip.trip_id,
+        "point_count": len(path),
+        "path":        path,
     }

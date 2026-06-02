@@ -10,34 +10,40 @@ import { authService } from "../services/authService";
 import TripMap from "./TripMap";
 import "./AdminDashboard.css";
 
-function PublishStopZonesPanel() {
-  const [status,    setStatus]    = useState(null);
-  const [loading,   setLoading]   = useState(false);
-  const [published, setPublished] = useState(null);  // current published state
-  const [fetching,  setFetching]  = useState(true);
+function DirectionPublishCard({ direction }) {
+  const isFwd   = direction === "MALANDAY-RECTO";
+  const label   = isFwd ? "Malanday → Recto" : "Recto → Malanday";
+  const accent  = isFwd ? "#1565c0" : "#a67c00";
+  const bgLight = isFwd ? "rgba(21,101,192,0.07)" : "rgba(180,120,0,0.07)";
+  const border  = isFwd ? "rgba(21,101,192,0.25)" : "rgba(180,120,0,0.25)";
 
-  // Load current published state on mount
-  useEffect(() => {
-    getPublishedStops("MR-001")
-      .then(r => setPublished(r.data))
-      .catch(() => setPublished({ published: false }))
-      .finally(() => setFetching(false));
-  }, []);
+  const [info,    setInfo]    = useState(null);   // published state for this direction
+  const [loading, setLoading] = useState(false);
+  const [status,  setStatus]  = useState(null);
+
+  const load = () =>
+    getPublishedStops("MR-001", direction)
+      .then(r => setInfo(r.data))
+      .catch(() => setInfo({ published: false }));
+
+  useEffect(() => { load(); }, []); // eslint-disable-line
+
+  const fmtDate = (iso) => iso
+    ? new Date(iso).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })
+    : "—";
 
   const handlePublish = async () => {
     if (!window.confirm(
-      "Publish stop zones for MR-001?\n\n" +
-      "This runs DBSCAN across all completed trips (both directions) and updates " +
-      "the passenger map. The current published map will be replaced."
+      `Publish stop zones for ${label}?\n\n` +
+      `Runs DBSCAN across all completed ${label} trips and updates the passenger map. ` +
+      `Existing ${label} stop zones will be replaced.`
     )) return;
     setLoading(true);
     setStatus(null);
     try {
-      const res = await publishStopZones("MR-001");
+      const res = await publishStopZones("MR-001", direction);
       setStatus({ ok: true, msg: res.data.message });
-      // Refresh published state
-      const r = await getPublishedStops("MR-001");
-      setPublished(r.data);
+      await load();
     } catch (e) {
       setStatus({ ok: false, msg: e.response?.data?.detail || "Publish failed." });
     } finally {
@@ -45,144 +51,75 @@ function PublishStopZonesPanel() {
     }
   };
 
-  const fmtDate = (iso) => iso
-    ? new Date(iso).toLocaleString("en-PH", { dateStyle:"medium", timeStyle:"short" })
-    : "—";
-
   return (
     <div style={{
-      background: "rgba(21,101,192,0.08)",
-      border: "1px solid rgba(21,101,192,0.28)",
-      borderRadius: 16,
-      padding: "18px 20px",
-      margin: "16px 0",
+      flex: 1, minWidth: 240,
+      background: bgLight,
+      border: `1px solid ${border}`,
+      borderRadius: 14,
+      padding: "16px 18px",
     }}>
-      <div style={{ fontWeight: 700, fontSize: 15, color: "#1565c0", marginBottom: 6 }}>
-        Passenger Stop Zone Map
+      <div style={{ fontWeight: 700, fontSize: 14, color: accent, marginBottom: 10 }}>
+        {label}
       </div>
 
-      {/* Current published state */}
-      {!fetching && (
+      {/* Published state */}
+      {info === null ? (
+        <div style={{ fontSize: 12, color: "#999", marginBottom: 10 }}>Loading…</div>
+      ) : info.published ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+          <div style={{
+            background: "rgba(46,125,50,0.10)", border: "1px solid rgba(46,125,50,0.22)",
+            borderRadius: 8, padding: "5px 10px", fontSize: 12, color: "#2e7d32",
+          }}>
+            <strong>{info.stop_zones?.length ?? 0}</strong> stop zones
+          </div>
+          <div style={{
+            background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
+            borderRadius: 8, padding: "5px 10px", fontSize: 12, color: "#555",
+          }}>
+            <strong>{info.trips_analyzed}</strong> trips · <strong>{(info.logs_analyzed || 0).toLocaleString()}</strong> logs
+          </div>
+          <div style={{
+            background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
+            borderRadius: 8, padding: "5px 10px", fontSize: 12, color: "#555",
+          }}>
+            {fmtDate(info.published_at)}
+          </div>
+        </div>
+      ) : (
         <div style={{
-          display: "flex", gap: 10, flexWrap: "wrap",
-          marginBottom: 14,
+          background: "rgba(198,40,40,0.07)", border: "1px solid rgba(198,40,40,0.18)",
+          borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#c62828",
+          marginBottom: 12,
         }}>
-          {published?.published ? (
-            <>
-              <div style={{
-                background: "rgba(46,125,50,0.10)", border: "1px solid rgba(46,125,50,0.25)",
-                borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#2e7d32",
-                display: "flex", flexDirection: "column", gap: 2, minWidth: 120,
-              }}>
-                <span style={{ fontWeight: 700 }}>{published.stop_zones?.length ?? 0} stop zones</span>
-                <span style={{ opacity: 0.75 }}>published</span>
-              </div>
-              <div style={{
-                background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
-                borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#444",
-                display: "flex", flexDirection: "column", gap: 2, minWidth: 120,
-              }}>
-                <span style={{ fontWeight: 700 }}>{published.trips_analyzed} trips</span>
-                <span style={{ opacity: 0.75 }}>analyzed</span>
-              </div>
-              <div style={{
-                background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
-                borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#444",
-                display: "flex", flexDirection: "column", gap: 2,
-              }}>
-                <span style={{ fontWeight: 700 }}>Last published</span>
-                <span style={{ opacity: 0.75 }}>{fmtDate(published.published_at)}</span>
-              </div>
-
-              {/* Direction coverage badges */}
-              {(() => {
-                const zones = published.stop_zones || [];
-                const hasFwd = zones.length > 0;
-                return (
-                  <div style={{
-                    display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap",
-                  }}>
-                    {hasFwd && (
-                      <span style={{
-                        background: "rgba(66,165,245,0.15)",
-                        border: "1px solid rgba(66,165,245,0.35)",
-                        borderRadius: 99, padding: "4px 10px",
-                        fontSize: 11, fontWeight: 700, color: "#1565c0",
-                      }}>
-                        Malanday → Recto
-                      </span>
-                    )}
-                    <span style={{
-                      background: "rgba(255,214,10,0.15)",
-                      border: "1px solid rgba(255,214,10,0.35)",
-                      borderRadius: 99, padding: "4px 10px",
-                      fontSize: 11, fontWeight: 700, color: "#a67c00",
-                    }}>
-                      Recto → Malanday
-                    </span>
-                    <span style={{ fontSize: 11, color: "#888" }}>
-                      (return corridor active)
-                    </span>
-                  </div>
-                );
-              })()}
-            </>
-          ) : (
-            <div style={{
-              background: "rgba(198,40,40,0.08)", border: "1px solid rgba(198,40,40,0.20)",
-              borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#c62828",
-            }}>
-              No stop zones published yet — public map is empty.
-            </div>
-          )}
+          Not yet published
         </div>
       )}
 
-      <p style={{ fontSize: 13, color: "#555", margin: "0 0 14px", lineHeight: 1.5 }}>
-        Runs DBSCAN across all completed trips and publishes detected stop zones to the
-        passenger dashboard. Both forward (Malanday→Recto) and return
-        (Recto→Malanday) corridors are applied automatically based on trip direction.
-        Review the cluster map in the Analytics Engine before publishing.
-      </p>
-
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button
-          onClick={handlePublish}
-          disabled={loading}
-          style={{
-            background: loading ? "#ccc" : "#1565c0",
-            color: "#fff",
-            border: "none",
-            borderRadius: 10,
-            padding: "10px 22px",
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: loading ? "not-allowed" : "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          {loading ? "Publishing…" : "Publish Stop Zones"}
-        </button>
-
-        <a
-          href="/route/MR-001"
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            fontSize: 13, color: "#1565c0", fontWeight: 600,
-            textDecoration: "none", padding: "10px 0",
-          }}
-        >
-          View public passenger map →
-        </a>
-      </div>
+      <button
+        onClick={handlePublish}
+        disabled={loading}
+        style={{
+          width: "100%",
+          background: loading ? "#ccc" : accent,
+          color: "#fff",
+          border: "none",
+          borderRadius: 9,
+          padding: "9px 0",
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: loading ? "not-allowed" : "pointer",
+          fontFamily: "inherit",
+          marginBottom: status ? 8 : 0,
+        }}
+      >
+        {loading ? "Publishing…" : `Publish ${isFwd ? "Forward" : "Return"}`}
+      </button>
 
       {status && (
         <div style={{
-          marginTop: 12,
-          padding: "10px 14px",
-          borderRadius: 10,
-          fontSize: 13,
+          padding: "8px 10px", borderRadius: 8, fontSize: 12,
           background: status.ok ? "rgba(46,125,50,0.10)" : "rgba(198,40,40,0.10)",
           color: status.ok ? "#2e7d32" : "#c62828",
           fontWeight: 500,
@@ -193,6 +130,44 @@ function PublishStopZonesPanel() {
     </div>
   );
 }
+
+function PublishStopZonesPanel() {
+  return (
+    <div style={{
+      background: "rgba(0,0,0,0.02)",
+      border: "1px solid rgba(0,0,0,0.10)",
+      borderRadius: 16,
+      padding: "18px 20px",
+      margin: "16px 0",
+    }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#333", marginBottom: 4 }}>
+        Passenger Stop Zone Map
+      </div>
+      <p style={{ fontSize: 13, color: "#666", margin: "0 0 16px", lineHeight: 1.5 }}>
+        Publish stop zones per direction. Each direction uses its own corridor and
+        is published independently — publishing one does not affect the other.
+        Review the cluster map in the Analytics Engine before publishing.
+      </p>
+
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        <DirectionPublishCard direction="MALANDAY-RECTO" />
+        <DirectionPublishCard direction="RECTO-MALANDAY" />
+      </div>
+
+      <div style={{ marginTop: 14, fontSize: 12, color: "#888" }}>
+        <a
+          href="/route/MR-001"
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: "#1565c0", fontWeight: 600, textDecoration: "none" }}
+        >
+          View public passenger map →
+        </a>
+      </div>
+    </div>
+  );
+}
+
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -219,6 +194,7 @@ export default function AdminDashboard() {
   const [tripSearch,   setTripSearch]   = useState("");
   const [tripStatus,   setTripStatus]   = useState("all");
   const [tripDir,      setTripDir]      = useState("all");
+  const [tripSort,     setTripSort]     = useState("quality_desc");
   const [tripPage,     setTripPage]     = useState(1);
   const [selected,     setSelected]     = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -315,16 +291,24 @@ export default function AdminDashboard() {
     fetchData();
   };
 
-  const filteredTrips = trips.filter(t => {
+  const filteredTrips = (() => {
     const q = tripSearch.toLowerCase();
-    const matchSearch = !q ||
-      t.trip_id?.toLowerCase().includes(q) ||
-      t.jeep_code?.toLowerCase().includes(q) ||
-      t.recorder_id?.toLowerCase().includes(q);
-    const matchStatus = tripStatus === "all" || t.status === tripStatus;
-    const matchDir    = tripDir    === "all" || t.direction === tripDir;
-    return matchSearch && matchStatus && matchDir;
-  });
+    const filtered = trips.filter(t => {
+      const matchSearch = !q ||
+        t.trip_id?.toLowerCase().includes(q) ||
+        t.jeep_code?.toLowerCase().includes(q) ||
+        t.recorder_id?.toLowerCase().includes(q);
+      const matchStatus = tripStatus === "all" || t.status === tripStatus;
+      const matchDir    = tripDir    === "all" || t.direction === tripDir;
+      return matchSearch && matchStatus && matchDir;
+    });
+    return [...filtered].sort((a, b) => {
+      if (tripSort === "quality_desc") return (b.quality_score ?? 0) - (a.quality_score ?? 0);
+      if (tripSort === "logs_desc")    return (b.log_count ?? 0) - (a.log_count ?? 0);
+      if (tripSort === "date_asc")     return new Date(a.start_time) - new Date(b.start_time);
+      return new Date(b.start_time) - new Date(a.start_time);
+    });
+  })();
   const totalPages   = Math.max(1, Math.ceil(filteredTrips.length / PAGE_SIZE));
   const paginated    = filteredTrips.slice((tripPage - 1) * PAGE_SIZE, tripPage * PAGE_SIZE);
   const allPageSelected = paginated.length > 0 && paginated.every(t => selected.has(t.trip_id));
@@ -559,6 +543,13 @@ export default function AdminDashboard() {
                   <option value="MALANDAY-RECTO">Malanday → Recto</option>
                   <option value="RECTO-MALANDAY">Recto → Malanday</option>
                 </select>
+                <select className="trips-filter-select" value={tripSort}
+                  onChange={e => { setTripSort(e.target.value); setTripPage(1); }}>
+                  <option value="date_desc">Newest first</option>
+                  <option value="date_asc">Oldest first</option>
+                  <option value="quality_desc">Best quality first</option>
+                  <option value="logs_desc">Most logs first</option>
+                </select>
                 <span className="trips-count">
                   {filteredTrips.length} trip{filteredTrips.length !== 1 ? "s" : ""}
                   {(tripSearch || tripStatus !== "all" || tripDir !== "all") ? ` of ${trips.length}` : ""}
@@ -587,6 +578,7 @@ export default function AdminDashboard() {
                       <th>Jeep</th>
                       <th>Direction</th>
                       <th>Status</th>
+                      <th>Quality</th>
                       <th>Logs</th>
                       <th>Start</th>
                       <th style={{ width:200 }}>Actions</th>
@@ -613,6 +605,25 @@ export default function AdminDashboard() {
                             style={{ background: statusColor(t.status)+"22", color: statusColor(t.status) }}>
                             {t.status}
                           </span>
+                        </td>
+                        <td>
+                          {t.quality_score != null ? (
+                            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                              <div style={{
+                                width: 36, height: 36, borderRadius: "50%",
+                                background: t.quality_score >= 80 ? "#2e7d3220" : t.quality_score >= 50 ? "#f9a82520" : "#c6282820",
+                                border: `2px solid ${t.quality_score >= 80 ? "#2e7d32" : t.quality_score >= 50 ? "#f9a825" : "#c62828"}`,
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                fontSize: 11, fontWeight: 700,
+                                color: t.quality_score >= 80 ? "#2e7d32" : t.quality_score >= 50 ? "#f9a825" : "#c62828",
+                              }}>{t.quality_score}</div>
+                              <div style={{ fontSize:10, color:"#8e9ab0", lineHeight:1.3 }}>
+                                <div style={{ color:"#2e7d32" }}>{t.good_count}G</div>
+                                <div style={{ color:"#f9a825" }}>{t.acceptable_count}A</div>
+                                <div style={{ color:"#c62828" }}>{t.poor_count}P</div>
+                              </div>
+                            </div>
+                          ) : "—"}
                         </td>
                         <td className="admin-mono">{t.log_count ?? "—"}</td>
                         <td className="admin-mono" style={{ color:"#8e9ab0", fontSize:12 }}>{t.start_time?.slice(0,16)}</td>
@@ -990,7 +1001,11 @@ export default function AdminDashboard() {
         Same pattern used by the public map modal.
       */}
       {mapTripId && createPortal(
-        <TripMap tripId={mapTripId} onClose={() => setMapTripId(null)} />,
+        <TripMap
+          tripId={mapTripId}
+          direction={trips.find(t => t.trip_id === mapTripId)?.direction || "MALANDAY-RECTO"}
+          onClose={() => setMapTripId(null)}
+        />,
         document.body
       )}
     </>

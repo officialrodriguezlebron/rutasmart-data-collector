@@ -49,8 +49,11 @@ export const importTripCSV = (file) => {
 
 export default API;
 
-
-
-// Stop Zones
-export const publishStopZones = (routeId) => API.post(`/admin/route/${routeId}/publish-stops`);
-export const getPublishedStops = (routeId) => API.get(`/admin/route/${routeId}/published-stops`);
+// ── Stop Zones ──────────────────────────────────────────────────────────────
+// direction: "MALANDAY-RECTO" | "RECTO-MALANDAY"
+export const publishStopZones  = (routeId, direction) =>
+  API.post(`/admin/route/${routeId}/publish-stops?direction=${direction}`);
+export const getPublishedStops = (routeId, direction) =>
+  direction
+    ? API.get(`/admin/route/${routeId}/published-stops?direction=${direction}`)
+    : API.get(`/admin/route/${routeId}/published-stops`);
