@@ -108,12 +108,10 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
 
         setDirection(dir);
 
-        // Draw road line using the correct corridor
-        const roadPts = d.path?.length > 5
-          ? d.path.map(p => [p.lat, p.lon])
-          : corridor;                           // fallback to hardcoded
-
-        L.polyline(roadPts, {
+        // Draw road line from the clean GTFS-calibrated corridor only.
+        // Never use raw GPS from /path as the line — it is too messy.
+        // The /path response is used only to detect trip direction above.
+        L.polyline(corridor, {
           color: "#42a5f5", weight: 3, opacity: 0.65,
           lineJoin: "round", lineCap: "round",
         }).addTo(mapRef.current);
@@ -139,8 +137,8 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
         }));
         setSnapped(snappedZones);
 
-        // Fit map to the corridor
-        const b = L.latLngBounds(roadPts);
+        // Fit map to the clean corridor extent
+        const b = L.latLngBounds(corridor.map(c => [c[0], c[1]]));
         if (b.isValid()) mapRef.current.fitBounds(b, { padding: [40, 40], maxZoom: 14 });
       })
       .catch(() => {
