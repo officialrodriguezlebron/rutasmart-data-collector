@@ -1,13 +1,13 @@
 /**
  * StopZoneMap — Passenger Boarding & Alighting Map
  *
- * Supports both trip directions:
- *   MALANDAY-RECTO  → uses CORRIDOR        (forward, 110 pts)
- *   RECTO-MALANDAY  → uses RETURN_CORRIDOR (return,  156 pts)
+ * Phase 2: direction is passed as a prop — no guessing, no /path fetch.
  *
- * Direction is detected from /public/route/{id}/path response.
- * The correct corridor is used for both the road polyline and
- * nearest-point-on-polyline stop snapping.
+ * direction prop → correct corridor selected immediately →
+ * fetch stops from API with that direction → snap to corridor → draw.
+ *
+ * MALANDAY-RECTO uses CORRIDOR        (forward, 110 pts)
+ * RECTO-MALANDAY uses RETURN_CORRIDOR (return,  156 pts)
  */
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
@@ -23,7 +23,23 @@ L.Icon.Default.mergeOptions({
 import { CORRIDOR, RETURN_CORRIDOR } from "../data/corridor";
 const API = import.meta.env.VITE_API_URL;
 
-// ── Haversine + nearest-point-on-segment map matching ──────────────────
+const DIR_LABELS = {
+  "MALANDAY-RECTO": "Malanday → Recto",
+  "RECTO-MALANDAY": "Recto → Malanday",
+};
+
+const TERMINALS = {
+  "MALANDAY-RECTO": [
+    [14.7190, 120.9575, "Malanday"],
+    [14.6035, 120.9830, "Recto LRT"],
+  ],
+  "RECTO-MALANDAY": [
+    [14.6036, 120.9829, "Recto LRT"],
+    [14.7202, 120.9582, "Malanday"],
+  ],
+};
+
+// ── Haversine + nearest-point-on-segment map matching ────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000, p = Math.PI / 180;
   const a = Math.sin((lat2-lat1)*p/2)**2
@@ -45,7 +61,7 @@ function snapToRoad(lat, lon, corridor) {
   return { lat: bLat, lon: bLon };
 }
 
-// ── Stop tier ──────────────────────────────────────────────────────────
+// ── Stop tier ─────────────────────────────────────────────────────────────
 function getTier(rank, total) {
   const pct = rank / total;
   if (pct <= 0.15) return { badge:"Frequent Stop",   desc:"Jeepneys stop here very often. Best place to wait.", color:"#30d158", r:13 };
@@ -54,33 +70,31 @@ function getTier(rank, total) {
 }
 
 function peakLabel(p) {
-  return { "Morning Peak":"Busiest 6-9 AM","Afternoon Peak":"Busiest 4-7 PM",
+  return { "Morning Peak":"Busiest 6–9 AM","Afternoon Peak":"Busiest 4–7 PM",
            "Midday":"Busiest midday","Off-Peak":"Busiest off-peak" }[p] || p;
 }
 
-const DIR_LABELS = {
-  "MALANDAY-RECTO": "Malanday → Recto",
-  "RECTO-MALANDAY": "Recto → Malanday",
-};
-
-// ── Full-screen map ────────────────────────────────────────────────────
-function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
+// ── Full-screen map ───────────────────────────────────────────────────────
+function PassengerMap({ zones, direction, onClose }) {
   const mapEl  = useRef(null);
   const mapRef = useRef(null);
   const mksRef = useRef([]);
+  const [sel,    setSel]    = useState(null);
+  const [filter, setFilter] = useState("all");
 
-  const [direction, setDirection] = useState(null); // "MALANDAY-RECTO" | "RECTO-MALANDAY"
-  const [snapped,   setSnapped]   = useState(null);
-  const [sel,       setSel]       = useState(null);
-  const [filter,    setFilter]    = useState("all");
-  const total = zones.length;
+  // Pick corridor once — no async, no guessing
+  const corridor = direction === "RECTO-MALANDAY" ? RETURN_CORRIDOR : CORRIDOR;
+  const total    = zones.length;
+
+  // Snap all stops synchronously to the correct corridor
+  const snapped = zones.map(z => ({ ...z, ...snapToRoad(z.lat, z.lon, corridor) }));
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  // Init map
+  // Init map — draw road and terminals immediately, no waiting
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
     const map = L.map(mapEl.current, {
@@ -89,78 +103,37 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
     });
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       { subdomains:"abcd", maxZoom:19, attribution:"© CARTO © OSM" }).addTo(map);
+
+    // Road line from the clean corridor — no GPS track, no async
+    L.polyline(corridor, {
+      color:"#42a5f5", weight:3, opacity:0.65,
+      lineJoin:"round", lineCap:"round",
+    }).addTo(map);
+
+    // Terminal labels
+    (TERMINALS[direction] || TERMINALS["MALANDAY-RECTO"]).forEach(([la, lo, lbl]) =>
+      L.marker([la, lo], { icon: L.divIcon({
+        html: `<div style="background:rgba(5,15,30,.92);border:2px solid #42a5f5;
+          border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;
+          font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
+          box-shadow:0 2px 8px rgba(0,0,0,.5)">${lbl}</div>`,
+        className:"", iconAnchor:[40,14],
+      })}).addTo(map)
+    );
+
+    // Fit to corridor extent
+    const b = L.latLngBounds(corridor.map(c => [c[0], c[1]]));
+    if (b.isValid()) map.fitBounds(b, { padding:[40,40], maxZoom:14 });
+
     mapRef.current = map;
     setTimeout(() => map.invalidateSize(), 200);
     return () => { map.remove(); mapRef.current = null; };
-  }, []);
-
-  // Fetch /path → detect direction → choose corridor → draw road + snap stops
-  useEffect(() => {
-    let dead = false;
-    fetch(`${API}/public/route/${routeId}/path`)
-      .then(r => r.json())
-      .then(d => {
-        if (dead || !mapRef.current) return;
-
-        // Detect direction from the path response
-        const dir = d.direction || preferredDirection || "MALANDAY-RECTO";
-        const corridor = dir === "RECTO-MALANDAY" ? RETURN_CORRIDOR : CORRIDOR;
-
-        setDirection(dir);
-
-        // Draw road line from the clean GTFS-calibrated corridor only.
-        // Never use raw GPS from /path as the line — it is too messy.
-        // The /path response is used only to detect trip direction above.
-        L.polyline(corridor, {
-          color: "#42a5f5", weight: 3, opacity: 0.65,
-          lineJoin: "round", lineCap: "round",
-        }).addTo(mapRef.current);
-
-        // Terminal labels — swap endpoints for return direction
-        const terminals = dir === "RECTO-MALANDAY"
-          ? [[14.6036, 120.9829, "Recto LRT (start)"], [14.7202, 120.9582, "Malanday (end)"]]
-          : [[14.7190, 120.9575, "Malanday (start)"], [14.6035, 120.9840, "Recto LRT (end)"]];
-
-        terminals.forEach(([la, lo, lbl]) =>
-          L.marker([la, lo], { icon: L.divIcon({
-            html: `<div style="background:rgba(5,15,30,.92);border:2px solid #42a5f5;
-              border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;
-              font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
-              box-shadow:0 2px 8px rgba(0,0,0,.5)">${lbl}</div>`,
-            className: "", iconAnchor: [55, 14],
-          })}).addTo(mapRef.current)
-        );
-
-        // Snap each published stop to the correct corridor
-        const snappedZones = zones.map(z => ({
-          ...z, ...snapToRoad(z.lat, z.lon, corridor),
-        }));
-        setSnapped(snappedZones);
-
-        // Fit map to the clean corridor extent
-        const b = L.latLngBounds(corridor.map(c => [c[0], c[1]]));
-        if (b.isValid()) mapRef.current.fitBounds(b, { padding: [40, 40], maxZoom: 14 });
-      })
-      .catch(() => {
-        if (dead) return;
-        // Fallback: use CORRIDOR, snap without direction detection
-        setDirection("MALANDAY-RECTO");
-        const snappedZones = zones.map(z => ({
-          ...z, ...snapToRoad(z.lat, z.lon, CORRIDOR),
-        }));
-        setSnapped(snappedZones);
-        L.polyline(CORRIDOR, {
-          color: "#42a5f5", weight: 3, opacity: 0.65,
-          lineJoin: "round", lineCap: "round",
-        }).addTo(mapRef.current);
-      });
-    return () => { dead = true; };
-  }, [zones, routeId]); // eslint-disable-line
+  }, []); // eslint-disable-line
 
   // Draw stop markers
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !snapped) return;
+    if (!map) return;
     mksRef.current.forEach(m => map.removeLayer(m));
     mksRef.current = [];
 
@@ -192,7 +165,7 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
       dot.bindTooltip(`
         <div style="font-family:'DM Sans',sans-serif;min-width:180px;line-height:1.6;padding:4px 2px">
           <div style="font-weight:800;font-size:13px;color:#111;margin-bottom:3px">
-            ${tier.badge}${isTop?" <small style='color:#888'>- Busiest on route</small>":""}
+            ${tier.badge}${isTop?" <small style='color:#888'>— Busiest on route</small>":""}
           </div>
           <div style="font-size:11px;color:#555;border-top:1px solid #eee;padding-top:5px;margin-top:3px">
             ${tier.desc}<br/>
@@ -209,20 +182,20 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
         L.marker([zone.lat, zone.lon], {
           icon: L.divIcon({
             html: `<span style="font-size:${isTop?14:11}px;pointer-events:none;
-              text-shadow:0 1px 4px rgba(0,0,0,.8)">${isTop?"*":""}</span>`,
+              text-shadow:0 1px 4px rgba(0,0,0,.8)">${isTop?"★":""}</span>`,
             className:"", iconAnchor:[8,8],
           }),
           interactive:false, zIndexOffset:1000,
         }).addTo(map)
       );
     });
-  }, [snapped, sel, filter, total]);
+  }, [snapped, sel, filter, total]); // eslint-disable-line
 
-  const selZone = snapped?.find(z => z.cluster_id === sel);
+  const selZone = snapped.find(z => z.cluster_id === sel);
   const selTier = selZone ? getTier(selZone.rank, total) : null;
-  const freqN   = zones.filter(z => z.rank/total <= 0.15).length;
-  const regN    = zones.filter(z => z.rank/total <= 0.45).length;
-  const dirLabel = DIR_LABELS[direction] || "Loading route...";
+  const freqN   = snapped.filter(z => z.rank/total <= 0.15).length;
+  const regN    = snapped.filter(z => z.rank/total <= 0.45).length;
+  const isRet   = direction === "RECTO-MALANDAY";
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:9999, display:"flex",
@@ -238,10 +211,7 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
             Where to Board &amp; Alight
           </div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,.42)", marginTop:2 }}>
-            {dirLabel} · {freqN} frequent · {total} total
-            {snapped
-              ? <span style={{ color:"#30d158" }}> · road-matched</span>
-              : <span style={{ color:"#ffd60a" }}> · matching...</span>}
+            {DIR_LABELS[direction]} · {freqN} frequent · {total} total · road-matched
           </div>
         </div>
         <button onClick={onClose} style={{ background:"rgba(255,255,255,.10)",
@@ -250,14 +220,14 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
           cursor:"pointer", fontFamily:"inherit" }}>Close</button>
       </div>
 
-      {/* Filter pills */}
+      {/* Filter pills + direction badge */}
       <div style={{ display:"flex", gap:8, padding:"10px 16px",
         background:"rgba(0,0,0,.45)", borderBottom:"1px solid rgba(255,255,255,.07)",
         flexShrink:0, zIndex:2, flexWrap:"wrap", alignItems:"center" }}>
         {[
-          { key:"all",      label:`All (${total})`,        color:"#42a5f5" },
-          { key:"frequent", label:`Frequent (${freqN})`,   color:"#30d158" },
-          { key:"regular",  label:`Regular+ (${regN})`,    color:"#ffd60a" },
+          { key:"all",      label:`All (${total})`,       color:"#42a5f5" },
+          { key:"frequent", label:`Frequent (${freqN})`,  color:"#30d158" },
+          { key:"regular",  label:`Regular+ (${regN})`,   color:"#ffd60a" },
         ].map(({ key, label, color }) => (
           <button key={key} onClick={() => setFilter(key)} style={{
             padding:"6px 14px", borderRadius:99, border:"1.5px solid",
@@ -268,20 +238,14 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
             fontFamily:"inherit", transition:"all .15s",
           }}>{label}</button>
         ))}
-
-        {/* Direction badge */}
-        {direction && (
-          <span style={{
-            marginLeft:"auto", padding:"4px 12px", borderRadius:99,
-            background: direction === "RECTO-MALANDAY"
-              ? "rgba(255,214,10,.15)" : "rgba(66,165,245,.15)",
-            border: `1px solid ${direction === "RECTO-MALANDAY" ? "#ffd60a44" : "#42a5f544"}`,
-            fontSize:11, fontWeight:700,
-            color: direction === "RECTO-MALANDAY" ? "#ffd60a" : "#42a5f5",
-          }}>
-            {direction === "RECTO-MALANDAY" ? "Return trip" : "Forward trip"}
-          </span>
-        )}
+        <span style={{
+          marginLeft:"auto", padding:"4px 12px", borderRadius:99, fontSize:11, fontWeight:700,
+          background: isRet ? "rgba(255,214,10,.15)" : "rgba(66,165,245,.15)",
+          border: `1px solid ${isRet ? "#ffd60a44" : "#42a5f544"}`,
+          color: isRet ? "#ffd60a" : "#42a5f5",
+        }}>
+          {isRet ? "Return trip" : "Forward trip"}
+        </span>
       </div>
 
       {/* Selected stop panel */}
@@ -303,7 +267,7 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
           <button onClick={() => setSel(null)} style={{ background:"rgba(255,255,255,.10)",
             border:"none", borderRadius:8, color:"rgba(255,255,255,.50)",
             padding:"6px 12px", cursor:"pointer", fontSize:14,
-            fontFamily:"inherit", flexShrink:0 }}>X</button>
+            fontFamily:"inherit", flexShrink:0 }}>✕</button>
         </div>
       )}
 
@@ -313,10 +277,9 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
       {/* Legend */}
       <div style={{ padding:"9px 16px", background:"rgba(0,0,0,.75)",
         borderTop:"1px solid rgba(255,255,255,.07)", display:"flex",
-        gap:"14px", flexWrap:"wrap", alignItems:"center",
-        flexShrink:0, zIndex:2 }}>
+        gap:"14px", flexWrap:"wrap", alignItems:"center", flexShrink:0, zIndex:2 }}>
         {[["#30d158","Frequent stop",13],["#ffd60a","Regular stop",9],["#8e9ab0","Occasional stop",6]]
-          .map(([c, l, r]) => (
+          .map(([c,l,r]) => (
             <span key={l} style={{ display:"flex", alignItems:"center", gap:6,
               fontSize:11, color:"rgba(255,255,255,.65)", fontWeight:600 }}>
               <span style={{ width:r, height:r, borderRadius:"50%",
@@ -325,27 +288,36 @@ function PassengerMap({ zones, routeId, onClose, preferredDirection }) {
             </span>
           ))}
         <span style={{ fontSize:10, color:"rgba(255,255,255,.25)", marginLeft:"auto" }}>
-          Road-matched · LTFRB GTFS corridor
+          Road-matched to jeep corridor
         </span>
       </div>
     </div>
   );
 }
 
-// ── Pill button ────────────────────────────────────────────────────────
-export default function StopZoneMap({ routeId = "MR-001", preferredDirection = null }) {
+// ── Pill button ───────────────────────────────────────────────────────────
+// direction prop: "MALANDAY-RECTO" | "RECTO-MALANDAY"
+// Fetches the correct stops from the API for that direction,
+// then passes direction straight to PassengerMap — no guessing needed.
+export default function StopZoneMap({
+  routeId   = "MR-001",
+  direction = "MALANDAY-RECTO",
+}) {
   const [zones,   setZones]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [open,    setOpen]    = useState(false);
 
   useEffect(() => {
     let dead = false;
-    fetch(`${API}/public/route/${routeId}/stop-zones`)
+    setLoading(true);
+    setZones([]);
+    // Fetch stops for THIS direction from the API
+    fetch(`${API}/public/route/${routeId}/stop-zones?direction=${direction}`)
       .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(d => { if (!dead) { setZones(d.stop_zones || []); setLoading(false); } })
       .catch(() => { if (!dead) setLoading(false); });
     return () => { dead = true; };
-  }, [routeId]);
+  }, [routeId, direction]); // re-fetch when direction changes
 
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px",
@@ -355,43 +327,65 @@ export default function StopZoneMap({ routeId = "MR-001", preferredDirection = n
       <span style={{ width:13, height:13, border:"2px solid rgba(255,255,255,.12)",
         borderTopColor:"rgba(255,255,255,.55)", borderRadius:"50%",
         animation:"szm-s .8s linear infinite", display:"inline-block", flexShrink:0 }}/>
-      Finding boarding stops...
+      Finding boarding stops…
       <style>{`@keyframes szm-s{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
-  if (!zones.length) return null;
+  if (!zones.length) return (
+    <div style={{ padding:"12px 16px",
+      background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)",
+      borderRadius:14, fontSize:13, color:"rgba(255,255,255,.35)",
+      fontFamily:"'DM Sans',sans-serif" }}>
+      Stop zones not yet published for {DIR_LABELS[direction] || direction}.
+    </div>
+  );
+
   const freqN = zones.filter(z => z.rank/zones.length <= 0.15).length;
+  const isRet = direction === "RECTO-MALANDAY";
 
   return (<>
     <button onClick={() => setOpen(true)} style={{
       display:"flex", alignItems:"center", justifyContent:"space-between",
       width:"100%", padding:"14px 18px",
-      background:"rgba(25,118,210,.14)", border:"1.5px solid rgba(25,118,210,.38)",
+      background: isRet ? "rgba(180,120,0,.12)" : "rgba(25,118,210,.14)",
+      border: `1.5px solid ${isRet ? "rgba(180,120,0,.35)" : "rgba(25,118,210,.38)"}`,
       borderRadius:18, color:"#fff", cursor:"pointer",
       fontFamily:"'DM Sans',sans-serif", transition:"background .15s", textAlign:"left",
     }}
-      onMouseEnter={e => e.currentTarget.style.background = "rgba(25,118,210,.26)"}
-      onMouseLeave={e => e.currentTarget.style.background = "rgba(25,118,210,.14)"}
+      onMouseEnter={e => e.currentTarget.style.background = isRet ? "rgba(180,120,0,.22)" : "rgba(25,118,210,.26)"}
+      onMouseLeave={e => e.currentTarget.style.background = isRet ? "rgba(180,120,0,.12)" : "rgba(25,118,210,.14)"}
     >
       <span style={{ display:"flex", alignItems:"center", gap:12 }}>
-        <span style={{ fontSize:26, background:"rgba(25,118,210,.22)", borderRadius:12,
-          padding:"6px 10px", display:"flex", alignItems:"center" }}>&#x1F68F;</span>
+        <span style={{ fontSize:24,
+          background: isRet ? "rgba(180,120,0,.20)" : "rgba(25,118,210,.22)",
+          borderRadius:12, padding:"6px 10px", display:"flex", alignItems:"center" }}>
+          &#x1F68F;
+        </span>
         <span>
           <span style={{ display:"block", fontSize:15, fontWeight:800, letterSpacing:"-0.3px" }}>
             Where to Board &amp; Alight
           </span>
           <span style={{ display:"block", fontSize:11,
             color:"rgba(255,255,255,.50)", fontWeight:500, marginTop:2 }}>
-            {freqN} frequent stops · {zones.length} total · tap to view
+            {DIR_LABELS[direction]} · {freqN} frequent · {zones.length} stops
           </span>
         </span>
       </span>
-      <span style={{ background:"#1976d2", borderRadius:99, padding:"6px 16px",
+      <span style={{
+        background: isRet ? "#a67c00" : "#1976d2",
+        borderRadius:99, padding:"6px 16px",
         fontSize:12, fontWeight:800, color:"#fff", flexShrink:0,
-        boxShadow:"0 2px 8px rgba(25,118,210,.40)" }}>View Map</span>
+        boxShadow:`0 2px 8px ${isRet ? "rgba(180,120,0,.40)" : "rgba(25,118,210,.40)"}`,
+      }}>View Map</span>
     </button>
 
-    {open && <PassengerMap zones={zones} routeId={routeId} onClose={() => setOpen(false)} preferredDirection={preferredDirection} />}
+    {open && (
+      <PassengerMap
+        zones={zones}
+        direction={direction}
+        onClose={() => setOpen(false)}
+      />
+    )}
   </>);
 }

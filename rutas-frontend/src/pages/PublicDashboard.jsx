@@ -147,8 +147,12 @@ export default function PublicDashboard() {
           </div>
         )}
 
-        {/* Where to Board button — always visible near top */}
-        <StopZoneMap routeId={routeId} preferredDirection={dirFilter !== "all" ? dirFilter : null} />
+        {/* Where to Board — shows the map for the currently filtered direction.
+             If "all" is selected, show the forward direction by default. */}
+        <StopZoneMap
+          routeId={routeId}
+          direction={dirFilter !== "all" ? dirFilter : "MALANDAY-RECTO"}
+        />
 
         {/* Error */}
         {error && (
