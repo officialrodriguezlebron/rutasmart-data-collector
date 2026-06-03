@@ -4,46 +4,27 @@ import { useNavigate } from "react-router-dom";
 import {
   getAdminStats, getAdminTrips, deleteTrip, exportTrip,
   importTripCSV, createUser, getConductors,
-  getAggregateDashboard, publishStopZones, getPublishedStops,
+  getAggregateDashboard, publishStopZones,
 } from "../services/api";
 import { authService } from "../services/authService";
 import TripMap from "./TripMap";
 import "./AdminDashboard.css";
 
-function DirectionPublishCard({ direction }) {
-  const isFwd   = direction === "MALANDAY-RECTO";
-  const label   = isFwd ? "Malanday → Recto" : "Recto → Malanday";
-  const accent  = isFwd ? "#1565c0" : "#a67c00";
-  const bgLight = isFwd ? "rgba(21,101,192,0.07)" : "rgba(180,120,0,0.07)";
-  const border  = isFwd ? "rgba(21,101,192,0.25)" : "rgba(180,120,0,0.25)";
-
-  const [info,    setInfo]    = useState(null);   // published state for this direction
+function PublishStopZonesPanel() {
+  const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [status,  setStatus]  = useState(null);
-
-  const load = () =>
-    getPublishedStops("MR-001", direction)
-      .then(r => setInfo(r.data))
-      .catch(() => setInfo({ published: false }));
-
-  useEffect(() => { load(); }, []); // eslint-disable-line
-
-  const fmtDate = (iso) => iso
-    ? new Date(iso).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })
-    : "—";
 
   const handlePublish = async () => {
     if (!window.confirm(
-      `Publish stop zones for ${label}?\n\n` +
-      `Runs DBSCAN across all completed ${label} trips and updates the passenger map. ` +
-      `Existing ${label} stop zones will be replaced.`
+      "Publish stop zones for MR-001?\n\n" +
+      "This runs DBSCAN across all completed trips and updates the passenger map. " +
+      "The current published map will be replaced."
     )) return;
     setLoading(true);
     setStatus(null);
     try {
-      const res = await publishStopZones("MR-001", direction);
+      const res = await publishStopZones("MR-001");
       setStatus({ ok: true, msg: res.data.message });
-      await load();
     } catch (e) {
       setStatus({ ok: false, msg: e.response?.data?.detail || "Publish failed." });
     } finally {
@@ -53,121 +34,53 @@ function DirectionPublishCard({ direction }) {
 
   return (
     <div style={{
-      flex: 1, minWidth: 240,
-      background: bgLight,
-      border: `1px solid ${border}`,
-      borderRadius: 14,
-      padding: "16px 18px",
-    }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: accent, marginBottom: 10 }}>
-        {label}
-      </div>
-
-      {/* Published state */}
-      {info === null ? (
-        <div style={{ fontSize: 12, color: "#999", marginBottom: 10 }}>Loading…</div>
-      ) : info.published ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-          <div style={{
-            background: "rgba(46,125,50,0.10)", border: "1px solid rgba(46,125,50,0.22)",
-            borderRadius: 8, padding: "5px 10px", fontSize: 12, color: "#2e7d32",
-          }}>
-            <strong>{info.stop_zones?.length ?? 0}</strong> stop zones
-          </div>
-          <div style={{
-            background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
-            borderRadius: 8, padding: "5px 10px", fontSize: 12, color: "#555",
-          }}>
-            <strong>{info.trips_analyzed}</strong> trips · <strong>{(info.logs_analyzed || 0).toLocaleString()}</strong> logs
-          </div>
-          <div style={{
-            background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)",
-            borderRadius: 8, padding: "5px 10px", fontSize: 12, color: "#555",
-          }}>
-            {fmtDate(info.published_at)}
-          </div>
-        </div>
-      ) : (
-        <div style={{
-          background: "rgba(198,40,40,0.07)", border: "1px solid rgba(198,40,40,0.18)",
-          borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#c62828",
-          marginBottom: 12,
-        }}>
-          Not yet published
-        </div>
-      )}
-
-      <button
-        onClick={handlePublish}
-        disabled={loading}
-        style={{
-          width: "100%",
-          background: loading ? "#ccc" : accent,
-          color: "#fff",
-          border: "none",
-          borderRadius: 9,
-          padding: "9px 0",
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: loading ? "not-allowed" : "pointer",
-          fontFamily: "inherit",
-          marginBottom: status ? 8 : 0,
-        }}
-      >
-        {loading ? "Publishing…" : `Publish ${isFwd ? "Forward" : "Return"}`}
-      </button>
-
-      {status && (
-        <div style={{
-          padding: "8px 10px", borderRadius: 8, fontSize: 12,
-          background: status.ok ? "rgba(46,125,50,0.10)" : "rgba(198,40,40,0.10)",
-          color: status.ok ? "#2e7d32" : "#c62828",
-          fontWeight: 500,
-        }}>
-          {status.ok ? "✓" : "✗"} {status.msg}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PublishStopZonesPanel() {
-  return (
-    <div style={{
-      background: "rgba(0,0,0,0.02)",
-      border: "1px solid rgba(0,0,0,0.10)",
+      background: "rgba(21,101,192,0.10)",
+      border: "1px solid rgba(21,101,192,0.30)",
       borderRadius: 16,
       padding: "18px 20px",
       margin: "16px 0",
     }}>
-      <div style={{ fontWeight: 700, fontSize: 15, color: "#333", marginBottom: 4 }}>
-        Passenger Stop Zone Map
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#1565c0", marginBottom: 6 }}>
+        🗺 Passenger Stop Zone Map
       </div>
-      <p style={{ fontSize: 13, color: "#666", margin: "0 0 16px", lineHeight: 1.5 }}>
-        Publish stop zones per direction. Each direction uses its own corridor and
-        is published independently — publishing one does not affect the other.
-        Review the cluster map in the Analytics Engine before publishing.
+      <p style={{ fontSize: 13, color: "#555", margin: "0 0 14px", lineHeight: 1.5 }}>
+        Run DBSCAN across all completed trips and publish the detected stop zones
+        to the passenger dashboard. Review the cluster map in the Analytics Engine
+        before publishing.
       </p>
-
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-        <DirectionPublishCard direction="MALANDAY-RECTO" />
-        <DirectionPublishCard direction="RECTO-MALANDAY" />
-      </div>
-
-      <div style={{ marginTop: 14, fontSize: 12, color: "#888" }}>
-        <a
-          href="/route/MR-001"
-          target="_blank"
-          rel="noreferrer"
-          style={{ color: "#1565c0", fontWeight: 600, textDecoration: "none" }}
-        >
-          View public passenger map →
-        </a>
-      </div>
+      <button
+        onClick={handlePublish}
+        disabled={loading}
+        style={{
+          background: loading ? "#ccc" : "#1565c0",
+          color: "#fff",
+          border: "none",
+          borderRadius: 10,
+          padding: "10px 22px",
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: loading ? "not-allowed" : "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        {loading ? "Publishing…" : "📤 Publish Stop Zones"}
+      </button>
+      {status && (
+        <div style={{
+          marginTop: 12,
+          padding: "10px 14px",
+          borderRadius: 10,
+          fontSize: 13,
+          background: status.ok ? "rgba(46,125,50,0.10)" : "rgba(198,40,40,0.10)",
+          color: status.ok ? "#2e7d32" : "#c62828",
+          fontWeight: 500,
+        }}>
+          {status.ok ? "✅" : "❌"} {status.msg}
+        </div>
+      )}
     </div>
   );
 }
-
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -194,7 +107,6 @@ export default function AdminDashboard() {
   const [tripSearch,   setTripSearch]   = useState("");
   const [tripStatus,   setTripStatus]   = useState("all");
   const [tripDir,      setTripDir]      = useState("all");
-  const [tripSort,     setTripSort]     = useState("quality_desc");
   const [tripPage,     setTripPage]     = useState(1);
   const [selected,     setSelected]     = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -291,24 +203,16 @@ export default function AdminDashboard() {
     fetchData();
   };
 
-  const filteredTrips = (() => {
+  const filteredTrips = trips.filter(t => {
     const q = tripSearch.toLowerCase();
-    const filtered = trips.filter(t => {
-      const matchSearch = !q ||
-        t.trip_id?.toLowerCase().includes(q) ||
-        t.jeep_code?.toLowerCase().includes(q) ||
-        t.recorder_id?.toLowerCase().includes(q);
-      const matchStatus = tripStatus === "all" || t.status === tripStatus;
-      const matchDir    = tripDir    === "all" || t.direction === tripDir;
-      return matchSearch && matchStatus && matchDir;
-    });
-    return [...filtered].sort((a, b) => {
-      if (tripSort === "quality_desc") return (b.quality_score ?? 0) - (a.quality_score ?? 0);
-      if (tripSort === "logs_desc")    return (b.log_count ?? 0) - (a.log_count ?? 0);
-      if (tripSort === "date_asc")     return new Date(a.start_time) - new Date(b.start_time);
-      return new Date(b.start_time) - new Date(a.start_time);
-    });
-  })();
+    const matchSearch = !q ||
+      t.trip_id?.toLowerCase().includes(q) ||
+      t.jeep_code?.toLowerCase().includes(q) ||
+      t.recorder_id?.toLowerCase().includes(q);
+    const matchStatus = tripStatus === "all" || t.status === tripStatus;
+    const matchDir    = tripDir    === "all" || t.direction === tripDir;
+    return matchSearch && matchStatus && matchDir;
+  });
   const totalPages   = Math.max(1, Math.ceil(filteredTrips.length / PAGE_SIZE));
   const paginated    = filteredTrips.slice((tripPage - 1) * PAGE_SIZE, tripPage * PAGE_SIZE);
   const allPageSelected = paginated.length > 0 && paginated.every(t => selected.has(t.trip_id));
@@ -480,7 +384,7 @@ export default function AdminDashboard() {
                   <tbody>
                     {trips.slice(0,5).map(t => (
                       <tr key={t.trip_id}>
-                        <td className="admin-mono" style={{ fontSize:11, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={t.trip_id}>{t.trip_id}</td>
+                        <td className="admin-mono">{t.trip_id.slice(-12)}</td>
                         <td>{t.jeep_code}</td>
                         <td>
                           <span className="admin-status-badge"
@@ -543,13 +447,6 @@ export default function AdminDashboard() {
                   <option value="MALANDAY-RECTO">Malanday → Recto</option>
                   <option value="RECTO-MALANDAY">Recto → Malanday</option>
                 </select>
-                <select className="trips-filter-select" value={tripSort}
-                  onChange={e => { setTripSort(e.target.value); setTripPage(1); }}>
-                  <option value="date_desc">Newest first</option>
-                  <option value="date_asc">Oldest first</option>
-                  <option value="quality_desc">Best quality first</option>
-                  <option value="logs_desc">Most logs first</option>
-                </select>
                 <span className="trips-count">
                   {filteredTrips.length} trip{filteredTrips.length !== 1 ? "s" : ""}
                   {(tripSearch || tripStatus !== "all" || tripDir !== "all") ? ` of ${trips.length}` : ""}
@@ -578,10 +475,9 @@ export default function AdminDashboard() {
                       <th>Jeep</th>
                       <th>Direction</th>
                       <th>Status</th>
-                      <th>Quality</th>
                       <th>Logs</th>
                       <th>Start</th>
-                      <th style={{ width:220, minWidth:220 }}>Actions</th>
+                      <th style={{ width:200 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -597,33 +493,30 @@ export default function AdminDashboard() {
                             onChange={() => toggleSelect(t.trip_id)}
                             style={{ cursor:"pointer", accentColor:"#1565c0" }} />
                         </td>
-                        <td className="admin-mono" style={{ fontSize:11, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={t.trip_id}>{t.trip_id}</td>
+                        <td className="admin-mono" style={{ fontSize:12 }}>{t.trip_id.slice(-12)}</td>
                         <td>{t.jeep_code}</td>
-                        <td style={{ fontSize:12 }}>{(t.direction === "MALANDAY-RECTO" ? "Malanday → Recto" : t.direction === "RECTO-MALANDAY" ? "Recto → Malanday" : t.direction || "—")}</td>
+                        <td>
+                          {t.direction === "RECTO-MALANDAY" ? (
+                            <span style={{
+                              fontSize:11, fontWeight:700, padding:"3px 9px",
+                              borderRadius:99, background:"rgba(255,214,10,.14)",
+                              border:"1px solid rgba(255,214,10,.35)", color:"#a67c00",
+                              whiteSpace:"nowrap",
+                            }}>Recto → Malanday</span>
+                          ) : (
+                            <span style={{
+                              fontSize:11, fontWeight:700, padding:"3px 9px",
+                              borderRadius:99, background:"rgba(66,165,245,.14)",
+                              border:"1px solid rgba(66,165,245,.35)", color:"#1565c0",
+                              whiteSpace:"nowrap",
+                            }}>Malanday → Recto</span>
+                          )}
+                        </td>
                         <td>
                           <span className="admin-status-badge"
                             style={{ background: statusColor(t.status)+"22", color: statusColor(t.status) }}>
                             {t.status}
                           </span>
-                        </td>
-                        <td>
-                          {t.quality_score != null ? (
-                            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                              <div style={{
-                                width: 36, height: 36, borderRadius: "50%",
-                                background: t.quality_score >= 80 ? "#2e7d3220" : t.quality_score >= 50 ? "#f9a82520" : "#c6282820",
-                                border: `2px solid ${t.quality_score >= 80 ? "#2e7d32" : t.quality_score >= 50 ? "#f9a825" : "#c62828"}`,
-                                display:"flex", alignItems:"center", justifyContent:"center",
-                                fontSize: 11, fontWeight: 700,
-                                color: t.quality_score >= 80 ? "#2e7d32" : t.quality_score >= 50 ? "#f9a825" : "#c62828",
-                              }}>{t.quality_score}</div>
-                              <div style={{ fontSize:10, color:"#8e9ab0", lineHeight:1.3 }}>
-                                <div style={{ color:"#2e7d32" }}>{t.good_count}G</div>
-                                <div style={{ color:"#f9a825" }}>{t.acceptable_count}A</div>
-                                <div style={{ color:"#c62828" }}>{t.poor_count}P</div>
-                              </div>
-                            </div>
-                          ) : "—"}
                         </td>
                         <td className="admin-mono">{t.log_count ?? "—"}</td>
                         <td className="admin-mono" style={{ color:"#8e9ab0", fontSize:12 }}>{t.start_time?.slice(0,16)}</td>
@@ -949,7 +842,7 @@ export default function AdminDashboard() {
                           const lfColor = lf == null ? "#8e9ab0" : lf > 120 ? "#c62828" : lf > 80 ? "#ef6c00" : "#2e7d32";
                           return (
                             <tr key={t.trip_id}>
-                              <td className="admin-mono" style={{ fontSize:11, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={t.trip_id}>{t.trip_id}</td>
+                              <td className="admin-mono" style={{ fontSize:11 }}>{t.trip_id.slice(-12)}</td>
                               <td>
                                 <span style={{ fontSize:12, fontWeight:600, color: COLOR[t.time_period] || "#42a5f5" }}>
                                   {t.time_period || "—"}
@@ -1001,11 +894,7 @@ export default function AdminDashboard() {
         Same pattern used by the public map modal.
       */}
       {mapTripId && createPortal(
-        <TripMap
-          tripId={mapTripId}
-          direction={trips.find(t => t.trip_id === mapTripId)?.direction || "MALANDAY-RECTO"}
-          onClose={() => setMapTripId(null)}
-        />,
+        <TripMap tripId={mapTripId} onClose={() => setMapTripId(null)} />,
         document.body
       )}
     </>
