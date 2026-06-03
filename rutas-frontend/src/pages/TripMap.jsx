@@ -136,14 +136,25 @@ const GROUND_TRUTH = [
 ];
 
 // ── Corridor polyline ─────────────────────────────────────────────────────
-import { CORRIDOR } from "../data/corridor";
+import { CORRIDOR, RETURN_CORRIDOR } from "../data/corridor";
 
-const CORRIDOR_ROUTE = CORRIDOR;
-function snapToRoad(lat, lon) {
+// Pick corridor from trip_id.
+// New format: "2026-05-28_JEEP-006_RECTO-MALANDAY_xxxx" → contains "RECTO-MALANDAY"
+// Old format: "ALANDAY_xxxx" → shorthand for Recto→Malanday (going to Malanday)
+// Everything else → forward corridor MALANDAY-RECTO
+function getCorridorForTrip(tripId) {
+  if (!tripId) return CORRIDOR;
+  if (tripId.includes("RECTO-MALANDAY")) return RETURN_CORRIDOR;  // new format
+  if (tripId.startsWith("ALANDAY"))      return RETURN_CORRIDOR;  // old format
+  return CORRIDOR;
+}
+
+// snapToRoad accepts corridor so it works for both directions
+function snapToRoad(lat, lon, corridorRoute) {
   let bLat = lat, bLon = lon, bDist = Infinity;
-  for (let i = 0; i < CORRIDOR_ROUTE.length - 1; i++) {
-    const [ax, ay] = CORRIDOR_ROUTE[i];
-    const [bx, by] = CORRIDOR_ROUTE[i + 1];
+  for (let i = 0; i < corridorRoute.length - 1; i++) {
+    const [ax, ay] = corridorRoute[i];
+    const [bx, by] = corridorRoute[i + 1];
     const dx = bx - ax, dy = by - ay;
     const t = (dx === 0 && dy === 0) ? 0
       : Math.max(0, Math.min(1,
@@ -369,7 +380,7 @@ export default function TripMap({ tripId, onClose }) {
 
   // ── Derived: filtered logs for rendering ───────────────────────────────
         const filteredLogs = useMemo(() => logs.map(l => {
-        const s = snapToRoad(l.lat, l.lon);
+        const s = snapToRoad(l.lat, l.lon, getCorridorForTrip(tripId));
         return { ...l, lat: s.lat, lon: s.lon };
       }), [logs]);
   // ── Derived: filtered clusters by demand tier ──────────────────────────
@@ -378,7 +389,7 @@ export default function TripMap({ tripId, onClose }) {
         ? clusters
         : clusters.filter(c => c.demand_tier === tierFilter);
       return base.map(c => {
-        const s = snapToRoad(c.centroid_lat, c.centroid_lon);
+        const s = snapToRoad(c.centroid_lat, c.centroid_lon, getCorridorForTrip(tripId));
         return { ...c, centroid_lat: s.lat, centroid_lon: s.lon };
       });
     }, [clusters, tierFilter]);
@@ -393,7 +404,18 @@ export default function TripMap({ tripId, onClose }) {
         <div className="tripmap-header">
           <div>
             <h2 className="tripmap-title">Trip Map · Inspection</h2>
-            <p className="tripmap-subtitle">{tripId}</p>
+            <p className="tripmap-subtitle">
+              {tripId}
+              <span style={{
+                marginLeft: 10, fontSize: 11, padding: "2px 8px", borderRadius: 99,
+                background: tripId?.includes("RECTO-MALANDAY")
+                  ? "rgba(255,214,10,.15)" : "rgba(66,165,245,.15)",
+                color: tripId?.includes("RECTO-MALANDAY") ? "#ffd60a" : "#42a5f5",
+                fontWeight: 700, verticalAlign: "middle",
+              }}>
+                {(tripId?.includes("RECTO-MALANDAY") || tripId?.startsWith("ALANDAY")) ? "Return corridor" : "Forward corridor"}
+              </span>
+            </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
@@ -551,7 +573,7 @@ export default function TripMap({ tripId, onClose }) {
 
               <FitToData
                 logs={filteredLogs}
-                corridorRoute={showRoute ? CORRIDOR_ROUTE : null}
+                corridorRoute={showRoute ? getCorridorForTrip(tripId) : null}
                 fitTrigger={fitTrigger}
               />
 
@@ -576,7 +598,7 @@ export default function TripMap({ tripId, onClose }) {
                   Light mode: wider navy line with visible glow. */}
               {showRoute && (<>
                 <Polyline
-                  positions={CORRIDOR_ROUTE}
+                  positions={getCorridorForTrip(tripId)}
                   pathOptions={{
                     color: "#0d47a1",
                     weight: darkMode ? 12 : 14,
@@ -584,7 +606,7 @@ export default function TripMap({ tripId, onClose }) {
                   }}
                 />
                 <Polyline
-                  positions={CORRIDOR_ROUTE}
+                  positions={getCorridorForTrip(tripId)}
                   pathOptions={{
                     color: darkMode ? "#42a5f5" : "#1044a3",
                     weight: darkMode ? 4 : 5,
