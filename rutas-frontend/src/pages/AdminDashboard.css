@@ -297,16 +297,16 @@
   line-height: 1;
 }
 
-/* ── Content cards — bright white glass ──────────────────────── */
+/* ── Content cards — dark frosted glass ──────────────────────── */
 .admin-card {
-  background: rgba(255,255,255,0.88);
+  background: rgba(255,255,255,0.09);
   backdrop-filter: saturate(180%) blur(28px);
   -webkit-backdrop-filter: saturate(180%) blur(28px);
-  border: 1px solid rgba(255,255,255,0.60);
+  border: 1px solid rgba(255,255,255,0.16);
   border-radius: 20px;
   padding: 20px 24px;
   margin-bottom: 18px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.20);
   position: relative;
   overflow: hidden;
 }
@@ -316,13 +316,13 @@
   position: absolute;
   top: 0; left: 8%; right: 8%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.95), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.40), transparent);
 }
 
 .admin-card-title {
   font-size: 11px;
   font-weight: 800;
-  color: #1a2744;
+  color: rgba(255,255,255,0.85);
   margin-bottom: 14px;
   text-transform: uppercase;
   letter-spacing: 0.10em;
@@ -333,14 +333,14 @@
 
 .admin-card-desc {
   font-size: 12px;
-  color: #8e9ab0;
+  color: rgba(255,255,255,0.45);
   margin: -6px 0 14px;
   line-height: 1.6;
 }
 
 .admin-empty {
   font-size: 13px;
-  color: #8e9ab0;
+  color: rgba(255,255,255,0.40);
   margin: 0;
   padding: 4px 0;
 }
@@ -349,16 +349,16 @@
 .admin-public-link {
   font-size: 11px;
   font-weight: 600;
-  color: var(--b500);
+  color: var(--b300);
   text-decoration: none;
   padding: 3px 10px;
   border-radius: 99px;
-  background: rgba(21,101,192,0.08);
-  border: 1px solid rgba(21,101,192,0.18);
+  background: rgba(66,165,245,0.14);
+  border: 1px solid rgba(66,165,245,0.25);
   transition: all 0.15s;
 }
 
-.admin-public-link:hover { background: rgba(21,101,192,0.15); }
+.admin-public-link:hover { background: rgba(66,165,245,0.24); }
 
 /* Jeep badges */
 .admin-jeep-list { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -382,7 +382,7 @@
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: #2d3748;
+  color: rgba(255,255,255,0.75);
   font-weight: 500;
 }
 
@@ -390,7 +390,7 @@
   width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--green);
-  box-shadow: 0 0 0 3px rgba(48,209,88,0.20);
+  box-shadow: 0 0 0 3px rgba(48,209,88,0.28);
   flex-shrink: 0;
 }
 
@@ -398,15 +398,15 @@
   margin-left: auto;
   font-size: 11px;
   font-weight: 700;
-  color: #1a6630;
-  background: rgba(48,209,88,0.12);
+  color: #30d158;
+  background: rgba(48,209,88,0.18);
   padding: 3px 10px;
   border-radius: 99px;
 }
 
 .admin-health-note {
   font-size: 11px;
-  color: #8e9ab0;
+  color: rgba(255,255,255,0.35);
   margin: 10px 0 0;
 }
 
@@ -427,25 +427,25 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  color: #8e9ab0;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  color: rgba(255,255,255,0.38);
+  border-bottom: 1px solid rgba(255,255,255,0.10);
   white-space: nowrap;
 }
 
 .admin-table td {
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(0,0,0,0.04);
-  color: #2d3748;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.75);
   vertical-align: middle;
 }
 
 .admin-table tr:last-child td { border-bottom: none; }
-.admin-table tr:hover td { background: rgba(21,101,192,0.03); }
+.admin-table tr:hover td { background: rgba(255,255,255,0.06); }
 
 .admin-mono {
   font-family: var(--mono);
   font-size: 11px;
-  color: #5a6a85;
+  color: rgba(255,255,255,0.48);
   word-break: break-all;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -543,26 +543,28 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  color: #8e9ab0;
+  color: rgba(255,255,255,0.42);
 }
 
 .admin-form-field input {
   padding: 12px 14px;
-  background: rgba(255,255,255,0.80);
-  border: 1.5px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.10);
+  border: 1.5px solid rgba(255,255,255,0.16);
   border-radius: 10px;
   font-size: 14px;
   font-family: var(--font);
-  color: #1a2744;
+  color: white;
   outline: none;
   transition: all 0.2s;
   box-sizing: border-box;
 }
 
+.admin-form-field input::placeholder { color: rgba(255,255,255,0.30); }
+
 .admin-form-field input:focus {
-  border-color: var(--b500);
-  background: white;
-  box-shadow: 0 0 0 3px rgba(21,101,192,0.12);
+  border-color: var(--b300);
+  background: rgba(255,255,255,0.15);
+  box-shadow: 0 0 0 3px rgba(66,165,245,0.20);
 }
 
 .admin-create-btn {
@@ -761,7 +763,7 @@
   width: 130px;
   flex-shrink: 0;
   font-weight: 600;
-  color: #374151;
+  color: rgba(255,255,255,0.70);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -770,7 +772,7 @@
 .agg-bar-track {
   flex: 1;
   height: 10px;
-  background: #f3f4f6;
+  background: rgba(255,255,255,0.12);
   border-radius: 99px;
   overflow: hidden;
 }
@@ -816,37 +818,42 @@
   align-items: center;
   gap: 10px;
   padding: 14px 20px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
   flex-wrap: wrap;
-  background: #fafbfd;
+  background: rgba(255,255,255,0.05);
 }
 
 .trips-search {
   flex: 1;
   min-width: 200px;
   padding: 8px 12px;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid rgba(255,255,255,0.16);
   border-radius: 8px;
   font-size: 13px;
   font-family: inherit;
+  background: rgba(255,255,255,0.10);
+  color: white;
   outline: none;
   transition: border-color 0.15s;
 }
 
-.trips-search:focus { border-color: #1565c0; }
+.trips-search::placeholder { color: rgba(255,255,255,0.35); }
+.trips-search:focus { border-color: var(--b300); background: rgba(255,255,255,0.14); }
 
 .trips-filter-select {
   padding: 8px 12px;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid rgba(255,255,255,0.16);
   border-radius: 8px;
   font-size: 13px;
   font-family: inherit;
-  background: white;
+  background: rgba(255,255,255,0.10);
+  color: white;
   cursor: pointer;
   outline: none;
 }
 
-.trips-filter-select:focus { border-color: #1565c0; }
+.trips-filter-select option { background: #0d1b2e; color: white; }
+.trips-filter-select:focus { border-color: var(--b300); }
 
 .trips-count {
   font-size: 12px;
@@ -914,8 +921,8 @@
   align-items: center;
   gap: 4px;
   padding: 12px 20px;
-  border-top: 1px solid #f0f2f5;
-  background: #fafbfd;
+  border-top: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
   flex-wrap: wrap;
 }
 
@@ -923,10 +930,10 @@
   min-width: 32px;
   height: 32px;
   padding: 0 8px;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid rgba(255,255,255,0.16);
   border-radius: 7px;
-  background: white;
-  color: #374151;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.70);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -938,25 +945,25 @@
 }
 
 .trips-page-btn:hover:not(:disabled) {
-  border-color: #1565c0;
-  color: #1565c0;
-  background: #f0f7ff;
+  border-color: var(--b300);
+  color: var(--b300);
+  background: rgba(66,165,245,0.14);
 }
 
 .trips-page-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.30;
   cursor: not-allowed;
 }
 
 .trips-page-btn.active {
-  background: #1565c0;
-  border-color: #1565c0;
+  background: rgba(21,101,192,0.45);
+  border-color: var(--b300);
   color: white;
 }
 
 .trips-page-ellipsis {
   padding: 0 6px;
-  color: #8e9ab0;
+  color: rgba(255,255,255,0.38);
   font-size: 13px;
   user-select: none;
 }
@@ -964,7 +971,7 @@
 .trips-page-info {
   margin-left: auto;
   font-size: 12px;
-  color: #8e9ab0;
+  color: rgba(255,255,255,0.40);
   font-weight: 600;
   white-space: nowrap;
 }
