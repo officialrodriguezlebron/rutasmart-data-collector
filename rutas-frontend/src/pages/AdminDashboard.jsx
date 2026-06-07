@@ -384,7 +384,7 @@ export default function AdminDashboard() {
                   <tbody>
                     {trips.slice(0,5).map(t => (
                       <tr key={t.trip_id}>
-                        <td className="admin-mono">{t.trip_id.slice(-12)}</td>
+                        <td className="admin-mono" title={t.trip_id} style={{ maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.trip_id}</td>
                         <td>{t.jeep_code}</td>
                         <td>
                           <span className="admin-status-badge"
@@ -493,7 +493,7 @@ export default function AdminDashboard() {
                             onChange={() => toggleSelect(t.trip_id)}
                             style={{ cursor:"pointer", accentColor:"#1565c0" }} />
                         </td>
-                        <td className="admin-mono" style={{ fontSize:12 }}>{t.trip_id.slice(-12)}</td>
+                        <td className="admin-mono" title={t.trip_id} style={{ fontSize:12, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.trip_id}</td>
                         <td>{t.jeep_code}</td>
                         <td>
                           {t.direction === "RECTO-MALANDAY" ? (
@@ -842,7 +842,7 @@ export default function AdminDashboard() {
                           const lfColor = lf == null ? "#8e9ab0" : lf > 120 ? "#c62828" : lf > 80 ? "#ef6c00" : "#2e7d32";
                           return (
                             <tr key={t.trip_id}>
-                              <td className="admin-mono" style={{ fontSize:11 }}>{t.trip_id.slice(-12)}</td>
+                              <td className="admin-mono" title={t.trip_id} style={{ fontSize:11, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.trip_id}</td>
                               <td>
                                 <span style={{ fontSize:12, fontWeight:600, color: COLOR[t.time_period] || "#42a5f5" }}>
                                   {t.time_period || "—"}
