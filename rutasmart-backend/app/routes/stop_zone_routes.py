@@ -122,8 +122,10 @@ def publish_stop_zones(
             detail="Trips found but no GOOD or ACCEPTABLE GPS logs after quality filtering."
         )
 
-    # Run DBSCAN
-    result = run_dbscan(all_points, cap, eps_m=15.0, min_samples=10)
+    # Run DBSCAN — velocity-gated so only dwell pings at stops are clustered.
+    # eps=30 m catches all pings within ±15 m of a stop centroid;
+    # min_samples=20 is satisfied by 8 trips × 35 dwell pings = 280 per zone.
+    result = run_dbscan(all_points, cap, eps_m=30.0, min_samples=20)
     clusters = result.get("clusters", [])
 
     if not clusters:

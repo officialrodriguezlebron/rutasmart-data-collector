@@ -10,17 +10,39 @@ import { authService } from "../services/authService";
 import TripMap from "./TripMap";
 import "./AdminDashboard.css";
 
+const TIER_COLORS = { Normal:"#2e7d32", Moderate:"#f9a825", High:"#ef6c00", Critical:"#c62828" };
+const DIR_LABEL   = { "MALANDAY-RECTO":"Malanday → Recto", "RECTO-MALANDAY":"Recto → Malanday" };
+
 function PublishStopZonesPanel() {
-  const [status, setStatus] = useState(null);
+  const [trips,   setTrips]   = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(true);
+  const [status,  setStatus]  = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Fetch trip list with quality stats on mount
+  useEffect(() => {
+    getAggregateDashboard()
+      .then(r => setTrips(r.data.trip_summaries || []))
+      .catch(() => setTrips([]))
+      .finally(() => setTripsLoading(false));
+  }, []);
+
+  // Group trips by date then direction
+  const byDate = {};
+  for (const t of trips) {
+    if (!byDate[t.date]) byDate[t.date] = { "MALANDAY-RECTO": [], "RECTO-MALANDAY": [] };
+    if (t.direction in byDate[t.date]) byDate[t.date][t.direction].push(t);
+  }
+  const sortedDates = Object.keys(byDate).sort();
 
   const handlePublish = async () => {
     if (!window.confirm(
       "Publish stop zones for MR-001 (both directions)?\n\n" +
-      "This runs DBSCAN across all completed trips for MALANDAY-RECTO and " +
-      "RECTO-MALANDAY and updates the passenger map. " +
-      "The current published maps will be replaced."
+      "Runs DBSCAN across all completed trips for Malanday→Recto and " +
+      "Recto→Malanday and updates the passenger map. Both directions " +
+      "will be replaced."
     )) return;
+
     setLoading(true);
     setStatus(null);
     try {
@@ -30,10 +52,14 @@ function PublishStopZonesPanel() {
       ]);
       setStatus({
         ok: true,
-        msg: `Malanday→Recto: ${resMR.data.message}\nRecto→Malanday: ${resRM.data.message}`,
+        lines: [
+          `Malanday → Recto: ${resMR.data.stop_zones} stop zones published (${resMR.data.logs_analyzed?.toLocaleString()} logs)`,
+          `Recto → Malanday: ${resRM.data.stop_zones} stop zones published (${resRM.data.logs_analyzed?.toLocaleString()} logs)`,
+        ],
       });
     } catch (e) {
-      setStatus({ ok: false, msg: e.response?.data?.detail || "Publish failed." });
+      const detail = e.response?.data?.detail || e.message || "Publish failed.";
+      setStatus({ ok: false, lines: [detail] });
     } finally {
       setLoading(false);
     }
@@ -41,51 +67,103 @@ function PublishStopZonesPanel() {
 
   return (
     <div style={{
-      background: "rgba(21,101,192,0.10)",
-      border: "1px solid rgba(21,101,192,0.30)",
+      background: "rgba(21,101,192,0.07)",
+      border: "1px solid rgba(21,101,192,0.25)",
       borderRadius: 16,
       padding: "18px 20px",
       margin: "16px 0",
     }}>
-      <div style={{ fontWeight: 700, fontSize: 15, color: "#1565c0", marginBottom: 6 }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#1565c0", marginBottom: 4 }}>
         🗺 Passenger Stop Zone Map
       </div>
-      <p style={{ fontSize: 13, color: "#555", margin: "0 0 14px", lineHeight: 1.5 }}>
-        Run DBSCAN across all completed trips and publish the detected stop zones
-        to the passenger dashboard. Review the cluster map in the Analytics Engine
-        before publishing.
+      <p style={{ fontSize: 12, color: "#666", margin: "0 0 14px" }}>
+        Review completed trips below. All GOOD-flagged logs from every trip are
+        pooled into DBSCAN to detect passenger stop zones for both corridors.
       </p>
+
+      {/* ── Trip list by day ─────────────────────────────────────── */}
+      {tripsLoading ? (
+        <div style={{ fontSize: 12, color: "#999", marginBottom: 12 }}>Loading trips…</div>
+      ) : sortedDates.length === 0 ? (
+        <div style={{ fontSize: 12, color: "#c62828", marginBottom: 12 }}>No completed trips found.</div>
+      ) : (
+        <div style={{ marginBottom: 16 }}>
+          {sortedDates.map(date => (
+            <div key={date} style={{ marginBottom: 12 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#1565c0", marginBottom: 4 }}>
+                📅 {date}
+              </div>
+              {["MALANDAY-RECTO", "RECTO-MALANDAY"].map(dir => {
+                const dirTrips = byDate[date][dir];
+                if (!dirTrips.length) return null;
+                return (
+                  <div key={dir} style={{ marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#555", marginBottom: 3 }}>
+                      {DIR_LABEL[dir]}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      {dirTrips.map(t => (
+                        <div key={t.trip_id} style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          background: "#fff", borderRadius: 8, padding: "5px 10px",
+                          border: "1px solid #e0e7ef", fontSize: 12,
+                        }}>
+                          <span style={{ color: "#555", minWidth: 62 }}>{t.pht_start}</span>
+                          <span style={{
+                            background: TIER_COLORS[t.dominant_tier] + "22",
+                            color: TIER_COLORS[t.dominant_tier],
+                            borderRadius: 5, padding: "1px 7px", fontWeight: 600, fontSize: 11,
+                          }}>{t.dominant_period}</span>
+                          <span style={{ color: "#333", marginLeft: "auto" }}>
+                            {t.log_count?.toLocaleString()} logs
+                          </span>
+                          <span style={{
+                            color: t.good_pct >= 95 ? "#2e7d32" : t.good_pct >= 70 ? "#f9a825" : "#c62828",
+                            fontWeight: 600, fontSize: 11, minWidth: 68, textAlign: "right",
+                          }}>
+                            {t.good_pct}% GOOD
+                          </span>
+                          <span style={{
+                            background: t.good_pct >= 95 ? "#e8f5e9" : "#fff8e1",
+                            color: t.good_pct >= 95 ? "#2e7d32" : "#f9a825",
+                            borderRadius: 5, padding: "1px 7px", fontSize: 11, fontWeight: 700,
+                          }}>
+                            {t.good_pct >= 95 ? "✓" : "~"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Publish button ───────────────────────────────────────── */}
       <button
         onClick={handlePublish}
-        disabled={loading}
+        disabled={loading || trips.length === 0}
         style={{
-          background: loading ? "#ccc" : "#1565c0",
-          color: "#fff",
-          border: "none",
-          borderRadius: 10,
-          padding: "10px 22px",
-          fontSize: 14,
-          fontWeight: 700,
-          cursor: loading ? "not-allowed" : "pointer",
-          fontFamily: "inherit",
+          background: (loading || trips.length === 0) ? "#ccc" : "#1565c0",
+          color: "#fff", border: "none", borderRadius: 10,
+          padding: "10px 22px", fontSize: 14, fontWeight: 700,
+          cursor: (loading || trips.length === 0) ? "not-allowed" : "pointer",
+          fontFamily: "inherit", width: "100%",
         }}
       >
-        {loading ? "Publishing…" : "📤 Publish Stop Zones"}
+        {loading ? "Publishing both directions…" : "📤 Publish Stop Zones (Forward + Return)"}
       </button>
+
       {status && (
         <div style={{
-          marginTop: 12,
-          padding: "10px 14px",
-          borderRadius: 10,
-          fontSize: 13,
+          marginTop: 12, padding: "10px 14px", borderRadius: 10, fontSize: 13,
           background: status.ok ? "rgba(46,125,50,0.10)" : "rgba(198,40,40,0.10)",
-          color: status.ok ? "#2e7d32" : "#c62828",
-          fontWeight: 500,
+          color: status.ok ? "#2e7d32" : "#c62828", fontWeight: 500,
         }}>
           {status.ok ? "✅" : "❌"}{" "}
-          {status.msg.split("\n").map((line, i) => (
-            <span key={i}>{line}{i < status.msg.split("\n").length - 1 && <br />}</span>
-          ))}
+          {status.lines.map((line, i) => <span key={i}>{line}{i < status.lines.length - 1 && <br />}</span>)}
         </div>
       )}
     </div>

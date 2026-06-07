@@ -435,11 +435,16 @@ def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
         trip_lf_values  = []
         trip_demand     = {"Normal": 0, "Moderate": 0, "High": 0, "Critical": 0}
         trip_time       = {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0}
+        quality_counts  = {"GOOD": 0, "ACCEPTABLE": 0, "POOR": 0}
 
         for log in logs:
             lf = log.occupancy_count / cap
             trip_lf_values.append(lf)
             all_lf_values.append(lf)
+
+            qf = log.gps_quality_flag
+            flag_str = qf.value if hasattr(qf, "value") else str(qf)
+            quality_counts[flag_str] = quality_counts.get(flag_str, 0) + 1
 
             if log.timestamp:
                 period = categorise_time(log.timestamp)
@@ -455,17 +460,29 @@ def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
         max_occ         = max((l.occupancy_count for l in logs), default=0)
         dominant_tier   = max(trip_demand, key=trip_demand.get)
         dominant_period = max(trip_time,   key=trip_time.get)
+        total_logs      = len(logs)
+        good_pct        = round(quality_counts["GOOD"] / total_logs * 100, 1) if total_logs else 0
+
+        # PHT start time (UTC+8) for display
+        from datetime import timezone, timedelta as _td
+        pht_start = (trip.start_time + _td(hours=8)).strftime("%I:%M %p") if trip.start_time else "-"
+        pht_date  = (trip.start_time + _td(hours=8)).strftime("%Y-%m-%d") if trip.start_time else "-"
 
         trip_summaries.append({
-            "trip_id":        trip.trip_id,
-            "jeep_code":      trip.jeep_code,
-            "direction":      trip.direction,
-            "date":           trip.start_time.strftime("%Y-%m-%d") if trip.start_time else "-",
-            "log_count":      len(logs),
-            "avg_lf_pct":     round(avg_lf * 100, 1),
-            "max_occupancy":  max_occ,
-            "capacity":       cap,
-            "dominant_tier":  dominant_tier,
+            "trip_id":         trip.trip_id,
+            "jeep_code":       trip.jeep_code,
+            "direction":       trip.direction,
+            "date":            pht_date,
+            "pht_start":       pht_start,
+            "log_count":       total_logs,
+            "good_count":      quality_counts["GOOD"],
+            "acceptable_count": quality_counts["ACCEPTABLE"],
+            "poor_count":      quality_counts["POOR"],
+            "good_pct":        good_pct,
+            "avg_lf_pct":      round(avg_lf * 100, 1),
+            "max_occupancy":   max_occ,
+            "capacity":        cap,
+            "dominant_tier":   dominant_tier,
             "dominant_period": dominant_period,
         })
 
