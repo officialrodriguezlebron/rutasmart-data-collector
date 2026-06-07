@@ -16,15 +16,22 @@ function PublishStopZonesPanel() {
 
   const handlePublish = async () => {
     if (!window.confirm(
-      "Publish stop zones for MR-001?\n\n" +
-      "This runs DBSCAN across all completed trips and updates the passenger map. " +
-      "The current published map will be replaced."
+      "Publish stop zones for MR-001 (both directions)?\n\n" +
+      "This runs DBSCAN across all completed trips for MALANDAY-RECTO and " +
+      "RECTO-MALANDAY and updates the passenger map. " +
+      "The current published maps will be replaced."
     )) return;
     setLoading(true);
     setStatus(null);
     try {
-      const res = await publishStopZones("MR-001");
-      setStatus({ ok: true, msg: res.data.message });
+      const [resMR, resRM] = await Promise.all([
+        publishStopZones("MR-001", "MALANDAY-RECTO"),
+        publishStopZones("MR-001", "RECTO-MALANDAY"),
+      ]);
+      setStatus({
+        ok: true,
+        msg: `Malanday→Recto: ${resMR.data.message}\nRecto→Malanday: ${resRM.data.message}`,
+      });
     } catch (e) {
       setStatus({ ok: false, msg: e.response?.data?.detail || "Publish failed." });
     } finally {
@@ -75,7 +82,10 @@ function PublishStopZonesPanel() {
           color: status.ok ? "#2e7d32" : "#c62828",
           fontWeight: 500,
         }}>
-          {status.ok ? "✅" : "❌"} {status.msg}
+          {status.ok ? "✅" : "❌"}{" "}
+          {status.msg.split("\n").map((line, i) => (
+            <span key={i}>{line}{i < status.msg.split("\n").length - 1 && <br />}</span>
+          ))}
         </div>
       )}
     </div>
