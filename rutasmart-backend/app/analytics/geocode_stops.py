@@ -7,6 +7,7 @@ Geocodes Malanday-Recto corridor stop names via the Nominatim OpenStreetMap API
 (no API key required). Writes forward and return CSVs plus a failures log.
 
 Nominatim usage policy: max 1 request per second — enforced via _DELAY_S.
+User-Agent is set to "RutaSmart-Thesis/1.0" as required by Nominatim policy.
 
 Usage (standalone):
     python -m app.analytics.geocode_stops
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 _BACKEND_ROOT  = Path(__file__).resolve().parents[2]
 _DATA_DIR      = _BACKEND_ROOT / "data"
 _NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-_USER_AGENT    = "RutaSmart-Research/1.0 (Malanday-Recto jeepney corridor study; non-commercial)"
+_USER_AGENT    = "RutaSmart-Thesis/1.0"
 _DELAY_S       = 1.1
 # viewbox: left(west), top(north), right(east), bottom(south)
 _VIEWBOX       = "120.90,14.75,121.05,14.55"
@@ -228,10 +229,10 @@ def geocode_list(
     direction: str,
 ) -> Tuple[List[dict], List[dict]]:
     """
-    Geocode a list of stop names with progress printing.
+    Geocode a list of stop names with live progress printing.
 
-    Returns (successes, failures) — each is a list of dicts with
-    keys: name, latitude, longitude, direction.
+    Returns (successes, failures) — each a list of dicts with keys:
+    name, latitude, longitude, direction.
     """
     successes: List[dict] = []
     failures:  List[dict] = []

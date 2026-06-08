@@ -68,8 +68,7 @@ def _ensure_model() -> None:
         return
     if not _MODEL_PATH.exists():
         raise FileNotFoundError(
-            f"RF model not found at {_MODEL_PATH}. "
-            "Run train_pipeline.py first."
+            "ML model not trained yet. Run train_pipeline.py first."
         )
     try:
         _rf_model = joblib.load(_MODEL_PATH)
