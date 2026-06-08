@@ -19,6 +19,7 @@ from app.routes.trip_routes import router as trip_router
 from app.routes.gps_routes import router as gps_router
 from app.routes.analytics_routes import router as analytics_router
 from app.analytics.ml_optimized_dbscan import router as ml_router
+from app.routes.ml_random_forest import router as rf_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,6 +93,7 @@ app.include_router(gps_router)
 app.include_router(analytics_router)
 app.include_router(stop_zone_router)
 app.include_router(ml_router)
+app.include_router(rf_router)
 
 
 @app.get("/")
