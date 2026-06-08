@@ -424,7 +424,7 @@ function TripsTab({ trips, aggregate, onDelete, onExport, onMap, exportingId, ex
                       <div style={{ height: 5, background: "rgba(255,255,255,0.12)", borderRadius: 99, overflow: "hidden" }}>
                         {gp != null && <div style={{ height: "100%", width: `${gp}%`, background: goodColor(gp), borderRadius: 99 }} />}
                       </div>
-                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", textAlign: "right", fontFamily: "var(--mono)" }}>{t.log_count?.toLocaleString() || "—"}</span>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", textAlign: "right", fontFamily: "var(--mono)" }}>{(s?.log_count ?? t.log_count)?.toLocaleString() || "—"}</span>
                       <span style={{ fontSize: 12, fontWeight: 700, textAlign: "right", color: gp != null ? goodColor(gp) : "#8e9ab0" }}>
                         {gp != null ? `${typeof gp === "number" ? gp.toFixed(1) : gp}%` : "—"}
                       </span>

@@ -385,21 +385,31 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
 
 @app.get("/admin/aggregate", tags=["Admin"])
 def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
-    """Aggregate analytics across completed trips."""
-    from datetime import timedelta, date as dt_date
-    from app.analytics.algorithms import categorise_time, classify_demand
+    """Aggregate analytics across completed trips — single SQL aggregation, no ORM row scan."""
+    from datetime import timedelta, date as dt_date, datetime
+    from sqlalchemy import func, case as sa_case
 
     PHT_OFFSET = timedelta(hours=8)
-    trips_q    = db.query(Trip).filter(Trip.status == TripStatusEnum.COMPLETED)
+
+    def _period(h: int) -> str:
+        if   6 <= h <  9: return "Morning Peak"
+        elif 9 <= h < 16: return "Midday"
+        elif 16 <= h < 19: return "Afternoon Peak"
+        else:              return "Off-Peak"
+
+    def _tier(occ: int, cap: int) -> str:
+        if   occ > cap + 10: return "Critical"
+        elif occ > cap +  5: return "High"
+        elif occ > cap:      return "Moderate"
+        else:                return "Normal"
+
+    trips_q = db.query(Trip).filter(Trip.status == TripStatusEnum.COMPLETED)
 
     if date:
         try:
             target        = dt_date.fromisoformat(date)
-            from datetime import datetime
-            day_start_pht = datetime(target.year, target.month, target.day, 0,  0,  0)
-            day_end_pht   = datetime(target.year, target.month, target.day, 23, 59, 59)
-            day_start_utc = day_start_pht - PHT_OFFSET
-            day_end_utc   = day_end_pht   - PHT_OFFSET
+            day_start_utc = datetime(target.year, target.month, target.day, 0,  0,  0) - PHT_OFFSET
+            day_end_utc   = datetime(target.year, target.month, target.day, 23, 59, 59) - PHT_OFFSET
             trips_q = trips_q.filter(
                 Trip.start_time >= day_start_utc,
                 Trip.start_time <= day_end_utc,
@@ -420,6 +430,24 @@ def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
             "trip_summaries":       [],
         }
 
+    trip_ids  = [t.trip_id for t in trips]
+    trip_map  = {t.trip_id: t for t in trips}
+
+    # Single aggregation query — replaces N+1 ORM log fetches
+    rows = (
+        db.query(
+            GPSLog.trip_id,
+            func.count(GPSLog.log_id).label("total"),
+            func.sum(sa_case((GPSLog.gps_quality_flag == "GOOD", 1), else_=0)).label("good"),
+            func.avg(GPSLog.occupancy_count).label("avg_occ"),
+            func.max(GPSLog.occupancy_count).label("max_occ"),
+        )
+        .filter(GPSLog.trip_id.in_(trip_ids))
+        .group_by(GPSLog.trip_id)
+        .all()
+    )
+    stats = {r.trip_id: r for r in rows}
+
     time_dist          = {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0}
     demand_dist        = {"Normal": 0, "Moderate": 0, "High": 0, "Critical": 0}
     critical_by_period = {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0}
@@ -427,63 +455,39 @@ def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
     trip_summaries     = []
 
     for trip in trips:
-        logs = db.query(GPSLog).filter(GPSLog.trip_id == trip.trip_id).all()
-        if not logs:
+        r   = stats.get(trip.trip_id)
+        if not r or not r.total:
             continue
 
-        cap             = trip.official_capacity or 26
-        trip_lf_values  = []
-        trip_demand     = {"Normal": 0, "Moderate": 0, "High": 0, "Critical": 0}
-        trip_time       = {"Morning Peak": 0, "Midday": 0, "Afternoon Peak": 0, "Off-Peak": 0}
-        quality_counts  = {"GOOD": 0, "ACCEPTABLE": 0, "POOR": 0}
+        cap     = trip.official_capacity or 26
+        pht_dt  = (trip.start_time + PHT_OFFSET) if trip.start_time else None
+        period  = _period(pht_dt.hour) if pht_dt else "Off-Peak"
+        tier    = _tier(int(r.max_occ or 0), cap)
+        avg_lf  = float(r.avg_occ or 0) / cap
+        good_pct = round(int(r.good) / int(r.total) * 100, 1)
 
-        for log in logs:
-            lf = log.occupancy_count / cap
-            trip_lf_values.append(lf)
-            all_lf_values.append(lf)
-
-            qf = log.gps_quality_flag
-            flag_str = qf.value if hasattr(qf, "value") else str(qf)
-            quality_counts[flag_str] = quality_counts.get(flag_str, 0) + 1
-
-            if log.timestamp:
-                period = categorise_time(log.timestamp)
-                time_dist[period]  = time_dist.get(period, 0) + 1
-                trip_time[period]  = trip_time.get(period, 0) + 1
-                tier = classify_demand(log.occupancy_count, cap)
-                demand_dist[tier]  = demand_dist.get(tier, 0) + 1
-                trip_demand[tier]  = trip_demand.get(tier, 0) + 1
-                if tier == "Critical":
-                    critical_by_period[period] = critical_by_period.get(period, 0) + 1
-
-        avg_lf          = sum(trip_lf_values) / len(trip_lf_values) if trip_lf_values else 0
-        max_occ         = max((l.occupancy_count for l in logs), default=0)
-        dominant_tier   = max(trip_demand, key=trip_demand.get)
-        dominant_period = max(trip_time,   key=trip_time.get)
-        total_logs      = len(logs)
-        good_pct        = round(quality_counts["GOOD"] / total_logs * 100, 1) if total_logs else 0
-
-        # PHT start time (UTC+8) for display
-        from datetime import timezone, timedelta as _td
-        pht_start = (trip.start_time + _td(hours=8)).strftime("%I:%M %p") if trip.start_time else "-"
-        pht_date  = (trip.start_time + _td(hours=8)).strftime("%Y-%m-%d") if trip.start_time else "-"
+        all_lf_values.append(avg_lf)
+        time_dist[period]  = time_dist.get(period, 0) + 1
+        demand_dist[tier]  = demand_dist.get(tier, 0) + 1
+        if tier == "Critical":
+            critical_by_period[period] = critical_by_period.get(period, 0) + 1
 
         trip_summaries.append({
-            "trip_id":         trip.trip_id,
-            "jeep_code":       trip.jeep_code,
-            "direction":       trip.direction,
-            "date":            pht_date,
-            "pht_start":       pht_start,
-            "log_count":       total_logs,
-            "good_count":      quality_counts["GOOD"],
-            "acceptable_count": quality_counts["ACCEPTABLE"],
-            "poor_count":      quality_counts["POOR"],
-            "good_pct":        good_pct,
-            "avg_lf_pct":      round(avg_lf * 100, 1),
-            "max_occupancy":   max_occ,
-            "capacity":        cap,
-            "dominant_tier":   dominant_tier,
-            "dominant_period": dominant_period,
+            "trip_id":          trip.trip_id,
+            "jeep_code":        trip.jeep_code,
+            "direction":        trip.direction,
+            "date":             pht_dt.strftime("%Y-%m-%d") if pht_dt else "-",
+            "pht_start":        pht_dt.strftime("%I:%M %p")  if pht_dt else "-",
+            "log_count":        int(r.total),
+            "good_count":       int(r.good),
+            "acceptable_count": 0,
+            "poor_count":       int(r.total) - int(r.good),
+            "good_pct":         good_pct,
+            "avg_lf_pct":       round(avg_lf * 100, 1),
+            "max_occupancy":    int(r.max_occ or 0),
+            "capacity":         cap,
+            "dominant_tier":    tier,
+            "dominant_period":  period,
         })
 
     grand_avg_lf  = sum(all_lf_values) / len(all_lf_values) if all_lf_values else 0
