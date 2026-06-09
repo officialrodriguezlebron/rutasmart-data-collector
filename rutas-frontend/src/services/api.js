@@ -57,3 +57,5 @@ export const getPublishedStops = (routeId, direction) =>
   direction
     ? API.get(`/admin/route/${routeId}/published-stops?direction=${direction}`)
     : API.get(`/admin/route/${routeId}/published-stops`);
+export const getStopZonePreview = (routeId, direction) =>
+  API.get(`/admin/route/${routeId}/preview-stops?direction=${direction}`);

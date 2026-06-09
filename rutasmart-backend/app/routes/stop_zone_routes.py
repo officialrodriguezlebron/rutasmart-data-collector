@@ -192,6 +192,108 @@ def publish_stop_zones(
     }
 
 
+# ── Admin: dry-run preview — same DBSCAN pipeline, nothing saved ───────────
+
+@router.get("/admin/route/{route_id}/preview-stops", tags=["Admin"])
+def preview_stop_zones(
+    route_id: str,
+    direction: str = Query("MALANDAY-RECTO"),
+    db: Session = Depends(get_db),
+):
+    """
+    Dry-run equivalent of publish-stops.
+    Runs the same DBSCAN pipeline but does NOT write to the database.
+    Returns the clusters that WOULD be published so the admin can review
+    before committing.
+    """
+    if direction not in VALID_DIRECTIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"direction must be one of: {', '.join(VALID_DIRECTIONS)}"
+        )
+
+    trips = _get_completed_trips(route_id, db, direction=direction)
+    if not trips:
+        return {
+            "route_id":  route_id,
+            "direction": direction,
+            "clusters":  [],
+            "message":   "No completed trips found for this direction.",
+        }
+
+    all_points = []
+    cap = 26
+    for trip in trips:
+        cap = trip.official_capacity or 26
+        logs = (
+            db.query(GPSLog)
+            .filter(
+                GPSLog.trip_id == trip.trip_id,
+                GPSLog.gps_quality_flag.in_([
+                    GPSQualityEnum.GOOD,
+                    GPSQualityEnum.ACCEPTABLE,
+                ])
+            )
+            .all()
+        )
+        for log in logs:
+            all_points.append(GPSPoint(
+                log_id=str(log.log_id),
+                trip_id=trip.trip_id,
+                latitude=log.latitude,
+                longitude=log.longitude,
+                accuracy=log.accuracy,
+                occupancy_count=log.occupancy_count,
+                timestamp=log.timestamp,
+                gps_quality_flag=str(
+                    log.gps_quality_flag.value
+                    if hasattr(log.gps_quality_flag, "value")
+                    else log.gps_quality_flag
+                ),
+            ))
+
+    if not all_points:
+        return {
+            "route_id":  route_id,
+            "direction": direction,
+            "clusters":  [],
+            "message":   "No GOOD/ACCEPTABLE GPS logs found for this direction.",
+        }
+
+    result = run_dbscan(all_points, cap, eps_m=30.0, min_samples=20)
+    clusters = result.get("clusters", [])
+
+    stop_clusters = [
+        c for c in clusters
+        if getattr(c, "cluster_type", "TRUE_STOP") == "TRUE_STOP"
+    ]
+    if not stop_clusters:
+        stop_clusters = clusters
+
+    stop_clusters.sort(key=lambda c: c.point_count, reverse=True)
+
+    return {
+        "route_id":       route_id,
+        "direction":      direction,
+        "trips_analyzed": len(trips),
+        "logs_analyzed":  len(all_points),
+        "clusters": [
+            {
+                "cluster_id":      int(c.cluster_id),
+                "centroid_lat":    round(c.centroid_lat, 7),
+                "centroid_lon":    round(c.centroid_lon, 7),
+                "point_count":     int(c.point_count),
+                "demand_tier":     getattr(c, "demand_tier", "Normal"),
+                "avg_occupancy":   round(getattr(c, "avg_occupancy", 0), 1),
+                "peak_period":     getattr(c, "peak_period", "—"),
+                "load_factor_pct": round(getattr(c, "load_factor_pct", 0), 1),
+                "color":           TIER_COLOR.get(getattr(c, "demand_tier", "Normal"), "#1565c0"),
+            }
+            for c in stop_clusters
+        ],
+    }
+
+
 # ── Admin: view published stop zones (per direction) ───────────────────────
 
 @router.get("/admin/route/{route_id}/published-stops", tags=["Admin"])

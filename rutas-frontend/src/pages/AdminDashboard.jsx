@@ -8,6 +8,7 @@ import {
 } from "../services/api";
 import { authService } from "../services/authService";
 import TripMap from "./TripMap";
+import StopZonePublishPreview from "../components/StopZonePublishPreview";
 import "./AdminDashboard.css";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -118,6 +119,7 @@ function PublishStopZonesPanel() {
   const [tripsLoading, setTripsLoading] = useState(true);
   const [status,       setStatus]       = useState(null);
   const [loading,      setLoading]      = useState(false);
+  const [showPreview,  setShowPreview]  = useState(false);
 
   useEffect(() => {
     getAggregateDashboard()
@@ -166,20 +168,20 @@ function PublishStopZonesPanel() {
       <div className="admin-card-title" style={{ justifyContent: "space-between" }}>
         <span>🗺 Passenger Stop Zone Map</span>
         <button
-          onClick={handlePublish}
-          disabled={loading || aggTrips.length === 0}
+          onClick={() => setShowPreview(true)}
+          disabled={tripsLoading || aggTrips.length === 0}
           style={{
             padding: "7px 16px",
-            background: loading || aggTrips.length === 0
+            background: tripsLoading || aggTrips.length === 0
               ? "rgba(0,0,0,0.10)" : "linear-gradient(135deg,#1044a3,#1565c0)",
-            color: loading || aggTrips.length === 0 ? "#8e9ab0" : "white",
+            color: tripsLoading || aggTrips.length === 0 ? "#8e9ab0" : "white",
             border: "none", borderRadius: 10, fontSize: 12, fontWeight: 700,
-            cursor: loading || aggTrips.length === 0 ? "not-allowed" : "pointer",
-            fontFamily: "var(--font)", boxShadow: loading || aggTrips.length === 0 ? "none" : "0 4px 12px rgba(16,68,163,0.35)",
+            cursor: tripsLoading || aggTrips.length === 0 ? "not-allowed" : "pointer",
+            fontFamily: "var(--font)", boxShadow: tripsLoading || aggTrips.length === 0 ? "none" : "0 4px 12px rgba(16,68,163,0.35)",
             whiteSpace: "nowrap",
           }}
         >
-          {loading ? "Publishing…" : "📤 Publish Stop Zones"}
+          📤 Publish Stop Zones
         </button>
       </div>
       <p className="admin-card-desc">
@@ -250,6 +252,14 @@ function PublishStopZonesPanel() {
           {status.ok ? "✅ " : "❌ "}
           {status.lines.map((line, i) => <span key={i}>{line}{i < status.lines.length - 1 && <br />}</span>)}
         </div>
+      )}
+
+      {showPreview && (
+        <StopZonePublishPreview
+          routeId="MR-001"
+          onClose={() => setShowPreview(false)}
+          onSuccess={() => setStatus({ ok: true, lines: ["Stop zones published successfully."] })}
+        />
       )}
     </div>
   );

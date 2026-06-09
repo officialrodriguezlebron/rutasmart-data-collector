@@ -1,5 +1,5 @@
 /**
- * TripMap — RutaSmart trip visualization overlay
+ * TripMap — RutaSmart trip visualization overlay (night mode only)
  *
  * A professional, information-dense map view for inspecting a completed trip.
  *
@@ -10,13 +10,12 @@
  *  - Actual recorded trip path as orange dashed polyline
  *  - START / END pin markers with permanent labels
  *  - Corridor reference route + corridor bounding-box overlay
- *  - 70 field-verified ground-truth stops layer
- *  - Quality filter (All / Good+Acc only) + occupancy slider
- *  - Trip metadata header — total distance, duration, max occupancy
+ *  - 70 field-verified ground-truth stops (toggleable via Legend panel)
+ *  - Quality filter (All / Good+Acc only) + demand tier filter
+ *  - Trip metadata header — total distance, max occupancy, avg load factor
  *  - Auto-fit on load + "Fit to Data" button
- *  - Light / Dark tile mode
+ *  - Collapsible right-side Legend panel with 8 sections
  *  - Scale bar + zoom controls
- *  - Clickable stat chips that filter the map view
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -42,14 +41,8 @@ L.Icon.Default.mergeOptions({
 const CORRIDOR_CENTER = [14.6600, 120.975];
 const CORRIDOR_BOUNDS = [[14.55, 120.95], [14.75, 121.05]];
 
-const TILE_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-// Positron: minimal light tile with very low visual noise — dots and
-// route lines stay visible because the background is nearly white.
-// Voyager (previous) was too detailed and "busy", causing colored dots
-// to blend into road/label colors at zoom 13–15.
-const TILE_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const ATTR_DARK  = '&copy; <a href="https://carto.com/">CARTO</a>';
-const ATTR_LIGHT = '&copy; <a href="https://carto.com/">CARTO</a> · <a href="https://www.openstreetmap.org/">OSM</a>';
+const TILE_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const ATTR_DARK = '&copy; <a href="https://carto.com/">CARTO</a>';
 
 const CLUSTER_COLORS = {
   TRUE_STOP:      "#1565c0",
@@ -217,9 +210,6 @@ function HeatmapLayer({ points, visible, intensity }) {
     if (!visible || !points.length) return;
 
     const maxOcc = Math.max(...points.map(p => p.occupancy ?? 0), 1);
-    // Each heat point: [lat, lon, weight]. Weight = normalized occupancy
-    // scaled by intensity multiplier so the conductor / admin can dial
-    // the heatmap brightness up or down without reloading the data.
     const heatPoints = points.map(p => [
       p.lat,
       p.lon,
@@ -300,7 +290,6 @@ export default function TripMap({ tripId, onClose }) {
   const [showRoute,   setShowRoute]   = useState(true);
   const [showTrace,   setShowTrace]   = useState(true);
   const [showBBox,    setShowBBox]    = useState(false);
-  const [darkMode,    setDarkMode]    = useState(false);
 
   // Filters
   const [qualFilter,  setQualFilter]  = useState("all");
@@ -308,7 +297,8 @@ export default function TripMap({ tripId, onClose }) {
   const [intensity,   setIntensity]   = useState(1.0);
 
   // View
-  const [fitTrigger,  setFitTrigger]  = useState(0);
+  const [fitTrigger,      setFitTrigger]      = useState(0);
+  const [showLegendPanel, setShowLegendPanel] = useState(false);
 
   // ── Load data ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -338,14 +328,12 @@ export default function TripMap({ tripId, onClose }) {
         const poor = raw.filter(l => l.quality === "POOR").length;
         const maxOcc = Math.max(...raw.map(l => l.occupancy ?? 0), 0);
 
-        // Off-corridor count
         const [[minLat, minLon], [maxLat, maxLon]] = CORRIDOR_BOUNDS;
         const outOfCorridor = raw.filter(
           l => l.lat < minLat || l.lat > maxLat ||
                l.lon < minLon || l.lon > maxLon
         ).length;
 
-        // Total distance traveled = sum of haversine between successive logs
         let distM = 0;
         for (let i = 1; i < raw.length; i++) {
           distM += haversineMeters(
@@ -354,9 +342,6 @@ export default function TripMap({ tripId, onClose }) {
           );
         }
 
-        // Avg load factor — point average of occupancy / capacity
-        // Backend doesn't return capacity per log; we estimate from clusters
-        // (a cluster's load_factor_pct uses the trip's stored capacity).
         const avgLF = clusterList.length
           ? clusterList.reduce((s, c) => s + (c.load_factor_pct || 0), 0) / clusterList.length
           : 0;
@@ -379,26 +364,27 @@ export default function TripMap({ tripId, onClose }) {
   }, [tripId, qualFilter]);
 
   // ── Derived: filtered logs for rendering ───────────────────────────────
-        const filteredLogs = useMemo(() => logs.map(l => {
-        const s = snapToRoad(l.lat, l.lon, getCorridorForTrip(tripId));
-        return { ...l, lat: s.lat, lon: s.lon };
-      }), [logs]);
+  const filteredLogs = useMemo(() => logs.map(l => {
+    const s = snapToRoad(l.lat, l.lon, getCorridorForTrip(tripId));
+    return { ...l, lat: s.lat, lon: s.lon };
+  }), [logs]);
+
   // ── Derived: filtered clusters by demand tier ──────────────────────────
-      const filteredClusters = useMemo(() => {
-      const base = tierFilter === "all"
-        ? clusters
-        : clusters.filter(c => c.demand_tier === tierFilter);
-      return base.map(c => {
-        const s = snapToRoad(c.centroid_lat, c.centroid_lon, getCorridorForTrip(tripId));
-        return { ...c, centroid_lat: s.lat, centroid_lon: s.lon };
-      });
-    }, [clusters, tierFilter]);
+  const filteredClusters = useMemo(() => {
+    const base = tierFilter === "all"
+      ? clusters
+      : clusters.filter(c => c.demand_tier === tierFilter);
+    return base.map(c => {
+      const s = snapToRoad(c.centroid_lat, c.centroid_lon, getCorridorForTrip(tripId));
+      return { ...c, centroid_lat: s.lat, centroid_lon: s.lon };
+    });
+  }, [clusters, tierFilter]);
 
   if (!tripId) return null;
 
   return (
     <div className="tripmap-overlay">
-      <div className={`tripmap-container ${darkMode ? "dark" : ""}`}>
+      <div className="tripmap-container dark">
 
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="tripmap-header">
@@ -445,14 +431,12 @@ export default function TripMap({ tripId, onClose }) {
         <div className="tripmap-controls">
           <div className="tripmap-toggles">
             {[
-              { key: "heat",    label: "🔥 Heat",      state: showHeat,    setter: setShowHeat    },
-              { key: "dots",    label: "● Logs",       state: showDots,    setter: setShowDots    },
-              { key: "trace",   label: "Path",         state: showTrace,   setter: setShowTrace   },
-              { key: "cluster", label: "Clusters",     state: showCluster, setter: setShowCluster },
-              { key: "route",   label: "Corridor",     state: showRoute,   setter: setShowRoute   },
-              { key: "gt",      label: "70 Stops",     state: showGT,      setter: setShowGT      },
-              { key: "bbox",    label: "Bounds",       state: showBBox,    setter: setShowBBox    },
-              { key: "dark",    label: darkMode ? "☀ Light" : "🌙 Dark", state: darkMode, setter: setDarkMode },
+              { key: "heat",    label: "🔥 Heat",    state: showHeat,    setter: setShowHeat    },
+              { key: "dots",    label: "● Logs",     state: showDots,    setter: setShowDots    },
+              { key: "trace",   label: "Path",       state: showTrace,   setter: setShowTrace   },
+              { key: "cluster", label: "Clusters",   state: showCluster, setter: setShowCluster },
+              { key: "route",   label: "Corridor",   state: showRoute,   setter: setShowRoute   },
+              { key: "bbox",    label: "Bounds",     state: showBBox,    setter: setShowBBox    },
             ].map(({ key, label, state, setter }) => (
               <button
                 key={key}
@@ -515,27 +499,6 @@ export default function TripMap({ tripId, onClose }) {
           </div>
         ) : null}
 
-        {/* ── Stat chips ─────────────────────────────────────────────── */}
-        {stats && (
-          <div className="tripmap-stats">
-            {[
-              ["Logs",         stats.total,         "#1f2937"],
-              ["GOOD",         stats.good,          "#2e7d32"],
-              ["ACCEPTABLE",   stats.acc,           "#f9a825"],
-              ["POOR",         stats.poor,          "#c62828"],
-              ["Off-Corridor", stats.outOfCorridor, "#7b1fa2"],
-              ["True Stops",   stats.trueStops,     "#1565c0"],
-              ["Queues",       stats.queues,        "#ef6c00"],
-              ["Moving",       stats.moving,        "#c62828"],
-            ].map(([label, value, color]) => (
-              <div key={label} className="tripmap-stat">
-                <span className="tripmap-stat-value" style={{ color }}>{value}</span>
-                <span className="tripmap-stat-label">{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
         {clusterErr && (
           <div className="rs-banner rs-banner-warn">⚠️ {clusterErr}</div>
         )}
@@ -565,8 +528,8 @@ export default function TripMap({ tripId, onClose }) {
               style={{ width: "100%", height: "100%" }}
             >
               <TileLayer
-                attribution={darkMode ? ATTR_DARK : ATTR_LIGHT}
-                url={darkMode ? TILE_DARK : TILE_LIGHT}
+                attribution={ATTR_DARK}
+                url={TILE_DARK}
               />
               <ZoomControl position="bottomright" />
               <ScaleControl position="bottomleft" imperial={false} />
@@ -577,51 +540,47 @@ export default function TripMap({ tripId, onClose }) {
                 fitTrigger={fitTrigger}
               />
 
-              {/* Corridor bbox — purple dashed rectangle showing the backend
-                  in-corridor bounding box. Increased fill opacity so it's
-                  actually visible on the light tile (not just dark). */}
+              {/* Corridor bbox */}
               {showBBox && (
                 <Rectangle
                   bounds={CORRIDOR_BOUNDS}
                   pathOptions={{
                     color: "#7b1fa2",
                     weight: 2.5,
-                    fillOpacity: darkMode ? 0.04 : 0.06,
+                    fillOpacity: 0.04,
                     fillColor: "#7b1fa2",
                     dashArray: "10,8",
                   }}
                 />
               )}
 
-              {/* Corridor route — two-layer line so it reads on both tiles.
-                  Dark mode: thin bright blue on dark bg.
-                  Light mode: wider navy line with visible glow. */}
+              {/* Corridor route — two-layer line for dark tile */}
               {showRoute && (<>
                 <Polyline
                   positions={getCorridorForTrip(tripId)}
                   pathOptions={{
                     color: "#0d47a1",
-                    weight: darkMode ? 12 : 14,
-                    opacity: darkMode ? 0.10 : 0.18,
+                    weight: 12,
+                    opacity: 0.10,
                   }}
                 />
                 <Polyline
                   positions={getCorridorForTrip(tripId)}
                   pathOptions={{
-                    color: darkMode ? "#42a5f5" : "#1044a3",
-                    weight: darkMode ? 4 : 5,
+                    color: "#42a5f5",
+                    weight: 4,
                     opacity: 0.90,
                   }}
                 />
               </>)}
 
-              {/* Trip path — dashed orange line, thicker on light mode */}
+              {/* Trip path — dashed orange line */}
               {showTrace && filteredLogs.length > 1 && (
                 <Polyline
                   positions={filteredLogs.map(l => [l.lat, l.lon])}
                   pathOptions={{
                     color: "#ff6f00",
-                    weight: darkMode ? 3 : 3.5,
+                    weight: 3,
                     opacity: 0.90,
                     dashArray: "6,8",
                   }}
@@ -637,8 +596,7 @@ export default function TripMap({ tripId, onClose }) {
                 />
               )}
 
-              {/* Raw log dots — white stroke + solid fill so they pop
-                  on both dark tile and light tile backgrounds */}
+              {/* Raw log dots */}
               {showDots && filteredLogs.map((log, i) => {
                 const isPoor = log.quality === "POOR";
                 const fill   = QUALITY_COLORS[log.quality] || "#888";
@@ -664,8 +622,7 @@ export default function TripMap({ tripId, onClose }) {
                 );
               })}
 
-              {/* Clusters — three concentric circles for depth.
-                  Higher opacity values so they remain visible on light tiles. */}
+              {/* Clusters */}
               {showCluster && filteredClusters.map((c) => {
                 const tierColor = DEMAND_COLORS[c.demand_tier] || "#555";
                 const typeColor = CLUSTER_COLORS[c.cluster_type] || "#555";
@@ -681,7 +638,7 @@ export default function TripMap({ tripId, onClose }) {
                       pathOptions={{
                         color: tierColor,
                         fillColor: tierColor,
-                        fillOpacity: darkMode ? 0.12 : 0.18,
+                        fillOpacity: 0.12,
                         weight: 0,
                       }}
                     />
@@ -692,8 +649,8 @@ export default function TripMap({ tripId, onClose }) {
                       pathOptions={{
                         color: typeColor,
                         fillColor: typeColor,
-                        fillOpacity: darkMode ? 0.28 : 0.35,
-                        weight: darkMode ? 2.5 : 3,
+                        fillOpacity: 0.28,
+                        weight: 2.5,
                       }}
                     >
                       <Tooltip
@@ -715,8 +672,7 @@ export default function TripMap({ tripId, onClose }) {
                 );
               })}
 
-              {/* Ground truth stops — dark purple border so they're visible
-                  on light tiles, white fill ring keeps them distinct */}
+              {/* Ground truth stops */}
               {showGT && GROUND_TRUTH.map(([lat, lon, name], i) => (
                 <CircleMarker
                   key={`gt-${i}`}
@@ -735,8 +691,7 @@ export default function TripMap({ tripId, onClose }) {
                 </CircleMarker>
               ))}
 
-              {/* Start marker — green circle with dark-green border
-                  so it stays visible on both light and dark tiles */}
+              {/* Start marker */}
               {filteredLogs.length > 0 && (
                 <CircleMarker
                   center={[filteredLogs[0].lat, filteredLogs[0].lon]}
@@ -754,7 +709,7 @@ export default function TripMap({ tripId, onClose }) {
                 </CircleMarker>
               )}
 
-              {/* End marker — red circle with dark-red border */}
+              {/* End marker */}
               {filteredLogs.length > 1 && (
                 <CircleMarker
                   center={[filteredLogs[filteredLogs.length - 1].lat, filteredLogs[filteredLogs.length - 1].lon]}
@@ -773,71 +728,171 @@ export default function TripMap({ tripId, onClose }) {
               )}
             </MapContainer>
           )}
-        </div>
 
-        {/* ── Legend ─────────────────────────────────────────────────── */}
-        <div className="tripmap-legend">
-          <div className="tripmap-legend-group">
-            <span className="tripmap-legend-title">Clusters</span>
-            {Object.entries(CLUSTER_COLORS).map(([type, color]) => (
-              <span key={type} className="tripmap-legend-item">
-                <span className="tripmap-legend-dot" style={{ background: color }} />
-                {type.replace("_", " ")}
-              </span>
-            ))}
-          </div>
+          {/* ── Legend FAB ──────────────────────────────────────────── */}
+          <button
+            className="tripmap-legend-fab"
+            onClick={() => setShowLegendPanel(p => !p)}
+          >
+            {showLegendPanel ? "✕ Close" : "📋 Legend"}
+          </button>
 
-          <div className="tripmap-legend-group">
-            <span className="tripmap-legend-title">Demand</span>
-            {Object.entries(DEMAND_COLORS).map(([tier, color]) => (
-              <span key={tier} className="tripmap-legend-item">
-                <span className="tripmap-legend-dot" style={{ background: color }} />
-                {tier}
-              </span>
-            ))}
-          </div>
+          {/* ── Collapsible right-side legend panel ─────────────────── */}
+          {showLegendPanel && (
+            <div className="tripmap-legend-panel">
 
-          <div className="tripmap-legend-group">
-            <span className="tripmap-legend-title">GPS Quality</span>
-            {Object.entries(QUALITY_COLORS).map(([q, color]) => (
-              <span key={q} className="tripmap-legend-item">
-                <span className="tripmap-legend-dot" style={{ background: color }} />
-                {q}
-              </span>
-            ))}
-          </div>
+              {/* Section 1: Clusters */}
+              <div className="tlp-section">
+                <div className="tlp-title">Clusters</div>
+                {Object.entries(CLUSTER_COLORS).map(([type, color]) => (
+                  <div key={type} className="tlp-row">
+                    <span className="tlp-dot" style={{ background: color }} />
+                    <span>{type.replace("_", " ")}</span>
+                  </div>
+                ))}
+              </div>
 
-          <div className="tripmap-legend-group">
-            <span className="tripmap-legend-item">
-              <span className="tripmap-legend-dot" style={{ background: "#2e7d32", border: "2px solid #fff", boxShadow: "0 0 0 1px #2e7d32" }} />
-              Start
-            </span>
-            <span className="tripmap-legend-item">
-              <span className="tripmap-legend-dot" style={{ background: "#c62828", border: "2px solid #fff", boxShadow: "0 0 0 1px #c62828" }} />
-              End
-            </span>
-            <span className="tripmap-legend-item">
-              <span className="tripmap-legend-dot" style={{ background: "#6200ea", border: "1.5px solid #fff" }} />
-              GT Stop
-            </span>
-          </div>
+              {/* Section 2: Demand */}
+              <div className="tlp-section">
+                <div className="tlp-title">Demand</div>
+                {Object.entries(DEMAND_COLORS).map(([tier, color]) => (
+                  <div key={tier} className="tlp-row">
+                    <span className="tlp-dot" style={{ background: color }} />
+                    <span
+                      className="tlp-pill"
+                      style={{ background: color + "22", color, border: `1px solid ${color}55` }}
+                    >
+                      {tier}
+                    </span>
+                  </div>
+                ))}
+              </div>
 
-          <div className="tripmap-legend-group">
-            <span className="tripmap-legend-item">
-              <span style={{ width: 28, height: 4, background: "#1565c0", borderRadius: 2, display: "inline-block", marginRight: 4 }} />
-              Corridor
-            </span>
-            <span className="tripmap-legend-item">
-              <span style={{ width: 28, height: 0, borderTop: "3px dashed #ff6f00", display: "inline-block", marginRight: 4, verticalAlign: "middle" }} />
-              Trip Path
-            </span>
-          </div>
+              {/* Section 3: GPS Quality */}
+              <div className="tlp-section">
+                <div className="tlp-title">GPS Quality</div>
+                {Object.entries(QUALITY_COLORS).map(([q, color]) => (
+                  <div key={q} className="tlp-row">
+                    <span className="tlp-dot" style={{ background: color }} />
+                    <span>{q}</span>
+                  </div>
+                ))}
+              </div>
 
-          <div className="tripmap-legend-group">
-            <span className="tripmap-legend-title">Heatmap</span>
-            <div className="tripmap-heat-gradient" />
-            <span style={{ fontSize: 10, color: "#888" }}>Low → High occupancy</span>
-          </div>
+              {/* Section 4: Map Elements */}
+              <div className="tlp-section">
+                <div className="tlp-title">Map Elements</div>
+                <div className="tlp-row">
+                  <span className="tlp-dot" style={{ background: "#2e7d32" }} />
+                  <span>Start</span>
+                </div>
+                <div className="tlp-row">
+                  <span className="tlp-dot" style={{ background: "#c62828" }} />
+                  <span>End</span>
+                </div>
+                <div className="tlp-row">
+                  <span className="tlp-dot" style={{ background: "#9c27b0" }} />
+                  <button className="tlp-mini-toggle" onClick={() => setShowGT(v => !v)}>
+                    GT Stops{" "}
+                    <span style={{ color: showGT ? "#30d158" : "#888", fontWeight: 700 }}>
+                      {showGT ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                </div>
+                <div className="tlp-row">
+                  <span style={{ width: 20, height: 3, background: "#42a5f5", display: "inline-block", borderRadius: 2, flexShrink: 0 }} />
+                  <span style={{ marginLeft: 2 }}>Corridor</span>
+                </div>
+                <div className="tlp-row">
+                  <span style={{ width: 20, height: 0, borderTop: "2px dashed #ff6f00", display: "inline-block", verticalAlign: "middle", flexShrink: 0 }} />
+                  <span style={{ marginLeft: 2 }}>Trip Path</span>
+                </div>
+                <div className="tlp-row">
+                  <span style={{ width: 20, height: 7, borderRadius: 3, background: "linear-gradient(to right,#1a237e,#1976d2,#00acc1,#ffd54f,#fb8c00,#c62828)", display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ marginLeft: 2 }}>Heatmap</span>
+                </div>
+              </div>
+
+              {/* Section 5: GPS Log Breakdown */}
+              {stats && (
+                <div className="tlp-section">
+                  <div className="tlp-title">GPS Logs</div>
+                  <div className="tlp-stat-row">
+                    <span style={{ color: "#2e7d32" }}>{stats.good}</span>
+                    <span>GOOD</span>
+                  </div>
+                  <div className="tlp-stat-row">
+                    <span style={{ color: "#f9a825" }}>{stats.acc}</span>
+                    <span>ACCEPTABLE</span>
+                  </div>
+                  <div className="tlp-stat-row">
+                    <span style={{ color: "#c62828" }}>{stats.poor}</span>
+                    <span>POOR</span>
+                  </div>
+                  <div className="tlp-stat-row">
+                    <span style={{ color: "#7b1fa2" }}>{stats.outOfCorridor}</span>
+                    <span>Off-Corridor</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Section 6: Cluster Breakdown */}
+              {stats && (
+                <div className="tlp-section">
+                  <div className="tlp-title">Cluster Breakdown</div>
+                  <div className="tlp-stat-row">
+                    <span style={{ color: "#1565c0" }}>{stats.trueStops}</span>
+                    <span>True Stops</span>
+                  </div>
+                  <div className="tlp-stat-row">
+                    <span style={{ color: "#ef6c00" }}>{stats.queues}</span>
+                    <span>Queues</span>
+                  </div>
+                  <div className="tlp-stat-row">
+                    <span style={{ color: "#c62828" }}>{stats.moving}</span>
+                    <span>Moving</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Section 7: Heat Intensity */}
+              {showHeat && (
+                <div className="tlp-section">
+                  <div className="tlp-title">Heat Intensity</div>
+                  <div className="tlp-row" style={{ gap: 8 }}>
+                    <input
+                      type="range" min="0.4" max="2" step="0.1"
+                      value={intensity}
+                      onChange={(e) => setIntensity(parseFloat(e.target.value))}
+                      className="tlp-slider"
+                    />
+                    <span className="tlp-slider-val">{intensity.toFixed(1)}×</span>
+                  </div>
+                  <div className="tlp-heat-bar" />
+                  <div className="tlp-heat-labels">
+                    <span>Low</span><span>High</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Section 8: Quality Filter */}
+              <div className="tlp-section">
+                <div className="tlp-title">Quality Filter</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[["all", "All"], ["good", "GOOD+ACC"]].map(([val, lbl]) => (
+                    <button
+                      key={val}
+                      className={`tlp-chip ${qualFilter === val ? "active" : ""}`}
+                      onClick={() => setQualFilter(val)}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          )}
         </div>
 
       </div>
