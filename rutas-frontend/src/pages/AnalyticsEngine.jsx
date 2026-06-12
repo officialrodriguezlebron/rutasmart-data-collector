@@ -421,6 +421,8 @@ export default function AnalyticsEngine() {
   const [compareData,  setCompareData]  = useState(null);
   const [compareError, setCompareError] = useState(null);
 
+  const [showResearch, setShowResearch] = useState(false);
+
   // ── Mode switcher ────────────────────────────────────────────────────────
   const [mode,        setMode]        = useState("single");
   const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
@@ -621,7 +623,7 @@ export default function AnalyticsEngine() {
 
   const tabs = [
     { key: "overview",     label: "Overview"     },
-    { key: "dbscan",       label: "DBSCAN"       },
+    { key: "dbscan",       label: "Stop Detection" },
     { key: "load factor",  label: "Load Factor"  },
     { key: "demand",       label: "Demand"       },
     { key: "time",         label: "Time"         },
@@ -744,7 +746,7 @@ export default function AnalyticsEngine() {
                 <button className="ae-run-btn ae-btn-primary" onClick={runAnalysis} disabled={loading || !tripId.trim()}>
                   {loading
                     ? <><span className="ae-spinner" /> Running…</>
-                    : "▶  Run All Algorithms"
+                    : "▶  Analyze Trip"
                   }
                 </button>
                 <div className="ae-action-row">
@@ -825,49 +827,65 @@ export default function AnalyticsEngine() {
             </div>
           )}
 
-          {/* ── DBSCAN params — only show in single trip mode ─── */}
+          {/* ── Research Settings (collapsible) ──────────────── */}
           {mode === "single" && (
             <div className="ae-card">
-              <p className="ae-card-title">DBSCAN Parameters</p>
-
-              <div className="ae-param">
-                <div className="ae-param-header">
-                  <span className="ae-param-label">Epsilon (metres)</span>
-                  <span className="ae-param-value">{epsM}m</span>
-                </div>
-                <input type="range" min="10" max="200" step="5"
-                  value={epsM} onChange={e => setEpsM(Number(e.target.value))}
-                  className="ae-slider" />
-              </div>
-
-              <div className="ae-param">
-                <div className="ae-param-header">
-                  <span className="ae-param-label">Min samples</span>
-                  <span className="ae-param-value">{minPts}</span>
-                </div>
-                <input type="range" min="2" max="20" step="1"
-                  value={minPts} onChange={e => setMinPts(Number(e.target.value))}
-                  className="ae-slider" />
-              </div>
-
-              <button className="ae-rerun-btn" onClick={rerunDBSCAN} disabled={loading || !data}>
-                ↺ Re-run DBSCAN
+              <button
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  width: "100%", background: "none", border: "none", padding: 0,
+                  cursor: "pointer", color: "inherit",
+                }}
+                onClick={() => setShowResearch(v => !v)}
+              >
+                <p className="ae-card-title" style={{ margin: 0 }}>Research Settings</p>
+                <span style={{ fontSize: 11, color: "#8e9ab0", fontWeight: 600 }}>
+                  {showResearch ? "▲ Hide" : "▼ Show"}
+                </span>
               </button>
 
-              <hr className="ae-divider" />
-
-              <div className="ae-sensitivity-grid">
-                {[
-                  { eps: "30m",   note: "Too tight — splits stops", rec: false },
-                  { eps: "50m ✓", note: "Blueprint default",        rec: true  },
-                  { eps: "100m",  note: "Merges nearby stops",      rec: false },
-                ].map(({ eps, note, rec }) => (
-                  <div key={eps} className={`ae-sensitivity-row ${rec ? "recommended" : ""}`}>
-                    <span className="ae-sensitivity-eps">{eps}</span>
-                    <span className="ae-sensitivity-note">{note}</span>
+              {showResearch && (
+                <>
+                  <div className="ae-param" style={{ marginTop: 12 }}>
+                    <div className="ae-param-header">
+                      <span className="ae-param-label">Detection Radius (m)</span>
+                      <span className="ae-param-value">{epsM}m</span>
+                    </div>
+                    <input type="range" min="10" max="200" step="5"
+                      value={epsM} onChange={e => setEpsM(Number(e.target.value))}
+                      className="ae-slider" />
                   </div>
-                ))}
-              </div>
+
+                  <div className="ae-param">
+                    <div className="ae-param-header">
+                      <span className="ae-param-label">Min. Activity Points</span>
+                      <span className="ae-param-value">{minPts}</span>
+                    </div>
+                    <input type="range" min="2" max="20" step="1"
+                      value={minPts} onChange={e => setMinPts(Number(e.target.value))}
+                      className="ae-slider" />
+                  </div>
+
+                  <button className="ae-rerun-btn" onClick={rerunDBSCAN} disabled={loading || !data}>
+                    ↺ Re-run Detection
+                  </button>
+
+                  <hr className="ae-divider" />
+
+                  <div className="ae-sensitivity-grid">
+                    {[
+                      { eps: "30m",   note: "Too tight — splits stops", rec: false },
+                      { eps: "50m ✓", note: "Blueprint default",        rec: true  },
+                      { eps: "100m",  note: "Merges nearby stops",      rec: false },
+                    ].map(({ eps, note, rec }) => (
+                      <div key={eps} className={`ae-sensitivity-row ${rec ? "recommended" : ""}`}>
+                        <span className="ae-sensitivity-eps">{eps}</span>
+                        <span className="ae-sensitivity-note">{note}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

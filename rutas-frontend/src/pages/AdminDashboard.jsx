@@ -36,8 +36,8 @@ const NAV = [
   { id: "overview",   label: "Overview"   },
   { id: "trips",      label: "Trips"      },
   { id: "conductors", label: "Conductors" },
-  { id: "aggregate",  label: "Aggregate"  },
-  { id: "analytics",  label: "Analytics"  },
+  { id: "aggregate",  label: "Corridors"  },
+  { id: "analytics",  label: "Research"   },
   { id: "stopzones",  label: "Stop Zones" },
   { id: "zonemgmt",   label: "Zone Mgmt"  },
 ];
@@ -271,12 +271,6 @@ function PublishStopZonesPanel() {
 // ─── Overview ─────────────────────────────────────────────────────────────────
 function Overview({ stats, trips, aggregate }) {
   const summaries = aggregate?.trip_summaries || [];
-  const mrTrips   = summaries.filter(t => t.direction === "MALANDAY-RECTO");
-  const rmTrips   = summaries.filter(t => t.direction === "RECTO-MALANDAY");
-  const mrAvg     = mrTrips.length ? mrTrips.reduce((s, t) => s + (t.good_pct || 0), 0) / mrTrips.length : 0;
-  const rmAvg     = rmTrips.length ? rmTrips.reduce((s, t) => s + (t.good_pct || 0), 0) / rmTrips.length : 0;
-  const allAvg    = summaries.length ? summaries.reduce((s, t) => s + (t.good_pct || 0), 0) / summaries.length : 0;
-  const highQual  = summaries.filter(t => (t.good_pct || 0) >= 88).length;
   const recent    = [...trips].sort((a, b) => new Date(b.start_time) - new Date(a.start_time)).slice(0, 5);
 
   const pubMR  = stats?.published_stops_mr  ?? 0;
@@ -290,19 +284,6 @@ function Overview({ stats, trips, aggregate }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-
-      {/* ── Data collection narrative ──────────────────────────────────── */}
-      <div style={{
-        background: "rgba(66,165,245,0.08)", border: "1px solid rgba(66,165,245,0.20)",
-        borderRadius: 12, padding: "12px 16px", marginBottom: 18, fontSize: 12,
-        color: "rgba(255,255,255,0.60)", lineHeight: 1.6,
-      }}>
-        <span style={{ color: "#42a5f5", fontWeight: 700 }}>Field Dataset — </span>
-        A total of <strong style={{ color: "rgba(255,255,255,0.85)" }}>20 trip recordings</strong> collected across a
-        24-day field testing period (May 19 – June 11, 2026), covering both corridor directions
-        across 14 distinct collection days, structured as two Scrum data-collection sprints
-        (Sprint 1: May 19–28 · Sprint 2: June 1–11), averaging 1–2 trips per collection day.
-      </div>
 
       {/* ── North-star operational KPIs ───────────────────────────────── */}
       <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
@@ -346,24 +327,6 @@ function Overview({ stats, trips, aggregate }) {
         <MetricCard label="Trips Analyzed"       value={summaries.length || stats?.total_trips || "—"}                    sub="For stop detection"  accent="#ffd60a" />
       </div>
 
-      {/* ── System Health KPIs ────────────────────────────────────────── */}
-      <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
-        System Health
-      </div>
-      <div className="admin-metrics">
-        <MetricCard label="Total Trips"        value={stats?.total_trips}                                 sub="All corridors"        accent="#42a5f5" />
-        <MetricCard label="GPS Logs"           value={stats?.total_logs?.toLocaleString()}                sub="Data points"          accent="#00b4d8" />
-        <MetricCard label="Avg GOOD Rate"      value={summaries.length ? `${allAvg.toFixed(1)}%` : "—"} sub="Across all trips"     accent="#30d158" />
-        <MetricCard label="High-Quality Trips" value={`${highQual}/${summaries.length}`}                 sub="≥ 88% GOOD threshold" accent="#ffd60a" />
-      </div>
-
-      {summaries.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-          <CorridorCard label="Malanday → Recto" avg={mrAvg} count={mrTrips.length} color="#42a5f5" />
-          <CorridorCard label="Recto → Malanday" avg={rmAvg} count={rmTrips.length} color="#00b4d8" />
-        </div>
-      )}
-
       {recent.length > 0 && (
         <div className="admin-card">
           <div className="admin-card-title">
@@ -394,19 +357,6 @@ function Overview({ stats, trips, aggregate }) {
         </div>
       )}
 
-      <div className="admin-card">
-        <div className="admin-card-title">System Health</div>
-        <div className="admin-health-grid">
-          {[["API Server (Railway)", "UP"], ["PostgreSQL 15 (Railway)", "UP"], ["PWA (Vercel)", "UP"]].map(([svc, st]) => (
-            <div key={svc} className="admin-health-row">
-              <span className="admin-health-dot" />
-              <span>{svc}</span>
-              <span className="admin-health-status">{st}</span>
-            </div>
-          ))}
-        </div>
-        <p className="admin-health-note">Backend · Railway · FastAPI + PostgreSQL 15 &nbsp;|&nbsp; Frontend · Vercel · React PWA</p>
-      </div>
     </div>
   );
 }
@@ -465,12 +415,6 @@ function TripsTab({ trips, aggregate, onDelete, onExport, onMap, exportingId, ex
             <option value="RECTO-MALANDAY">Recto → Malanday</option>
           </select>
           <span className="trips-count">{filtered.length} trip{filtered.length !== 1 ? "s" : ""}</span>
-        </div>
-
-        <div style={{ padding: "8px 20px 12px", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.38)" }}>
-            All GOOD-flagged logs from every completed trip are pooled into DBSCAN to detect passenger stop zones.
-          </span>
         </div>
 
         <div style={{ padding: "0 16px 8px" }}>
@@ -678,7 +622,7 @@ function AggregateTab({ aggregate, aggLoading, onMap }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       <div className="admin-metrics">
         <MetricCard label="Trips Analyzed"    value={aggregate.total_trips}                  sub="Completed trips"   accent="#42a5f5" />
-        <MetricCard label="Total GPS Logs"    value={aggregate.total_logs?.toLocaleString()} sub="Pooled for DBSCAN" accent="#00b4d8" />
+        <MetricCard label="Total GPS Logs"    value={aggregate.total_logs?.toLocaleString()} sub="Signal pings total" accent="#00b4d8" />
         <MetricCard label="Avg Load Factor"   value={`${aggregate.avg_load_factor_pct}%`}   sub="Across all trips"  accent={aggregate.avg_load_factor_pct > 100 ? "#ff453a" : "#30d158"} />
         <MetricCard label="Peak Period"       value={aggregate.peak_critical_period || "—"}  sub="Highest demand"    accent="#ff9f0a" />
       </div>
@@ -708,9 +652,10 @@ function AggregateTab({ aggregate, aggLoading, onMap }) {
             {(() => {
               const d = aggregate.demand_distribution;
               const max = Math.max(...Object.values(d), 1);
+              const TIER_LABEL = { Normal: "Low Demand", Moderate: "Medium Demand", High: "High Demand", Critical: "High Demand" };
               return Object.entries(d).map(([tier, count]) => (
                 <div key={tier} className="agg-bar-row">
-                  <span className="agg-bar-label" style={{ width: 80 }}>{tier}</span>
+                  <span className="agg-bar-label" style={{ width: 80 }}>{TIER_LABEL[tier] || tier}</span>
                   <div className="agg-bar-track">
                     <div className="agg-bar-fill" style={{ width: `${(count / max) * 100}%`, background: DEMAND_COLOR[tier] || "#42a5f5" }} />
                   </div>
@@ -758,7 +703,7 @@ function AggregateTab({ aggregate, aggLoading, onMap }) {
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead><tr>
-              <th>Trip ID</th><th>Date</th><th>Direction</th><th>Period</th><th>Logs</th><th>GOOD %</th><th>Load Factor</th><th style={{ width: 70 }}>Map</th>
+              <th>Trip ID</th><th>Date</th><th>Direction</th><th>Period</th><th>Pings</th><th>Signal Quality</th><th>Load Factor</th><th style={{ width: 70 }}>Map</th>
             </tr></thead>
             <tbody>
               {summaries.map(t => {
@@ -804,7 +749,7 @@ function AnalyticsTab({ aggregate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       <div className="admin-card">
-        <div className="admin-card-title">DBSCAN Pipeline Readiness</div>
+        <div className="admin-card-title">Stop Detection Readiness</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {[
             { label: "Malanday → Recto", good: mrGood,         color: "#42a5f5" },
@@ -952,8 +897,8 @@ export default function AdminDashboard() {
     overview:   "Overview",
     trips:      "Trips",
     conductors: "Conductors",
-    aggregate:  "Aggregate Dashboard",
-    analytics:  "Analytics",
+    aggregate:  "Corridor Analysis",
+    analytics:  "Research",
     stopzones:  "Stop Zones",
     zonemgmt:   "Zone Management",
   };
