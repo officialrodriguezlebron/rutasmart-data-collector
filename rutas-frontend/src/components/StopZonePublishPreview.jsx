@@ -130,8 +130,36 @@ function MapSyncer({ selfRef, otherRef, isSyncing }) {
   return null;
 }
 
+// ── Demand tier → admin label mapping ────────────────────────────────────
+const ADMIN_TIER = {
+  Critical: { label: "High Demand",   color: "#ff453a" },
+  High:     { label: "High Demand",   color: "#ff9f0a" },
+  Moderate: { label: "Medium Demand", color: "#ffd60a" },
+  Normal:   { label: "Low Demand",    color: "#30d158" },
+};
+
+// ── Confidence derived from point_count ───────────────────────────────────
+function stopConfidence(pointCount) {
+  if (pointCount >= 500) return { label: "High",   color: "#30d158" };
+  if (pointCount >= 150) return { label: "Medium", color: "#ffd60a" };
+  return { label: "Low",    color: "#ff453a" };
+}
+
+// ── Recommendation text ───────────────────────────────────────────────────
+function stopRecommendation(tier, pointCount) {
+  const { label: dl } = ADMIN_TIER[tier] || { label: "Low Demand" };
+  const conf = stopConfidence(pointCount).label;
+  if (dl === "High Demand"   && conf === "High")   return "Formalize as an official stop. Consider adding signage and passenger shelter.";
+  if (dl === "High Demand"   && conf === "Medium") return "High activity observed; consistent across multiple trips. Recommend formal stop placement.";
+  if (dl === "High Demand"   && conf === "Low")    return "High activity but inconsistent — recommend additional data collection before formalizing.";
+  if (dl === "Medium Demand" && conf === "High")   return "Monitor for formalization; demand is consistent but moderate.";
+  if (dl === "Medium Demand" && conf === "Medium") return "Moderate, consistent activity. Include in route planning review.";
+  if (dl === "Low Demand"    && conf === "High")   return "Low demand but consistently present. Keep on record for future review.";
+  return "Insufficient activity to recommend formal stop status at this time.";
+}
+
 // ── Mini map column ───────────────────────────────────────────────────────
-function MiniMap({ stops, color, selfRef, otherRef, isSyncing }) {
+function MiniMap({ stops, color, selfRef, otherRef, isSyncing, onSelectStop }) {
   return (
     <div style={{
       flex: 1, borderRadius: 10, overflow: "hidden",
@@ -157,21 +185,20 @@ function MiniMap({ stops, color, selfRef, otherRef, isSyncing }) {
           </CircleMarker>
         ))}
 
-        {/* Published / pending cluster stops — demand-colored, on top */}
+        {/* Published / pending cluster stops — demand-colored, clickable */}
         {stops.map((s, i) => {
           const la = sLat(s), lo = sLon(s);
           if (!la || !lo) return null;
-          const tc = DEMAND_COLORS[s.demand_tier] || color;
+          const tier = ADMIN_TIER[s.demand_tier] || { label: "Low Demand", color };
           return (
             <CircleMarker key={`s-${i}`} center={[la, lo]} radius={7}
-              pathOptions={{ color: "#fff", fillColor: tc, fillOpacity: 0.88, weight: 1.5 }}
+              pathOptions={{ color: "#fff", fillColor: tier.color, fillOpacity: 0.88, weight: 1.5 }}
+              eventHandlers={{ click: () => onSelectStop?.(s) }}
             >
-              <Tooltip direction="top">
-                {s.name && <><strong>{s.name}</strong><br /></>}
-                {s.demand_tier && (
-                  <span style={{ color: tc, fontWeight: 700 }}>{s.demand_tier}</span>
-                )}
-                {s.point_count != null && <> · {s.point_count} pts</>}
+              <Tooltip direction="top" permanent={false}>
+                <span style={{ color: tier.color, fontWeight: 700 }}>{tier.label}</span>
+                {s.peak_period && <> · {s.peak_period}</>}
+                {s.point_count != null && <><br />{s.point_count} activity pings</>}
               </Tooltip>
             </CircleMarker>
           );
@@ -223,8 +250,9 @@ export default function StopZonePublishPreview({
   const [returnReviewed,  setReturnReviewed]  = useState(false);
   const [countdown, setCountdown] = useState(3);
 
-  const [publishing, setPublishing] = useState(false);
-  const [toast, setToast] = useState(null);  // { msg, ok }
+  const [publishing,    setPublishing]    = useState(false);
+  const [toast,         setToast]         = useState(null);  // { msg, ok }
+  const [selectedStop,  setSelectedStop]  = useState(null);  // clicked stop detail
 
   const leftRef   = useRef(null);
   const rightRef  = useRef(null);
@@ -366,9 +394,11 @@ export default function StopZonePublishPreview({
           color: "rgba(255,255,255,0.50)",
         }}>
           {[
-            { color: "#8e8e93", label: "Ground Truth (70 stops)", fill: true },
-            { color: "#ffd60a", label: "DBSCAN Cluster (pending)", fill: true },
-            { color: "#30d158", label: "Published (by demand)", fill: true },
+            { color: "#8e8e93", label: "Ground Truth (70 stops)",          fill: true },
+            { color: "#ff453a", label: "High Demand Stop",                 fill: true },
+            { color: "#ffd60a", label: "Medium Demand Stop",               fill: true },
+            { color: "#30d158", label: "Low Demand Stop",                  fill: true },
+            { color: "#ffd60a", label: "Suggested Zone (pending review)",  fill: false },
           ].map(({ color, label, fill }) => (
             <span key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{
@@ -403,12 +433,17 @@ export default function StopZonePublishPreview({
                 <span className="szpp-col-title">Currently Published</span>
                 <span className="szpp-col-count">{cur.published.length} stops</span>
               </div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginBottom: 6, paddingLeft: 2 }}>
+                {direction === "MALANDAY-RECTO" ? "Malanday → Recto corridor" : "Recto → Malanday corridor"}
+              </div>
               <MiniMap
+                key={`${direction}-live`}
                 stops={cur.published}
                 color="#30d158"
                 selfRef={leftRef}
                 otherRef={rightRef}
                 isSyncing={isSyncing}
+                onSelectStop={setSelectedStop}
               />
               <div className="szpp-col-footer">
                 {diff.removed.length > 0 && (
@@ -444,25 +479,30 @@ export default function StopZonePublishPreview({
             <div className="szpp-col">
               <div className="szpp-col-head">
                 <span className="szpp-badge szpp-badge-pending">PENDING</span>
-                <span className="szpp-col-title">Newly Detected</span>
-                <span className="szpp-col-count">{cur.pending.length} clusters</span>
+                <span className="szpp-col-title">Suggested Stop Zones</span>
+                <span className="szpp-col-count">{cur.pending.length} zones</span>
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginBottom: 6, paddingLeft: 2 }}>
+                {direction === "MALANDAY-RECTO" ? "Malanday → Recto corridor" : "Recto → Malanday corridor"}
               </div>
               <MiniMap
+                key={`${direction}-pending`}
                 stops={cur.pending}
                 color="#ffd60a"
                 selfRef={rightRef}
                 otherRef={leftRef}
                 isSyncing={isSyncing}
+                onSelectStop={setSelectedStop}
               />
               <div className="szpp-col-footer">
                 {diff.added.length > 0 && (
                   <span style={{ color: "#30d158" }}>
-                    +{diff.added.length} new clusters
+                    +{diff.added.length} new zones
                   </span>
                 )}
                 {cur.pending.length === 0 && (
                   <span style={{ color: "rgba(255,255,255,0.35)" }}>
-                    No clusters detected yet
+                    No suggested zones yet
                   </span>
                 )}
               </div>
@@ -483,7 +523,7 @@ export default function StopZonePublishPreview({
         )}
         {!cur.loading && cur.pending.length === 0 && !cur.error && (
           <div className="szpp-banner szpp-banner-info">
-            ℹ️ No clusters detected for{" "}
+            ℹ️ No suggested stop zones detected for{" "}
             <strong>
               {direction === "MALANDAY-RECTO"
                 ? "Malanday → Recto"
@@ -492,6 +532,50 @@ export default function StopZonePublishPreview({
             . Ensure completed trips with GOOD GPS logs exist for this corridor.
           </div>
         )}
+
+        {/* ── Stop detail panel (appears when a marker is clicked) ─────── */}
+        {selectedStop && (() => {
+          const tier   = ADMIN_TIER[selectedStop.demand_tier] || { label: "Low Demand", color: "#8e9ab0" };
+          const conf   = stopConfidence(selectedStop.point_count ?? 0);
+          const rec    = stopRecommendation(selectedStop.demand_tier, selectedStop.point_count ?? 0);
+          return (
+            <div style={{
+              margin: "0 12px 12px", padding: "14px 16px",
+              background: "rgba(255,255,255,0.05)",
+              border: `1px solid ${tier.color}44`,
+              borderLeft: `3px solid ${tier.color}`,
+              borderRadius: 10, fontSize: 12, position: "relative",
+            }}>
+              <button
+                onClick={() => setSelectedStop(null)}
+                style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "rgba(255,255,255,0.35)", cursor: "pointer", fontSize: 15, lineHeight: 1 }}
+              >x</button>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <div style={{ flex: "1 1 200px" }}>
+                  <div style={{ fontWeight: 700, color: tier.color, marginBottom: 4 }}>{tier.label}</div>
+                  <div style={{ color: "rgba(255,255,255,0.55)", marginBottom: 2 }}>
+                    Peak period: <strong style={{ color: "rgba(255,255,255,0.80)" }}>{selectedStop.peak_period || "—"}</strong>
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.55)", marginBottom: 2 }}>
+                    Avg occupancy: <strong style={{ color: "rgba(255,255,255,0.80)" }}>{selectedStop.avg_occupancy != null ? `${selectedStop.avg_occupancy.toFixed(1)} pax` : "—"}</strong>
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.55)", marginBottom: 2 }}>
+                    Load factor: <strong style={{ color: "rgba(255,255,255,0.80)" }}>{selectedStop.load_factor_pct != null ? `${selectedStop.load_factor_pct.toFixed(1)}%` : "—"}</strong>
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Activity pings: <strong style={{ color: "rgba(255,255,255,0.80)" }}>{selectedStop.point_count?.toLocaleString() ?? "—"}</strong>
+                  </div>
+                </div>
+                <div style={{ flex: "1 1 220px" }}>
+                  <div style={{ color: "rgba(255,255,255,0.40)", marginBottom: 4, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.09em" }}>Confidence</div>
+                  <div style={{ color: conf.color, fontWeight: 700, marginBottom: 8 }}>{conf.label}</div>
+                  <div style={{ color: "rgba(255,255,255,0.40)", marginBottom: 4, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.09em" }}>Recommendation</div>
+                  <div style={{ color: "rgba(255,255,255,0.70)", lineHeight: 1.5 }}>{rec}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <div className="szpp-footer">

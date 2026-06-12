@@ -185,7 +185,7 @@ function PublishStopZonesPanel() {
         </button>
       </div>
       <p className="admin-card-desc">
-        GOOD-flagged logs from all completed trips are pooled into DBSCAN to detect stop zones for both corridors.
+        RutaSmart identifies high-demand passenger activity areas from collected GPS data and recommends stop zones for transport planners. Review both corridors before publishing to the passenger map.
       </p>
 
       {tripsLoading ? (
@@ -277,8 +277,41 @@ function Overview({ stats, trips, aggregate }) {
   const highQual  = summaries.filter(t => (t.good_pct || 0) >= 88).length;
   const recent    = [...trips].sort((a, b) => new Date(b.start_time) - new Date(a.start_time)).slice(0, 5);
 
+  const pubMR  = stats?.published_stops_mr  ?? 0;
+  const pubRM  = stats?.published_stops_rm  ?? 0;
+  const pubTot = stats?.published_stops_total ?? (pubMR + pubRM);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+
+      {/* ── Data collection narrative ──────────────────────────────────── */}
+      <div style={{
+        background: "rgba(66,165,245,0.08)", border: "1px solid rgba(66,165,245,0.20)",
+        borderRadius: 12, padding: "12px 16px", marginBottom: 18, fontSize: 12,
+        color: "rgba(255,255,255,0.60)", lineHeight: 1.6,
+      }}>
+        <span style={{ color: "#42a5f5", fontWeight: 700 }}>Field Dataset — </span>
+        A total of <strong style={{ color: "rgba(255,255,255,0.85)" }}>20 trip recordings</strong> collected across a
+        24-day field testing period (May 19 – June 11, 2026), covering both corridor directions
+        across 14 distinct collection days, structured as two Scrum data-collection sprints
+        (Sprint 1: May 19–28 · Sprint 2: June 1–11), averaging 1–2 trips per collection day.
+      </div>
+
+      {/* ── Operational KPIs ──────────────────────────────────────────── */}
+      <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
+        Stop Zone Intelligence
+      </div>
+      <div className="admin-metrics" style={{ marginBottom: 20 }}>
+        <MetricCard label="Published Stop Zones" value={pubTot > 0 ? pubTot : "—"} sub={pubTot > 0 ? `MR: ${pubMR} · RM: ${pubRM}` : "Not yet published"} accent="#30d158" />
+        <MetricCard label="Malanday → Recto"     value={pubMR > 0 ? `${pubMR} stops` : "—"} sub="Published corridor"   accent="#42a5f5" />
+        <MetricCard label="Recto → Malanday"     value={pubRM > 0 ? `${pubRM} stops` : "—"} sub="Published corridor"   accent="#00b4d8" />
+        <MetricCard label="Trips Analyzed"       value={summaries.length || stats?.total_trips || "—"}                    sub="For stop detection"  accent="#ffd60a" />
+      </div>
+
+      {/* ── System health KPIs ────────────────────────────────────────── */}
+      <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
+        System Health
+      </div>
       <div className="admin-metrics">
         <MetricCard label="Total Trips"        value={stats?.total_trips}                                 sub="All corridors"        accent="#42a5f5" />
         <MetricCard label="GPS Logs"           value={stats?.total_logs?.toLocaleString()}                sub="Data points"          accent="#00b4d8" />

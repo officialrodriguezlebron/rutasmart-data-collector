@@ -227,12 +227,27 @@ def get_system_stats(db: Session = Depends(get_db)):
         .filter(Trip.status == TripStatusEnum.ACTIVE)
         .distinct().all()
     )
+    published_mr = (
+        db.query(PublishedStopZone)
+        .filter(PublishedStopZone.route_id == "MR-001",
+                PublishedStopZone.direction == "MALANDAY-RECTO")
+        .count()
+    )
+    published_rm = (
+        db.query(PublishedStopZone)
+        .filter(PublishedStopZone.route_id == "MR-001",
+                PublishedStopZone.direction == "RECTO-MALANDAY")
+        .count()
+    )
     return {
-        "total_logs":   total_logs,
-        "total_trips":  total_trips,
-        "active_trips": active_trips,
-        "total_users":  total_users,
-        "active_jeeps": [j[0] for j in active_jeeps],
+        "total_logs":        total_logs,
+        "total_trips":       total_trips,
+        "active_trips":      active_trips,
+        "total_users":       total_users,
+        "active_jeeps":      [j[0] for j in active_jeeps],
+        "published_stops_mr": published_mr,
+        "published_stops_rm": published_rm,
+        "published_stops_total": published_mr + published_rm,
     }
 
 

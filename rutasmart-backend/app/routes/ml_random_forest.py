@@ -23,12 +23,11 @@ DO NOT modify or import anything from algorithms.py except GPSPoint and
 run_dbscan — existing Vanilla DBSCAN must remain untouched.
 """
 
-import csv
 import logging
 import math
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
@@ -81,32 +80,12 @@ def _ensure_ground_truth() -> None:
     global _gt_fwd_rad, _gt_ret_rad
     if _gt_fwd_rad is not None:
         return
-
-    def _read(path: Path) -> np.ndarray:
-        if not path.exists():
-            logger.warning("Ground truth CSV not found: %s", path)
-            return np.empty((0, 2), dtype=float)
-        rows: List[Tuple[float, float]] = []
-        try:
-            with open(path, newline="", encoding="utf-8") as fh:
-                for row in csv.DictReader(fh):
-                    try:
-                        lat = float(row["latitude"])
-                        lon = float(row["longitude"])
-                        if lat and lon:
-                            rows.append((lat, lon))
-                    except (KeyError, ValueError):
-                        continue
-        except OSError:
-            pass
-        return np.radians(np.array(rows, dtype=float)) if rows else np.empty((0, 2), dtype=float)
-
-    _gt_fwd_rad = _read(_DATA_DIR / "ground_truth_stops_forward.csv")
-    _gt_ret_rad = _read(_DATA_DIR / "ground_truth_stops_return.csv")
-    logger.info(
-        "Ground truth loaded: %d forward, %d return",
-        _gt_fwd_rad.shape[0], _gt_ret_rad.shape[0],
-    )
+    from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
+    coords = np.array([(lat, lon) for _, lat, lon in GROUND_TRUTH_STOPS], dtype=float)
+    rad = np.radians(coords)
+    _gt_fwd_rad = rad  # both directions use the same 70 physical stops
+    _gt_ret_rad = rad
+    logger.info("Ground truth loaded: %d stops (canonical list)", len(GROUND_TRUTH_STOPS))
 
 
 def _nearest_stop_dist(lat: float, lon: float, stops_rad: np.ndarray) -> float:
@@ -310,3 +289,57 @@ def run_ml_random_forest(body: RFRequest) -> RFResult:
         raise HTTPException(status_code=500, detail=f"Internal error: {exc}")
     finally:
         db.close()
+
+
+@router.get("/ml-status", tags=["ML-Random-Forest"])
+def get_ml_status() -> Dict[str, Any]:
+    """
+    Returns training status and key metrics for the Random Forest model.
+    Reads data/evaluation_report.txt for metrics; uses model file mtime
+    as the training timestamp.
+    """
+    _EVAL_REPORT = _BACKEND_ROOT / "data" / "evaluation_report.txt"
+    _FEAT_IMP    = _BACKEND_ROOT / "data" / "feature_importance.csv"
+
+    if not _MODEL_PATH.exists():
+        return {"trained": False, "message": "Model not yet trained. Run the ML pipeline first."}
+
+    trained_at = datetime.utcfromtimestamp(_MODEL_PATH.stat().st_mtime).isoformat() + "Z"
+
+    metrics: Dict[str, Any] = {}
+    if _EVAL_REPORT.exists():
+        try:
+            import re
+            text = _EVAL_REPORT.read_text(encoding="utf-8")
+            def _extract(pattern: str) -> Optional[str]:
+                m = re.search(pattern, text)
+                return m.group(1).strip() if m else None
+
+            metrics["accuracy_pct"]   = _extract(r"Accuracy\s*:\s*([\d.]+)%")
+            metrics["f1_weighted"]    = _extract(r"Weighted F1\s*:\s*([\d.]+)")
+            metrics["f1_stop"]        = _extract(r"Class 1 \(stop\).*?F1=([\d.]+)")
+            metrics["smote_applied"]  = "YES" in text
+            n_train = _extract(r"Training samples\s*:\s*([\d,]+)")
+            n_test  = _extract(r"Test samples\s*:\s*([\d,]+)")
+            metrics["training_samples"] = n_train
+            metrics["test_samples"]     = n_test
+        except Exception:
+            pass
+
+    feat_imp: List[Dict] = []
+    if _FEAT_IMP.exists():
+        try:
+            import csv as _csv
+            with open(_FEAT_IMP, newline="", encoding="utf-8") as fh:
+                for row in _csv.DictReader(fh):
+                    feat_imp.append({"feature": row["feature"], "importance": float(row["importance"])})
+        except Exception:
+            pass
+
+    return {
+        "trained":      True,
+        "trained_at":   trained_at,
+        "model_path":   str(_MODEL_PATH),
+        "metrics":      metrics,
+        "feature_importance": feat_imp,
+    }

@@ -1,0 +1,12 @@
+=== RUTASMART GPS LOG LABELING REPORT ===
+Generated  : 2026-06-12 11:12 UTC
+Dataset    : 20 trips (May 19 - Jun 11, 2026), canonical 70-stop GT list
+Threshold  : 50 m to nearest ground truth stop
+
+Total GPS logs       : 35,326
+Labeled stop (1)     : 13,263  (37.5%)
+Labeled not-stop (0) : 22,063  (62.5%)
+Class imbalance flag : NO (stop% 37.5% >> 10% threshold)
+SMOTE recommended    : NO
+
+Output: rutasmart-backend/data/labeled_gps_logs.csv
