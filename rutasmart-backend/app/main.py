@@ -218,6 +218,10 @@ def get_all_trips(db: Session = Depends(get_db)):
 @app.get("/admin/stats", tags=["Admin"])
 def get_system_stats(db: Session = Depends(get_db)):
     """Overview metrics for admin dashboard."""
+    from sqlalchemy import func as sqlfunc
+    from app.analytics.corridor import haversine_m
+    from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
+
     total_logs   = db.query(GPSLog).count()
     total_trips  = db.query(Trip).count()
     active_trips = db.query(Trip).filter(Trip.status == TripStatusEnum.ACTIVE).count()
@@ -239,15 +243,49 @@ def get_system_stats(db: Session = Depends(get_db)):
                 PublishedStopZone.direction == "RECTO-MALANDAY")
         .count()
     )
+    total_occ = db.query(sqlfunc.sum(GPSLog.occupancy_count)).scalar() or 0
+
+    def _stop_card(zone):
+        if not zone:
+            return None
+        z_lat, z_lon = float(zone.lat), float(zone.lon)
+        best_d, best_n = 50.0, None
+        for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
+            d = haversine_m(z_lat, z_lon, gt_lat, gt_lon)
+            if d < best_d:
+                best_d, best_n = d, name
+        return {
+            "name":        best_n or f"Cluster #{zone.cluster_id}",
+            "direction":   zone.direction,
+            "demand_tier": zone.demand_tier,
+            "point_count": zone.point_count,
+        }
+
+    most_active_zone = (
+        db.query(PublishedStopZone)
+        .filter(PublishedStopZone.route_id == "MR-001")
+        .order_by(PublishedStopZone.point_count.desc())
+        .first()
+    )
+    least_active_zone = (
+        db.query(PublishedStopZone)
+        .filter(PublishedStopZone.route_id == "MR-001")
+        .order_by(PublishedStopZone.point_count.asc())
+        .first()
+    )
+
     return {
-        "total_logs":        total_logs,
-        "total_trips":       total_trips,
-        "active_trips":      active_trips,
-        "total_users":       total_users,
-        "active_jeeps":      [j[0] for j in active_jeeps],
-        "published_stops_mr": published_mr,
-        "published_stops_rm": published_rm,
+        "total_logs":            total_logs,
+        "total_trips":           total_trips,
+        "active_trips":          active_trips,
+        "total_users":           total_users,
+        "active_jeeps":          [j[0] for j in active_jeeps],
+        "published_stops_mr":    published_mr,
+        "published_stops_rm":    published_rm,
         "published_stops_total": published_mr + published_rm,
+        "total_occupancy_sum":   int(total_occ),
+        "most_active_stop":      _stop_card(most_active_zone),
+        "least_active_stop":     _stop_card(least_active_zone),
     }
 
 

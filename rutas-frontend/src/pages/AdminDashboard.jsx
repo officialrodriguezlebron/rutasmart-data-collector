@@ -9,6 +9,7 @@ import {
 import { authService } from "../services/authService";
 import TripMap from "./TripMap";
 import StopZonePublishPreview from "../components/StopZonePublishPreview";
+import StopZoneManagement from "./StopZoneManagement";
 import "./AdminDashboard.css";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ const NAV = [
   { id: "aggregate",  label: "Aggregate"  },
   { id: "analytics",  label: "Analytics"  },
   { id: "stopzones",  label: "Stop Zones" },
+  { id: "zonemgmt",   label: "Zone Mgmt"  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -281,6 +283,11 @@ function Overview({ stats, trips, aggregate }) {
   const pubRM  = stats?.published_stops_rm  ?? 0;
   const pubTot = stats?.published_stops_total ?? (pubMR + pubRM);
 
+  const totalOcc    = stats?.total_occupancy_sum;
+  const utilRate    = aggregate?.avg_load_factor_pct;
+  const mostActive  = stats?.most_active_stop;
+  const leastActive = stats?.least_active_stop;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
 
@@ -297,7 +304,38 @@ function Overview({ stats, trips, aggregate }) {
         (Sprint 1: May 19–28 · Sprint 2: June 1–11), averaging 1–2 trips per collection day.
       </div>
 
-      {/* ── Operational KPIs ──────────────────────────────────────────── */}
+      {/* ── North-star operational KPIs ───────────────────────────────── */}
+      <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
+        Operations Overview
+      </div>
+      <div className="admin-metrics" style={{ marginBottom: 20 }}>
+        <MetricCard
+          label="Total Passengers"
+          value={totalOcc != null ? totalOcc.toLocaleString() : "—"}
+          sub="Total occupancy readings across all logs"
+          accent="#bf5af2"
+        />
+        <MetricCard
+          label="Utilization Rate"
+          value={utilRate != null ? `${utilRate.toFixed(1)}%` : "—"}
+          sub="Avg load factor across all trips"
+          accent={utilRate > 100 ? "#ff453a" : utilRate > 80 ? "#ff9f0a" : "#30d158"}
+        />
+        <MetricCard
+          label="Most Active Stop"
+          value={mostActive?.name ?? (pubTot > 0 ? "Matched to GT" : "—")}
+          sub={mostActive ? `${mostActive.demand_tier} · ${dirLabel(mostActive.direction)}` : "Publish zones to populate"}
+          accent="#ff9f0a"
+        />
+        <MetricCard
+          label="Least Active Stop"
+          value={leastActive?.name ?? (pubTot > 0 ? "Matched to GT" : "—")}
+          sub={leastActive ? `${leastActive.demand_tier} · ${dirLabel(leastActive.direction)}` : "Publish zones to populate"}
+          accent="#ffd60a"
+        />
+      </div>
+
+      {/* ── Stop Zone Intelligence ─────────────────────────────────────── */}
       <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
         Stop Zone Intelligence
       </div>
@@ -308,7 +346,7 @@ function Overview({ stats, trips, aggregate }) {
         <MetricCard label="Trips Analyzed"       value={summaries.length || stats?.total_trips || "—"}                    sub="For stop detection"  accent="#ffd60a" />
       </div>
 
-      {/* ── System health KPIs ────────────────────────────────────────── */}
+      {/* ── System Health KPIs ────────────────────────────────────────── */}
       <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
         System Health
       </div>
@@ -917,6 +955,7 @@ export default function AdminDashboard() {
     aggregate:  "Aggregate Dashboard",
     analytics:  "Analytics",
     stopzones:  "Stop Zones",
+    zonemgmt:   "Zone Management",
   };
 
   const renderPage = () => {
@@ -928,6 +967,7 @@ export default function AdminDashboard() {
       case "aggregate":  return <AggregateTab aggregate={aggregate} aggLoading={aggLoading} onMap={setMapTripId} />;
       case "analytics":  return <AnalyticsTab aggregate={aggregate} />;
       case "stopzones":  return <PublishStopZonesPanel />;
+      case "zonemgmt":   return <StopZoneManagement />;
       default:           return null;
     }
   };

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from app.database import get_db
@@ -9,7 +9,7 @@ from app.models.trip import Trip, TripStatusEnum
 from app.models.gps_log import GPSLog, GPSQualityEnum
 from app.models.published_stop_zone import PublishedStopZone
 from app.analytics.algorithms import GPSPoint, run_dbscan
-from app.analytics.corridor import match_to_corridor
+from app.analytics.corridor import match_to_corridor, haversine_m
 
 router = APIRouter()
 
@@ -439,6 +439,160 @@ def get_public_stop_zones(
             for z in zones
         ],
         "parameters": {"eps_m": 15.0, "min_samples": 10},
+    }
+
+
+# ── Admin: rule-based recommendations per published stop zone ─────────────
+
+@router.get("/stop-zones/recommendations", tags=["Admin"])
+def get_stop_zone_recommendations(
+    route_id:  str = Query("MR-001"),
+    direction: str = Query("MALANDAY-RECTO"),
+    db: Session = Depends(get_db),
+):
+    """
+    For each published stop zone in the given direction, returns:
+      - demand_tier  (High/Medium/Low — mapped from Critical/High/Moderate/Normal)
+      - confidence   (High/Medium/Low — trip-day coverage relative to total days)
+      - recommendation (rule-based text, no ML)
+      - nearest_gt_name (nearest ground-truth stop within 50 m)
+    Pure function — no writes.
+    """
+    from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
+
+    PHT_OFFSET = timedelta(hours=8)
+    MATCH_M    = 50.0     # haversine threshold for GT name match
+    COVER_M    = 50.0     # haversine threshold for trip-day coverage
+    LAT_TOL    = 0.00045  # bounding-box pre-filter ≈ 50 m in latitude
+    LON_TOL    = 0.00060  # bounding-box pre-filter ≈ 50 m in longitude at 14.6° N
+
+    if direction not in VALID_DIRECTIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"direction must be one of: {', '.join(VALID_DIRECTIONS)}"
+        )
+
+    zones = (
+        db.query(PublishedStopZone)
+        .filter(
+            PublishedStopZone.route_id  == route_id,
+            PublishedStopZone.direction == direction,
+        )
+        .order_by(PublishedStopZone.rank)
+        .all()
+    )
+
+    if not zones:
+        return {
+            "route_id":        route_id,
+            "direction":       direction,
+            "total_trip_days": 0,
+            "zones":           [],
+            "message":         "No published stop zones found for this direction.",
+        }
+
+    trips = _get_completed_trips(route_id, db, direction=direction)
+
+    # PHT date → [trip_id, ...]
+    trip_day_map: dict = {}
+    for trip in trips:
+        if trip.start_time:
+            pht_day = (trip.start_time + PHT_OFFSET).strftime("%Y-%m-%d")
+            trip_day_map.setdefault(pht_day, []).append(trip.trip_id)
+    total_trip_days = len(trip_day_map)
+
+    def _map_tier(raw: str) -> str:
+        if raw in ("Critical", "High"):
+            return "High"
+        if raw == "Moderate":
+            return "Medium"
+        return "Low"
+
+    def _nearest_gt(lat: float, lon: float) -> Optional[str]:
+        best_d, best_n = MATCH_M, None
+        for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
+            d = haversine_m(lat, lon, gt_lat, gt_lon)
+            if d < best_d:
+                best_d, best_n = d, name
+        return best_n
+
+    def _recommend(tier: str, conf: str, days: int) -> str:
+        if days < 3:
+            return "Insufficient data — continue monitoring"
+        if tier == "High" and conf == "High":
+            return "Consider formalizing this location"
+        if tier == "High" and conf == "Medium":
+            return "Showing consistent demand — prioritize for formalization review"
+        if tier == "High" and conf == "Low":
+            return "Monitor before formalizing — demand inconsistent across collection days"
+        if tier == "Low" and conf == "High":
+            return "Stop underutilized — consider consolidating with nearby stop"
+        return "Continue monitoring — moderate demand, not yet a formalization candidate"
+
+    result_zones = []
+    for zone in zones:
+        z_lat = float(zone.lat)
+        z_lon = float(zone.lon)
+
+        # Trip-day coverage — SQL bounding box pre-filter + exact Haversine
+        days_covered = 0
+        for _day, trip_ids in trip_day_map.items():
+            hit = False
+            for tid in trip_ids:
+                if hit:
+                    break
+                candidates = (
+                    db.query(GPSLog.latitude, GPSLog.longitude)
+                    .filter(
+                        GPSLog.trip_id == tid,
+                        GPSLog.gps_quality_flag.in_([GPSQualityEnum.GOOD, GPSQualityEnum.ACCEPTABLE]),
+                        GPSLog.latitude  >= z_lat - LAT_TOL,
+                        GPSLog.latitude  <= z_lat + LAT_TOL,
+                        GPSLog.longitude >= z_lon - LON_TOL,
+                        GPSLog.longitude <= z_lon + LON_TOL,
+                    )
+                    .limit(50)
+                    .all()
+                )
+                for cand_lat, cand_lon in candidates:
+                    if haversine_m(z_lat, z_lon, float(cand_lat), float(cand_lon)) <= COVER_M:
+                        hit = True
+                        break
+            if hit:
+                days_covered += 1
+
+        coverage_pct = (days_covered / total_trip_days * 100) if total_trip_days else 0.0
+        confidence   = "High" if coverage_pct >= 60 else "Medium" if coverage_pct >= 30 else "Low"
+        demand_tier  = _map_tier(zone.demand_tier or "Normal")
+        nearest_gt   = _nearest_gt(z_lat, z_lon)
+        name         = f"near {nearest_gt}" if nearest_gt else f"Cluster #{zone.cluster_id}"
+
+        result_zones.append({
+            "cluster_id":            zone.cluster_id,
+            "source":                "published",
+            "name":                  name,
+            "nearest_gt_name":       nearest_gt,
+            "centroid_lat":          round(z_lat, 7),
+            "centroid_lon":          round(z_lon, 7),
+            "demand_tier_raw":       zone.demand_tier,
+            "demand_tier":           demand_tier,
+            "trip_day_coverage":     days_covered,
+            "total_trip_days":       total_trip_days,
+            "trip_day_coverage_pct": round(coverage_pct, 1),
+            "confidence":            confidence,
+            "recommendation":        _recommend(demand_tier, confidence, days_covered),
+            "avg_occupancy":         float(zone.avg_occupancy or 0),
+            "peak_period":           zone.peak_period or "—",
+            "point_count":           int(zone.point_count),
+            "load_factor_pct":       float(zone.load_factor_pct or 0),
+            "rank":                  zone.rank,
+        })
+
+    return {
+        "route_id":        route_id,
+        "direction":       direction,
+        "total_trip_days": total_trip_days,
+        "zones":           result_zones,
     }
 
 

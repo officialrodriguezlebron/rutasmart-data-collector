@@ -55,4 +55,7 @@ export const getPublishedStops = (routeId, direction) =>
 export const getStopZonePreview = (routeId, direction) =>
   API.get(`/admin/route/${routeId}/preview-stops?direction=${encodeURIComponent(direction)}`);
 
+export const getStopZoneRecommendations = (routeId, direction) =>
+  API.get(`/stop-zones/recommendations?route_id=${encodeURIComponent(routeId)}&direction=${encodeURIComponent(direction)}`);
+
 export default API;
