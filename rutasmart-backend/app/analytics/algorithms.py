@@ -29,21 +29,9 @@ from dataclasses import dataclass, field
 
 # ── 1. Haversine Distance ─────────────────────────────────────────────────────
 
-EARTH_RADIUS_M = 6_371_000  # metres
+from app.analytics.corridor import haversine_m as haversine_distance  # noqa: E402
 
-
-def haversine_distance(lat1: float, lon1: float,
-                       lat2: float, lon2: float) -> float:
-    """
-    Great-circle distance in metres between two WGS-84 coordinates.
-    Used as the distance metric for DBSCAN so that epsilon is in real-world
-    metres rather than degrees (which vary with latitude).
-    """
-    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    return EARTH_RADIUS_M * 2 * math.asin(math.sqrt(a))
+EARTH_RADIUS_M = 6_371_000  # metres — kept; used for eps_rad conversions below
 
 
 # ── 2. Kalman Filter pre-smoothing (Stage 3.5 of pipeline) ────────────────────

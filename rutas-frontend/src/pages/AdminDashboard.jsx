@@ -194,6 +194,14 @@ function PublishStopZonesPanel() {
         <div style={{ fontSize: 13, color: "#c62828" }}>No completed trips found.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", padding: "2px 4px" }}>
+            GOOD %:&nbsp;
+            <span style={{ color: "#30d158", fontWeight: 700 }}>≥95% excellent</span>
+            {" · "}
+            <span style={{ color: "#ffd60a", fontWeight: 700 }}>≥70% normal</span>
+            {" · "}
+            <span style={{ color: "#ff453a", fontWeight: 700 }}>&lt;70% degraded</span>
+          </div>
           {sortedDates.map(date => (
             <div key={date}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
@@ -212,9 +220,10 @@ function PublishStopZonesPanel() {
                       {dirTrips.map(t => {
                         const pc = periodColorCard(t.dominant_period || t.time_period);
                         const gp = typeof t.good_pct === "number" ? t.good_pct : null;
+                        const gpColor = gp == null ? "rgba(255,255,255,0.38)" : gp >= 95 ? "#30d158" : gp >= 70 ? "#ffd60a" : "#ff453a";
                         return (
                           <div key={t.trip_id} style={{
-                            display: "grid", gridTemplateColumns: "64px 120px 1fr 80px 30px",
+                            display: "grid", gridTemplateColumns: "64px 120px 1fr 88px",
                             alignItems: "center", gap: 8,
                             background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "6px 12px",
                             border: "1px solid rgba(255,255,255,0.10)", fontSize: 12,
@@ -224,16 +233,8 @@ function PublishStopZonesPanel() {
                               {t.dominant_period || t.time_period || "—"}
                             </span>
                             <span style={{ color: "rgba(255,255,255,0.70)" }}>{t.log_count?.toLocaleString()} logs</span>
-                            <span style={{ fontWeight: 700, textAlign: "right", fontSize: 11,
-                              color: gp == null ? "rgba(255,255,255,0.38)" : gp >= 95 ? "#30d158" : gp >= 70 ? "#ffd60a" : "#ff453a" }}>
-                              {gp != null ? `${gp}% GOOD` : "—"}
-                            </span>
-                            <span style={{
-                              textAlign: "center", borderRadius: 5, padding: "2px 5px", fontSize: 10, fontWeight: 800,
-                              background: gp >= 95 ? "rgba(48,209,88,0.18)" : gp >= 70 ? "rgba(255,214,10,0.18)" : "rgba(255,69,58,0.16)",
-                              color:      gp >= 95 ? "#30d158"               : gp >= 70 ? "#ffd60a"               : "#ff453a",
-                            }}>
-                              {gp >= 95 ? "✓" : gp >= 70 ? "~" : "✗"}
+                            <span style={{ fontWeight: 700, textAlign: "right", fontSize: 12, color: gpColor }}>
+                              {gp != null ? `${gp.toFixed(1)}%` : "—"}
                             </span>
                           </div>
                         );

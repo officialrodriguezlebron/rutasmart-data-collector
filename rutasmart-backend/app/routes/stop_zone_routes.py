@@ -9,6 +9,7 @@ from app.models.trip import Trip, TripStatusEnum
 from app.models.gps_log import GPSLog, GPSQualityEnum
 from app.models.published_stop_zone import PublishedStopZone
 from app.analytics.algorithms import GPSPoint, run_dbscan
+from app.analytics.corridor import match_to_corridor
 
 router = APIRouter()
 
@@ -154,14 +155,17 @@ def publish_stop_zones(
     ).delete()
 
     for rank, c in enumerate(stop_clusters, start=1):
+        snapped_lat, snapped_lon, _ = match_to_corridor(
+            c.centroid_lat, c.centroid_lon, direction
+        )
         tier  = getattr(c, "demand_tier", "Normal")
         color = TIER_COLOR.get(tier, "#1565c0")
         db.add(PublishedStopZone(
             route_id        = route_id,
             direction       = direction,
             cluster_id      = int(c.cluster_id),
-            lat             = round(c.centroid_lat, 7),
-            lon             = round(c.centroid_lon, 7),
+            lat             = round(snapped_lat, 7),
+            lon             = round(snapped_lon, 7),
             point_count     = int(c.point_count),
             demand_tier     = tier,
             avg_occupancy   = round(c.avg_occupancy, 1),
@@ -280,8 +284,8 @@ def preview_stop_zones(
         "clusters": [
             {
                 "cluster_id":      int(c.cluster_id),
-                "centroid_lat":    round(c.centroid_lat, 7),
-                "centroid_lon":    round(c.centroid_lon, 7),
+                "centroid_lat":    round(snap[0], 7),
+                "centroid_lon":    round(snap[1], 7),
                 "point_count":     int(c.point_count),
                 "demand_tier":     getattr(c, "demand_tier", "Normal"),
                 "avg_occupancy":   round(getattr(c, "avg_occupancy", 0), 1),
@@ -290,6 +294,7 @@ def preview_stop_zones(
                 "color":           TIER_COLOR.get(getattr(c, "demand_tier", "Normal"), "#1565c0"),
             }
             for c in stop_clusters
+            for snap in (match_to_corridor(c.centroid_lat, c.centroid_lon, direction),)
         ],
     }
 

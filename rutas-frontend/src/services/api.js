@@ -46,16 +46,13 @@ export const importTripCSV = (file) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+  
+// ── Stop Zones ─────────────────────────────────────────────────────────────
+export const publishStopZones  = (routeId, direction) =>
+  API.post(`/admin/route/${routeId}/publish-stops?direction=${encodeURIComponent(direction)}`);
+export const getPublishedStops = (routeId, direction) =>
+  API.get(`/admin/route/${routeId}/published-stops?direction=${encodeURIComponent(direction)}`);
+export const getStopZonePreview = (routeId, direction) =>
+  API.get(`/admin/route/${routeId}/preview-stops?direction=${encodeURIComponent(direction)}`);
 
 export default API;
-
-// ── Stop Zones ──────────────────────────────────────────────────────────────
-// direction: "MALANDAY-RECTO" | "RECTO-MALANDAY"
-export const publishStopZones  = (routeId, direction) =>
-  API.post(`/admin/route/${routeId}/publish-stops?direction=${direction}`);
-export const getPublishedStops = (routeId, direction) =>
-  direction
-    ? API.get(`/admin/route/${routeId}/published-stops?direction=${direction}`)
-    : API.get(`/admin/route/${routeId}/published-stops`);
-export const getStopZonePreview = (routeId, direction) =>
-  API.get(`/admin/route/${routeId}/preview-stops?direction=${direction}`);

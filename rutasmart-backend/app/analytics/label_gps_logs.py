@@ -22,10 +22,6 @@ Features written:
 Usage:
     DATABASE_URL=<url> python -m app.analytics.label_gps_logs
 
-Inputs:
-    data/ground_truth_stops_forward.csv
-    data/ground_truth_stops_return.csv
-
 Output:
     data/labeled_gps_logs.csv
 """
@@ -37,16 +33,18 @@ import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
+
+from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
+from app.analytics.corridor import EARTH_RADIUS_M as _EARTH_RADIUS_M
 
 logger = logging.getLogger(__name__)
 
 _BACKEND_ROOT      = Path(__file__).resolve().parents[2]
 _DATA_DIR          = _BACKEND_ROOT / "data"
 _LABELED_CSV       = _DATA_DIR / "labeled_gps_logs.csv"
-_EARTH_RADIUS_M    = 6_371_000.0
 _LABEL_THRESHOLD_M = 50.0
 _PHT_OFFSET        = timedelta(hours=8)
 _SMOTE_THRESHOLD   = 0.10   # recommend SMOTE when stop% < 10%
@@ -69,43 +67,16 @@ def load_ground_truth() -> Tuple[
     Tuple[np.ndarray, List[str]],
 ]:
     """
-    Load forward and return ground truth stops from CSV files.
-
-    Returns two (coords_rad, names) tuples — one per direction.
-    coords_rad has shape (S, 2) in radians; names is the parallel name list.
-    Empty arrays if files are missing.
+    Build (coords_rad, names) arrays from the canonical GROUND_TRUTH_STOPS list
+    in cluster_evaluation.py.  Both directions use the same 70-stop list since
+    boarding/alighting occurs at the same physical locations on both corridors.
     """
-    def _read(path: Path) -> Tuple[np.ndarray, List[str]]:
-        if not path.exists():
-            logger.warning("Ground truth CSV not found: %s — run geocode_stops.py", path)
-            return np.empty((0, 2), dtype=float), []
-        rows_coords: List[Tuple[float, float]] = []
-        rows_names:  List[str] = []
-        try:
-            with open(path, newline="", encoding="utf-8") as fh:
-                for row in csv.DictReader(fh):
-                    try:
-                        lat  = float(row["latitude"])
-                        lon  = float(row["longitude"])
-                        name = row.get("name", "")
-                        if lat and lon:
-                            rows_coords.append((lat, lon))
-                            rows_names.append(name)
-                    except (KeyError, ValueError):
-                        continue
-        except OSError as exc:
-            logger.error("Cannot read %s: %s", path, exc)
-        if not rows_coords:
-            return np.empty((0, 2), dtype=float), []
-        return np.radians(np.array(rows_coords, dtype=float)), rows_names
-
-    fwd = _read(_DATA_DIR / "ground_truth_stops_forward.csv")
-    ret = _read(_DATA_DIR / "ground_truth_stops_return.csv")
-    logger.info(
-        "Ground truth loaded: %d forward stops, %d return stops",
-        fwd[0].shape[0], ret[0].shape[0],
-    )
-    return fwd, ret
+    coords = np.array([(lat, lon) for _, lat, lon in GROUND_TRUTH_STOPS], dtype=float)
+    names  = [name for name, _, _ in GROUND_TRUTH_STOPS]
+    coords_rad = np.radians(coords)
+    logger.info("Ground truth loaded: %d stops (canonical list)", len(names))
+    shared = (coords_rad, names)
+    return shared, shared
 
 
 # ── Vectorised Haversine ──────────────────────────────────────────────────────
@@ -155,11 +126,8 @@ def label_logs() -> Tuple[int, int, int, bool]:
         )
 
     (fwd_rad, fwd_names), (ret_rad, ret_names) = load_ground_truth()
-    if fwd_rad.shape[0] == 0 and ret_rad.shape[0] == 0:
-        raise RuntimeError(
-            "No ground truth stops loaded — run geocode_stops.py first "
-            "or manually populate data/ground_truth_stops_*.csv."
-        )
+    if fwd_rad.shape[0] == 0:
+        raise RuntimeError("GROUND_TRUTH_STOPS is empty — check cluster_evaluation.py")
 
     try:
         from app.database import SessionLocal

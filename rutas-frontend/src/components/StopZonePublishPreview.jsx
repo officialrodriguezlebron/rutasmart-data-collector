@@ -35,6 +35,45 @@ const DEMAND_COLORS = {
   Critical: "#ff453a",
 };
 
+// Ground truth stops — 70 field-verified stops (mirrors cluster_evaluation.py::GROUND_TRUTH_STOPS)
+const GT_STOPS = [
+  [14.7187,120.957,"MacArthur / Woodlands Drive"],[14.7183,120.957,"MacArthur / Del Pilar, Malanday"],
+  [14.718,120.957,"Malanday Terminal"],[14.7173,120.957,"Mercury Drug Malanday"],
+  [14.7155,120.958,"Marisyl School"],[14.7122,120.959,"MacArthur Hwy, Dalandanan"],
+  [14.7093,120.96,"MacArthur / Santiago Road"],[14.7085,120.96,"Ign Pharmacy"],
+  [14.7041,120.961,"Dalandanan Fire Sub-Station"],[14.7036,120.962,"Dalandanan Health Centre"],
+  [14.7022,120.962,"Santos Encarnacion Elem"],[14.7013,120.962,"Iglesia ni Cristo"],
+  [14.6988,120.963,"Galdrine Industrial Corp"],[14.697,120.964,"MacArthur / San Miguel"],
+  [14.6956,120.964,"Parish Church San Isidro"],[14.6929,120.964,"Jollibee Malinta"],
+  [14.6925,120.965,"Malinta Elementary School"],[14.6928,120.966,"MacArthur / Maysan Road"],
+  [14.6928,120.969,"Flying V Gas"],[14.6922,120.971,"South Supermarket"],
+  [14.6911,120.973,"Bureau of Telecom Training Institute"],[14.6899,120.974,"Karuhatan Public Market"],
+  [14.6886,120.975,"Macro LPG"],[14.6877,120.975,"MacArthur / San Francisco"],
+  [14.6862,120.976,"SM Center Valenzuela"],[14.6852,120.977,"MacArthur / Cayetano"],
+  [14.6837,120.978,"Novo Dep. Store"],[14.6815,120.979,"Bread of Life"],
+  [14.6779,120.98,"OLFU / Fatima University"],[14.6749,120.981,"Bearsea Auto Supply"],
+  [14.6732,120.982,"Calalang General Hospital"],[14.67,120.982,"CDC Manufacturing"],
+  [14.6677,120.982,"MacArthur / Del Monte"],[14.665,120.984,"Malabon / Victoneta Ave"],
+  [14.663,120.984,"Potrero Heights Elem School"],[14.6617,120.984,"MacArthur / Lanzones"],
+  [14.6601,120.984,"Floresco North Mortuary"],[14.6576,120.984,"Bonifacio Market"],
+  [14.6571,120.984,"Araneta Square Mall"],[14.6564,120.984,"Monumento"],
+  [14.6556,120.984,"Ever Gotesco Grand Central"],[14.6538,120.984,"McDonalds Rizal Ave"],
+  [14.6516,120.984,"Rizal Ave / Asistio"],[14.6488,120.984,"Rizal Ave / 8th Ave West"],
+  [14.6462,120.984,"Asia Trust Bank"],[14.6445,120.984,"CR3 / M.H. Del Pilar"],
+  [14.6412,120.984,"Banco De Oro Rizal Ave"],[14.64,120.984,"Baliwag Transit Bus Station"],
+  [14.6374,120.983,"Rizal Ave / Road 1"],[14.6362,120.982,"LRT R. Papa Station"],
+  [14.6334,120.981,"P. Sevilla / 2nd Ave West"],[14.632,120.981,"Rizal Ave / Jose Abad Santos"],
+  [14.6304,120.98,"Jose Abad Santos / Morong"],[14.629,120.979,"Jose Abad Santos / Corregidor"],
+  [14.6275,120.979,"Jose Abad Santos Ave"],[14.6257,120.979,"Jose Abad Santos / T. Bugallon"],
+  [14.6256,120.98,"T. Bugallon Street"],[14.6243,120.981,"T. Bugallon / Cavite"],
+  [14.623,120.982,"T. Mapua / New Antipolo"],[14.6219,120.982,"T. Mapua / Laguna"],
+  [14.6206,120.982,"Tomas Mapua / Batangas"],[14.6147,120.985,"Felix Huertas Manila"],
+  [14.613,120.984,"Quiricada / Felix Huertas"],[14.6115,120.984,"Felix Huertas 2"],
+  [14.6092,120.984,"Felix Huertas 3"],[14.6076,120.984,"Sulu Manila"],
+  [14.6073,120.986,"Quezon Blvd / P. Paredes"],[14.6048,120.985,"España Blvd / Quezon Blvd"],
+  [14.6031,120.985,"Claro M. Recto Ave / Quezon Blvd"],[14.6037,120.983,"Recto LRT"],
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 function haversineM(a, b) {
   const R = 6_371_000, rad = d => d * Math.PI / 180;
@@ -106,12 +145,25 @@ function MiniMap({ stops, color, selfRef, otherRef, isSyncing }) {
       >
         <TileLayer attribution={ATTR_DARK} url={TILE_DARK} />
         <MapSyncer selfRef={selfRef} otherRef={otherRef} isSyncing={isSyncing} />
+
+        {/* Ground truth stops — gray outline, always rendered for alignment reference */}
+        {GT_STOPS.map(([la, lo, name], i) => (
+          <CircleMarker key={`gt-${i}`} center={[la, lo]} radius={4}
+            pathOptions={{ color: "#8e8e93", fillColor: "#8e8e93", fillOpacity: 0.55, weight: 1 }}
+          >
+            <Tooltip direction="top" sticky>
+              <span style={{ fontSize: 11 }}>{name}</span>
+            </Tooltip>
+          </CircleMarker>
+        ))}
+
+        {/* Published / pending cluster stops — demand-colored, on top */}
         {stops.map((s, i) => {
           const la = sLat(s), lo = sLon(s);
           if (!la || !lo) return null;
           const tc = DEMAND_COLORS[s.demand_tier] || color;
           return (
-            <CircleMarker key={i} center={[la, lo]} radius={7}
+            <CircleMarker key={`s-${i}`} center={[la, lo]} radius={7}
               pathOptions={{ color: "#fff", fillColor: tc, fillOpacity: 0.88, weight: 1.5 }}
             >
               <Tooltip direction="top">
@@ -303,6 +355,33 @@ export default function StopZonePublishPreview({
           })}
           <span style={{ marginLeft: "auto", fontSize: 11, color: "rgba(255,255,255,0.30)" }}>
             Review each direction for 3 s to unlock publish
+          </span>
+        </div>
+
+        {/* ── Point-type legend ───────────────────────────────────────── */}
+        <div style={{
+          display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap",
+          padding: "5px 12px", background: "rgba(0,0,0,0.25)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 11,
+          color: "rgba(255,255,255,0.50)",
+        }}>
+          {[
+            { color: "#8e8e93", label: "Ground Truth (70 stops)", fill: true },
+            { color: "#ffd60a", label: "DBSCAN Cluster (pending)", fill: true },
+            { color: "#30d158", label: "Published (by demand)", fill: true },
+          ].map(({ color, label, fill }) => (
+            <span key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{
+                width: 9, height: 9, borderRadius: "50%", flexShrink: 0,
+                background: fill ? color : "transparent",
+                border: `1.5px solid ${color}`,
+                display: "inline-block",
+              }} />
+              {label}
+            </span>
+          ))}
+          <span style={{ marginLeft: "auto", color: "rgba(255,255,255,0.25)" }}>
+            Raw GPS not shown
           </span>
         </div>
 

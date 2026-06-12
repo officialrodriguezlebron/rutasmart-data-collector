@@ -27,10 +27,10 @@ Typical usage
     python -m app.analytics.stop_validator
 """
 
-import math
 from typing import Any, Dict, List, Optional, Tuple
 
-EARTH_RADIUS_M    = 6_371_000
+from app.analytics.corridor import haversine_m
+
 MATCH_THRESHOLD_M = 50.0   # metres — centroid must be within this to count as TP
 
 # Import ground truth from the existing evaluation module (read-only — not modified)
@@ -40,28 +40,6 @@ except ImportError:
     # Allows the module to be imported in environments where the full app
     # package is unavailable; caller must supply ground_truth explicitly.
     GROUND_TRUTH_STOPS: List[Tuple[str, float, float]] = []
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Haversine — no external library dependency
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Great-circle distance in metres between two WGS-84 coordinates.
-
-    Uses the same formula as haversine_distance() in algorithms.py —
-    reproduced here so stop_validator.py has zero internal imports
-    and can be run standalone.
-    """
-    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-    return EARTH_RADIUS_M * 2 * math.asin(math.sqrt(a))
 
 
 def _nearest_stop(
@@ -77,7 +55,7 @@ def _nearest_stop(
     best_name = best_lat = best_lon = ""
     best_dist = float("inf")
     for name, gt_lat, gt_lon in ground_truth:
-        d = _haversine_m(clat, clon, gt_lat, gt_lon)
+        d = haversine_m(clat, clon, gt_lat, gt_lon)
         if d < best_dist:
             best_name, best_lat, best_lon, best_dist = name, gt_lat, gt_lon, d
     return best_name, best_lat, best_lon, best_dist   # type: ignore[return-value]
