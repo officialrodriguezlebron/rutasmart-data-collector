@@ -21,6 +21,8 @@ import AdminStopZones   from "./pages/admin/AdminStopZones";
 import AdminResearch    from "./pages/admin/AdminResearch";
 import AdminPipeline    from "./pages/admin/AdminPipeline";
 import AdminSensitivity from "./pages/admin/AdminSensitivity";
+import AdminEvaluate    from "./pages/admin/AdminEvaluate";
+import AdminOverlap     from "./pages/admin/AdminOverlap";
 import AdminConductors  from "./pages/admin/AdminConductors";
 
 // Must be logged in
@@ -83,6 +85,8 @@ export default function App() {
           <Route path="research"     element={<AdminResearch />} />
           <Route path="pipeline"     element={<AdminPipeline />} />
           <Route path="sensitivity"  element={<AdminSensitivity />} />
+          <Route path="evaluate"     element={<AdminEvaluate />} />
+          <Route path="overlap"      element={<AdminOverlap />} />
           <Route path="conductors"   element={<AdminConductors />} />
         </Route>
 
