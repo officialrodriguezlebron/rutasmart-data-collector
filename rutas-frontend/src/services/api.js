@@ -66,4 +66,8 @@ export const runMlRandomForest = (body) => API.post("/api/clusters/ml-random-for
 export const runMergedCompare = (tripIds, epsM = 50, minSamples = 5) =>
   API.get(`/analytics/merged/compare?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minSamples}`);
 
+// ── Per-trip research endpoints ──────────────────────────────────────────────
+export const getTripPipeline    = (tripId) => API.get(`/analytics/${encodeURIComponent(tripId)}/pipeline`);
+export const getTripSensitivity = (tripId) => API.get(`/analytics/${encodeURIComponent(tripId)}/sensitivity`);
+
 export default API;

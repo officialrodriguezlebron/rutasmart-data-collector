@@ -19,6 +19,8 @@ import AdminCorridors   from "./pages/admin/AdminCorridors";
 import AdminZoneMgmt    from "./pages/admin/AdminZoneMgmt";
 import AdminStopZones   from "./pages/admin/AdminStopZones";
 import AdminResearch    from "./pages/admin/AdminResearch";
+import AdminPipeline    from "./pages/admin/AdminPipeline";
+import AdminSensitivity from "./pages/admin/AdminSensitivity";
 import AdminConductors  from "./pages/admin/AdminConductors";
 
 // Must be logged in
@@ -77,9 +79,11 @@ export default function App() {
           <Route path="trips"      element={<AdminTrips />} />
           <Route path="corridors"  element={<AdminCorridors />} />
           <Route path="zones"      element={<AdminZoneMgmt />} />
-          <Route path="stop-zones" element={<AdminStopZones />} />
-          <Route path="research"   element={<AdminResearch />} />
-          <Route path="conductors" element={<AdminConductors />} />
+          <Route path="stop-zones"   element={<AdminStopZones />} />
+          <Route path="research"     element={<AdminResearch />} />
+          <Route path="pipeline"     element={<AdminPipeline />} />
+          <Route path="sensitivity"  element={<AdminSensitivity />} />
+          <Route path="conductors"   element={<AdminConductors />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
