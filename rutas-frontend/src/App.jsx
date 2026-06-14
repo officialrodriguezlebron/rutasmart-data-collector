@@ -11,7 +11,15 @@ import Recording        from "./pages/Recording";
 import TripSummary      from "./pages/TripSummary";
 import SavedTrips       from "./pages/SavedTrips";
 import AnalyticsEngine  from "./pages/AnalyticsEngine";
-import AdminDashboard   from "./pages/AdminDashboard";
+import AdminShell       from "./pages/admin/AdminShell";
+import AdminOverview    from "./pages/admin/AdminOverview";
+import AdminMap         from "./pages/admin/AdminMap";
+import AdminTrips       from "./pages/admin/AdminTrips";
+import AdminCorridors   from "./pages/admin/AdminCorridors";
+import AdminZoneMgmt    from "./pages/admin/AdminZoneMgmt";
+import AdminStopZones   from "./pages/admin/AdminStopZones";
+import AdminResearch    from "./pages/admin/AdminResearch";
+import AdminConductors  from "./pages/admin/AdminConductors";
 
 // Must be logged in
 function RequireAuth({ children }) {
@@ -62,7 +70,17 @@ export default function App() {
         <Route path="/analytics" element={<RequireAuth><AnalyticsEngine /></RequireAuth>} />
 
         {/* Admin panel — Admin only, Analyst never sees this */}
-        <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+        <Route path="/admin" element={<RequireAdmin><AdminShell /></RequireAdmin>}>
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview"   element={<AdminOverview />} />
+          <Route path="map"        element={<AdminMap />} />
+          <Route path="trips"      element={<AdminTrips />} />
+          <Route path="corridors"  element={<AdminCorridors />} />
+          <Route path="zones"      element={<AdminZoneMgmt />} />
+          <Route path="stop-zones" element={<AdminStopZones />} />
+          <Route path="research"   element={<AdminResearch />} />
+          <Route path="conductors" element={<AdminConductors />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
