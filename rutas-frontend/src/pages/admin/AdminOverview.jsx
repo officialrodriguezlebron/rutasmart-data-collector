@@ -3,13 +3,57 @@ import { getAdminStats, getAdminTrips, getAggregateDashboard } from "../../servi
 import { statusColor, dirLabel, phtDateStr } from "../../utils/adminFormatters";
 import "../AdminDashboard.css";
 
-function MetricCard({ label, value, sub, accent }) {
+// ── Inline SVG sparkline (no deps) ────────────────────────────────────────────
+function Sparkline({ values, color }) {
+  if (!values || values.length < 2) return null;
+  const max = Math.max(...values, 1);
+  const pts = values.map((v, i) =>
+    `${(i / Math.max(values.length - 1, 1)) * 56},${18 - (v / max) * 16}`
+  ).join(" ");
+  return (
+    <svg width="56" height="20" style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"
+        strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ── Metric card with optional sparkline ───────────────────────────────────────
+function MetricCard({ label, value, sub, accent, sparkValues, sparkColor }) {
   return (
     <div className="admin-metric-card">
       {accent && <div className="admin-metric-accent" style={{ background: accent }} />}
       <div className="admin-metric-label">{label}</div>
       <div className="admin-metric-value" style={{ color: accent || "white" }}>{value ?? "—"}</div>
       {sub && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginTop: 6 }}>{sub}</div>}
+      {sparkValues && <Sparkline values={sparkValues} color={sparkColor || accent || "white"} />}
+    </div>
+  );
+}
+
+// ── Donut progress ring ───────────────────────────────────────────────────────
+function DonutRing({ count, total = 70, color, label, sub }) {
+  const r = 26;
+  const cx = 40; const cy = 40;
+  const circumference = 2 * Math.PI * r;
+  const safeCount = Math.min(count || 0, total);
+  const dash = (safeCount / total) * circumference;
+  return (
+    <div className="admin-metric-card" style={{ alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+      <svg width={80} height={80} style={{ marginBottom: 6 }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={8} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={8}
+          strokeDasharray={`${dash} ${circumference - dash}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle"
+          fill="white" fontSize={13} fontWeight={800} fontFamily="var(--font)">
+          {safeCount}
+        </text>
+      </svg>
+      <div className="admin-metric-label" style={{ textAlign: "center" }}>{label}</div>
+      {sub && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", marginTop: 4, textAlign: "center" }}>{sub}</div>}
     </div>
   );
 }
@@ -42,6 +86,24 @@ export default function AdminOverview() {
   const mostActive  = stats?.most_active_stop;
   const leastActive = stats?.least_active_stop;
 
+  // ── Sparkline data (last 7 trip-days) ─────────────────────────────────────
+  const byDate = {};
+  for (const t of summaries) {
+    const d = t.date || "unknown";
+    if (!byDate[d]) byDate[d] = { logs: 0, loadFactors: [] };
+    byDate[d].logs += t.log_count || 0;
+    if (t.avg_load_factor_pct != null) byDate[d].loadFactors.push(t.avg_load_factor_pct);
+  }
+  const last7Dates     = Object.keys(byDate).sort().slice(-7);
+  const passSparkVals  = last7Dates.map(d => byDate[d].logs);
+  const utilSparkVals  = last7Dates.map(d => {
+    const lf = byDate[d].loadFactors;
+    return lf.length ? lf.reduce((s, v) => s + v, 0) / lf.length : 0;
+  });
+  const avgUtil = utilSparkVals.length
+    ? utilSparkVals.reduce((s, v) => s + v, 0) / utilSparkVals.length : 0;
+  const utilSparkColor = avgUtil > 100 ? "#ff453a" : avgUtil > 80 ? "#ff9f0a" : "#30d158";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       <div className="admin-topbar">
@@ -53,6 +115,7 @@ export default function AdminOverview() {
         <div className="admin-loading">Loading…</div>
       ) : (
         <>
+          {/* ── North-star operational KPIs ────────────────────────────── */}
           <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
             Operations Overview
           </div>
@@ -62,12 +125,16 @@ export default function AdminOverview() {
               value={totalOcc != null ? totalOcc.toLocaleString() : "—"}
               sub="Total occupancy readings across all logs"
               accent="#bf5af2"
+              sparkValues={passSparkVals.length >= 2 ? passSparkVals : null}
+              sparkColor="#bf5af2"
             />
             <MetricCard
               label="Utilization Rate"
               value={utilRate != null ? `${utilRate.toFixed(1)}%` : "—"}
               sub="Avg load factor across all trips"
               accent={utilRate > 100 ? "#ff453a" : utilRate > 80 ? "#ff9f0a" : "#30d158"}
+              sparkValues={utilSparkVals.length >= 2 ? utilSparkVals : null}
+              sparkColor={utilSparkColor}
             />
             <MetricCard
               label="Most Active Stop"
@@ -83,16 +150,40 @@ export default function AdminOverview() {
             />
           </div>
 
+          {/* ── Stop Zone Intelligence (2 donut rings + 2 flat cards) ──── */}
           <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
             Stop Zone Intelligence
           </div>
           <div className="admin-metrics" style={{ marginBottom: 20 }}>
-            <MetricCard label="Published Stop Zones" value={pubTot > 0 ? pubTot : "—"} sub={pubTot > 0 ? `MR: ${pubMR} · RM: ${pubRM}` : "Not yet published"} accent="#30d158" />
-            <MetricCard label="Malanday → Recto"     value={pubMR > 0 ? `${pubMR} stops` : "—"} sub="Published corridor"   accent="#42a5f5" />
-            <MetricCard label="Recto → Malanday"     value={pubRM > 0 ? `${pubRM} stops` : "—"} sub="Published corridor"   accent="#00b4d8" />
-            <MetricCard label="Trips Analyzed"       value={summaries.length || stats?.total_trips || "—"}                    sub="For stop detection"  accent="#ffd60a" />
+            <DonutRing
+              count={pubMR}
+              total={70}
+              color="#42a5f5"
+              label="Malanday → Recto"
+              sub={`${pubMR} of 70 GT stops covered`}
+            />
+            <DonutRing
+              count={pubRM}
+              total={70}
+              color="#00b4d8"
+              label="Recto → Malanday"
+              sub={`${pubRM} of 70 GT stops covered`}
+            />
+            <MetricCard
+              label="Published Stop Zones"
+              value={pubTot > 0 ? pubTot : "—"}
+              sub={pubTot > 0 ? `MR: ${pubMR} · RM: ${pubRM}` : "Not yet published"}
+              accent="#30d158"
+            />
+            <MetricCard
+              label="Trips Analyzed"
+              value={summaries.length || stats?.total_trips || "—"}
+              sub="For stop detection"
+              accent="#ffd60a"
+            />
           </div>
 
+          {/* ── Recent Trips ──────────────────────────────────────────────── */}
           {recent.length > 0 && (
             <div className="admin-card">
               <div className="admin-card-title">

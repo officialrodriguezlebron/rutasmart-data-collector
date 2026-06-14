@@ -16,6 +16,70 @@ function MetricCard({ label, value, sub, accent }) {
   );
 }
 
+// ── Horizontal stacked bar (all periods in one row) ───────────────────────────
+function StackedBar({ distribution, colorMap }) {
+  const total = Object.values(distribution).reduce((s, c) => s + c, 0) || 1;
+  return (
+    <div>
+      <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden", marginBottom: 10 }}>
+        {Object.entries(distribution).map(([period, count]) => (
+          <div key={period}
+            style={{ width: `${(count / total) * 100}%`, background: colorMap[period] || "#8e9ab0", minWidth: count > 0 ? 2 : 0 }}
+            title={`${period}: ${count}`}
+          />
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        {Object.entries(distribution).map(([period, count]) => (
+          <div key={period} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: colorMap[period] || "#8e9ab0", flexShrink: 0 }} />
+            <span style={{ color: "rgba(255,255,255,0.55)" }}>{period}</span>
+            <span style={{ color: colorMap[period] || "#8e9ab0", fontWeight: 700 }}>{count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── SVG donut chart ───────────────────────────────────────────────────────────
+function DonutChart({ segments, size = 80 }) {
+  const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
+  const r = 28; const cx = size / 2; const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  let accumulated = 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <svg width={size} height={size} style={{ flexShrink: 0 }}>
+        {segments.map(seg => {
+          const dash    = (seg.value / total) * circumference;
+          const offset  = accumulated;
+          accumulated  += dash;
+          return (
+            <circle key={seg.label} cx={cx} cy={cy} r={r}
+              fill="none" stroke={seg.color} strokeWidth={12}
+              strokeDasharray={`${dash} ${circumference - dash}`}
+              strokeDashoffset={-offset}
+              transform={`rotate(-90 ${cx} ${cy})`}
+            />
+          );
+        })}
+        {/* Donut hole */}
+        <circle cx={cx} cy={cy} r={20} fill="#05101f" />
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {segments.map(seg => (
+          <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
+            <span style={{ color: "rgba(255,255,255,0.55)" }}>{seg.label}</span>
+            <span style={{ color: seg.color, fontWeight: 700, fontFamily: "var(--mono)" }}>{seg.value.toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminCorridors() {
   const [aggregate,  setAggregate]  = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -32,6 +96,22 @@ export default function AdminCorridors() {
   useEffect(() => { load(); }, []);
 
   const summaries = aggregate?.trip_summaries || [];
+
+  // Build demand distribution segments (merge Critical→High, Moderate→Medium, Normal→Low)
+  const demandSegments = (() => {
+    if (!aggregate?.demand_distribution) return [];
+    const d = aggregate.demand_distribution;
+    const merged = {
+      "High Demand":   (d.High || 0) + (d.Critical || 0),
+      "Medium Demand": d.Moderate || 0,
+      "Low Demand":    d.Normal   || 0,
+    };
+    return [
+      { label: "High Demand",   value: merged["High Demand"],   color: "#ff453a" },
+      { label: "Medium Demand", value: merged["Medium Demand"], color: "#ffd60a" },
+      { label: "Low Demand",    value: merged["Low Demand"],    color: "#30d158" },
+    ].filter(s => s.value > 0);
+  })();
 
   return (
     <>
@@ -55,45 +135,23 @@ export default function AdminCorridors() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
+              {/* Stacked bar replaces individual time period bars */}
               {aggregate.time_distribution && (
                 <div className="admin-card">
                   <div className="admin-card-title">Trips by Time Period</div>
-                  {(() => {
-                    const d = aggregate.time_distribution;
-                    const max = Math.max(...Object.values(d), 1);
-                    return Object.entries(d).map(([p, count]) => (
-                      <div key={p} className="agg-bar-row">
-                        <span className="agg-bar-label">{p}</span>
-                        <div className="agg-bar-track">
-                          <div className="agg-bar-fill" style={{ width: `${(count / max) * 100}%`, background: PERIOD_COLOR[p] || "#42a5f5" }} />
-                        </div>
-                        <span style={{ width: 20, textAlign: "right", fontWeight: 700, color: "#374151", fontSize: 13 }}>{count}</span>
-                      </div>
-                    ));
-                  })()}
+                  <StackedBar distribution={aggregate.time_distribution} colorMap={PERIOD_COLOR} />
                 </div>
               )}
-              {aggregate.demand_distribution && (
+              {/* Donut replaces demand distribution bars */}
+              {demandSegments.length > 0 && (
                 <div className="admin-card">
                   <div className="admin-card-title">Demand Distribution</div>
-                  {(() => {
-                    const d = aggregate.demand_distribution;
-                    const max = Math.max(...Object.values(d), 1);
-                    const TIER_LABEL = { Normal: "Low Demand", Moderate: "Medium Demand", High: "High Demand", Critical: "High Demand" };
-                    return Object.entries(d).map(([tier, count]) => (
-                      <div key={tier} className="agg-bar-row">
-                        <span className="agg-bar-label" style={{ width: 80 }}>{TIER_LABEL[tier] || tier}</span>
-                        <div className="agg-bar-track">
-                          <div className="agg-bar-fill" style={{ width: `${(count / max) * 100}%`, background: DEMAND_COLOR[tier] || "#42a5f5" }} />
-                        </div>
-                        <span style={{ width: 55, textAlign: "right", fontWeight: 700, color: DEMAND_COLOR[tier] || "#374151", fontSize: 12, fontFamily: "var(--mono)" }}>{count.toLocaleString()}</span>
-                      </div>
-                    ));
-                  })()}
+                  <DonutChart segments={demandSegments} size={80} />
                 </div>
               )}
             </div>
 
+            {/* By-corridor bars — unchanged from Checkpoint 1 */}
             <div className="admin-card" style={{ marginBottom: 18 }}>
               <div className="admin-card-title">By Corridor</div>
               {[
@@ -119,6 +177,7 @@ export default function AdminCorridors() {
               })}
             </div>
 
+            {/* Trip Summaries with quality visual column */}
             <div className="admin-card">
               <div className="admin-card-title">
                 Trip Summaries
@@ -144,8 +203,13 @@ export default function AdminCorridors() {
                           <td style={{ fontSize: 11, fontWeight: 700, color: t.direction === "MALANDAY-RECTO" ? "#42a5f5" : "#00b4d8" }}>{dirLabel(t.direction)}</td>
                           <td><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: pc.bg, color: pc.text, fontWeight: 700 }}>{t.time_period || "—"}</span></td>
                           <td className="admin-mono">{t.log_count?.toLocaleString() || "—"}</td>
-                          <td style={{ fontWeight: 700, color: gp != null ? goodColor(gp) : "#8e9ab0" }}>
-                            {gp != null ? `${typeof gp === "number" ? gp.toFixed(1) : gp}%` : "—"}
+                          <td>
+                            <span style={{ fontWeight: 700, color: gp != null ? goodColor(gp) : "#8e9ab0" }}>
+                              {gp != null ? `${typeof gp === "number" ? gp.toFixed(1) : gp}%` : "—"}
+                            </span>
+                            <div style={{ width: 60, height: 4, background: "rgba(255,255,255,0.12)", borderRadius: 99, marginTop: 3 }}>
+                              {gp != null && <div style={{ height: "100%", width: `${gp}%`, background: goodColor(gp), borderRadius: 99 }} />}
+                            </div>
                           </td>
                           <td style={{ fontWeight: 700, color: lf != null ? (lf > 120 ? "#ff453a" : lf > 80 ? "#ff9f0a" : "#30d158") : "#8e9ab0" }}>
                             {lf != null ? `${lf.toFixed(0)}%` : "—"}
