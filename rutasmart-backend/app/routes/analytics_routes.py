@@ -557,7 +557,7 @@ def get_pipeline_report(
             },
             "stage_6_centroid_validation": {
                 "description": "Ground truth comparison via /evaluate endpoint",
-                "ground_truth_stops": 23,
+                "ground_truth_stops": 70,
                 "match_threshold_m":  100,
                 "note": "Clusters >100m from any GT stop flagged as potential ghost clusters",
             },
@@ -963,7 +963,7 @@ def evaluate_cluster_quality(
       • Confusion matrix: TP/FP/FN at configurable match_threshold_m
       • Precision, Recall, F1-score
 
-    Ground truth: 23 manually recorded major stops along Malanday-Recto
+    Ground truth: 70 manually recorded major stops along Malanday-Recto
     from LTFRB franchise documents (hardcoded in cluster_evaluation.py).
     match_threshold_m = 100m (50m GPS error + 50m GT map error).
 
