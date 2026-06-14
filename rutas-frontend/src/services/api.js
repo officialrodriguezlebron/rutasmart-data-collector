@@ -62,4 +62,8 @@ export const getStopZoneRecommendations = (routeId, direction) =>
 export const getMlStatus       = ()     => API.get("/api/clusters/ml-status");
 export const runMlRandomForest = (body) => API.post("/api/clusters/ml-random-forest", body);
 
+// ── Algorithm comparison (merged across all trips) ──────────────────────────
+export const runMergedCompare = (tripIds, epsM = 50, minSamples = 5) =>
+  API.get(`/analytics/merged/compare?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minSamples}`);
+
 export default API;
