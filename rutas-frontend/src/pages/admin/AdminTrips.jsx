@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { getAdminTrips, getAggregateDashboard, deleteTrip, exportTrip, importTripCSV } from "../../services/api";
-import { goodColor, periodColorCard, phtDateStr, phtTimeStr, dirLabel } from "../../utils/adminFormatters";
+import { goodColor, statusColor, periodColorCard, phtDateStr, phtTimeStr, dirLabel } from "../../utils/adminFormatters";
 import TripMap from "../TripMap";
 import "../AdminDashboard.css";
 
@@ -105,8 +105,6 @@ export default function AdminTrips() {
     if (!grouped[k]) grouped[k] = [];
     grouped[k].push(t);
   }
-
-  const statusColor = (s) => s === "ACTIVE" ? "#30d158" : s === "COMPLETED" ? "#42a5f5" : "#8e9ab0";
 
   return (
     <>

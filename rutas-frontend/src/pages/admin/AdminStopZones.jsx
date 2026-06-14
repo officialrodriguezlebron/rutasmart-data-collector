@@ -39,7 +39,7 @@ export default function AdminStopZones() {
   const handlePublish = async () => {
     if (!window.confirm(
       "Publish stop zones for MR-001 (both directions)?\n\n" +
-      "Runs DBSCAN across all completed trips for Malanday→Recto and Recto→Malanday " +
+      "Runs stop detection across all completed trips for Malanday→Recto and Recto→Malanday " +
       "and updates the passenger map."
     )) return;
     setLoading(true);
@@ -101,7 +101,7 @@ export default function AdminStopZones() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", padding: "2px 4px" }}>
-              GOOD %:&nbsp;
+              Signal Quality:&nbsp;
               <span style={{ color: "#30d158", fontWeight: 700 }}>≥95% excellent</span>
               {" · "}
               <span style={{ color: "#ffd60a", fontWeight: 700 }}>≥70% normal</span>

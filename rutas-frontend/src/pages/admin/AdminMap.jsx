@@ -230,7 +230,7 @@ export default function AdminMap() {
                   {zones.map(z => (
                     <button
                       key={z.cluster_id}
-                      onClick={() => setFlyTarget({ lat: z.centroid_lat, lon: z.centroid_lon, tick: z.cluster_id })}
+                      onClick={() => setFlyTarget({ lat: z.centroid_lat, lon: z.centroid_lon, tick: Date.now() })}
                       style={{
                         display: "flex", alignItems: "center", gap: 8,
                         padding: "7px 10px", borderRadius: 8,

@@ -184,7 +184,7 @@ export default function AdminCorridors() {
                 <span style={{ fontSize: 11, fontWeight: 400, color: "rgba(255,255,255,0.42)", marginLeft: 8 }}>{summaries.length} completed trips</span>
               </div>
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", margin: "0 0 10px" }}>
-                Click <strong>🗺 Map</strong> on any trip to inspect its map-matched path, DBSCAN clusters, and demand heatmap.
+                Click <strong>🗺 Map</strong> on any trip to inspect its map-matched path, detected stop clusters, and demand heatmap.
               </p>
               <div className="admin-table-wrap">
                 <table className="admin-table">
