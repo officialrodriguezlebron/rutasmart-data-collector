@@ -58,4 +58,8 @@ export const getStopZonePreview = (routeId, direction) =>
 export const getStopZoneRecommendations = (routeId, direction) =>
   API.get(`/stop-zones/recommendations?route_id=${encodeURIComponent(routeId)}&direction=${encodeURIComponent(direction)}`);
 
+// ── ML / Random Forest — router prefix is /api/clusters (not /clusters) ────
+export const getMlStatus       = ()     => API.get("/api/clusters/ml-status");
+export const runMlRandomForest = (body) => API.post("/api/clusters/ml-random-forest", body);
+
 export default API;

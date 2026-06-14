@@ -1,25 +1,53 @@
 import { useState, useEffect } from "react";
-import { getAggregateDashboard } from "../../services/api";
-import { goodColor, dirLabel, periodColorCard } from "../../utils/adminFormatters";
+import { getAggregateDashboard, getMlStatus } from "../../services/api";
+import { goodColor, dirLabel, periodColorCard, phtDateStr, phtTimeStr } from "../../utils/adminFormatters";
 import "../AdminDashboard.css";
+
+function FeatureBar({ feature, importance, maxImportance }) {
+  const pct   = (importance * 100).toFixed(1);
+  const relW  = maxImportance > 0 ? (importance / maxImportance) * 100 : 0;
+  const color = importance > 0.5 ? "#42a5f5" : importance > 0.15 ? "#00b4d8" : "#8e9ab0";
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+        <span style={{ color: "rgba(255,255,255,0.65)", fontFamily: "var(--mono)" }}>{feature}</span>
+        <span style={{ color, fontWeight: 700 }}>{pct}%</span>
+      </div>
+      <div style={{ height: 5, background: "rgba(255,255,255,0.10)", borderRadius: 99 }}>
+        <div style={{ height: "100%", width: `${relW}%`, background: color, borderRadius: 99 }} />
+      </div>
+    </div>
+  );
+}
 
 export default function AdminResearch() {
   const [aggregate, setAggregate] = useState(null);
+  const [mlStatus,  setMlStatus]  = useState(null);
   const [loading,   setLoading]   = useState(true);
 
   const load = () => {
     setLoading(true);
-    getAggregateDashboard()
-      .then(r => setAggregate(r.data))
-      .catch(e => console.error(e))
+    Promise.allSettled([getAggregateDashboard(), getMlStatus()])
+      .then(([aggResult, mlResult]) => {
+        if (aggResult.status === "fulfilled") setAggregate(aggResult.value.data);
+        if (mlResult.status  === "fulfilled") setMlStatus(mlResult.value.data);
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
 
-  const summaries = aggregate?.trip_summaries || [];
+  const summaries    = aggregate?.trip_summaries || [];
   const mrGood = summaries.filter(t => t.direction === "MALANDAY-RECTO").reduce((s, t) => s + (t.good_count || 0), 0);
   const rmGood = summaries.filter(t => t.direction === "RECTO-MALANDAY").reduce((s, t) => s + (t.good_count || 0), 0);
+
+  const featImp     = mlStatus?.feature_importance || [];
+  const maxFeatImp  = featImp.reduce((m, f) => Math.max(m, f.importance), 0);
+  const metrics     = mlStatus?.metrics || {};
+
+  const trainedAtPHT = mlStatus?.trained_at
+    ? `${phtDateStr(mlStatus.trained_at)} ${phtTimeStr(mlStatus.trained_at)} PHT`
+    : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -32,13 +60,14 @@ export default function AdminResearch() {
         <div className="admin-loading">Loading research data…</div>
       ) : (
         <>
+          {/* ── Stop Detection Readiness ──────────────────────────────────── */}
           <div className="admin-card">
             <div className="admin-card-title">Stop Detection Readiness</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {[
-                { label: "Malanday → Recto", good: mrGood,         color: "#42a5f5" },
-                { label: "Recto → Malanday", good: rmGood,         color: "#00b4d8" },
-                { label: "Combined Pool",    good: mrGood + rmGood, color: "#30d158" },
+                { label: "Malanday → Recto", good: mrGood,          color: "#42a5f5" },
+                { label: "Recto → Malanday", good: rmGood,          color: "#00b4d8" },
+                { label: "Combined Pool",    good: mrGood + rmGood,  color: "#30d158" },
               ].map(({ label, good, color }) => (
                 <div key={label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.14)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
@@ -53,6 +82,77 @@ export default function AdminResearch() {
             </div>
           </div>
 
+          {/* ── ML Model Intelligence ─────────────────────────────────────── */}
+          <div className="admin-card">
+            <div className="admin-card-title">
+              ML Model Intelligence
+              {mlStatus?.trained && (
+                <span style={{ marginLeft: 10, fontSize: 10, padding: "2px 8px", borderRadius: 5, background: "rgba(48,209,88,0.14)", color: "#30d158", border: "1px solid rgba(48,209,88,0.28)", fontWeight: 700 }}>
+                  TRAINED
+                </span>
+              )}
+              {mlStatus && !mlStatus.trained && (
+                <span style={{ marginLeft: 10, fontSize: 10, padding: "2px 8px", borderRadius: 5, background: "rgba(255,69,58,0.14)", color: "#ff453a", border: "1px solid rgba(255,69,58,0.28)", fontWeight: 700 }}>
+                  NOT TRAINED
+                </span>
+              )}
+            </div>
+
+            {!mlStatus?.trained ? (
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>
+                Random Forest model not yet trained. Run <code>train_pipeline.py</code> to generate <code>rf_model.pkl</code>.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+                {/* Left: metrics */}
+                <div>
+                  {trainedAtPHT && (
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginBottom: 14 }}>
+                      Trained {trainedAtPHT}
+                    </div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                    {[
+                      { label: "Accuracy",   value: metrics.accuracy_pct   ? `${metrics.accuracy_pct}%` : "—", accent: "#30d158"  },
+                      { label: "F1 Weighted", value: metrics.f1_weighted   || "—",                             accent: "#42a5f5"  },
+                      { label: "F1 (Stop)",   value: metrics.f1_stop       || "—",                             accent: "#00b4d8"  },
+                      { label: "Train/Test",  value: metrics.training_samples && metrics.test_samples
+                          ? `${metrics.training_samples}/${metrics.test_samples}` : "—",                       accent: "#ffd60a"  },
+                    ].map(({ label, value, accent }) => (
+                      <div key={label} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "10px 12px", border: "1px solid rgba(255,255,255,0.10)" }}>
+                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.38)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 4 }}>{label}</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: accent, fontFamily: "var(--mono)" }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {metrics.smote_applied && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, padding: "3px 9px", borderRadius: 5, background: "rgba(191,90,242,0.12)", color: "#bf5af2", border: "1px solid rgba(191,90,242,0.25)", fontWeight: 700 }}>
+                      SMOTE applied — class imbalance handled
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: feature importance */}
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.38)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 10 }}>
+                    Feature Importance
+                  </div>
+                  {featImp.length === 0 ? (
+                    <p style={{ fontSize: 12, color: "rgba(255,255,255,0.38)" }}>No feature importance data found.</p>
+                  ) : (
+                    [...featImp]
+                      .sort((a, b) => b.importance - a.importance)
+                      .map(f => (
+                        <FeatureBar key={f.feature} feature={f.feature} importance={f.importance} maxImportance={maxFeatImp} />
+                      ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Trip Quality Trend ────────────────────────────────────────── */}
           <div className="admin-card">
             <div className="admin-card-title">Trip Quality Trend</div>
             <div className="admin-table-wrap">
