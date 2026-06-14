@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getStopZoneRecommendations, getAggregateDashboard } from "../../services/api";
+import { CORRIDOR, RETURN_CORRIDOR } from "../../data/corridor";
 import "../AdminDashboard.css";
 import "./AdminMap.css";
 
@@ -56,14 +57,8 @@ export default function AdminMap() {
       .finally(() => setLoading(false));
   }, [direction]);
 
-  // Corridor polyline — sorted by latitude (ascending MR, descending RM)
-  const polyPositions = [...zones]
-    .sort((a, b) => direction === "MALANDAY-RECTO"
-      ? a.centroid_lat - b.centroid_lat
-      : b.centroid_lat - a.centroid_lat
-    )
-    .map(z => [z.centroid_lat, z.centroid_lon]);
-
+  // Full map-matched corridor polyline (same geometry backend uses for match_to_corridor())
+  const corridorPath  = direction === "MALANDAY-RECTO" ? CORRIDOR : RETURN_CORRIDOR;
   const corridorColor = direction === "MALANDAY-RECTO" ? "#42a5f5" : "#00b4d8";
 
   // Right panel stats
@@ -149,9 +144,7 @@ export default function AdminMap() {
                   <BoundsFitter zones={zones} />
                   <FlyToController target={flyTarget} />
 
-                  {polyPositions.length > 1 && (
-                    <Polyline positions={polyPositions} color={corridorColor} opacity={0.5} weight={2} />
-                  )}
+                  <Polyline positions={corridorPath} color={corridorColor} opacity={0.55} weight={2.5} />
 
                   {zones.map(z => (
                     <CircleMarker
