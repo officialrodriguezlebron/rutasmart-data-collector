@@ -196,6 +196,14 @@ def get_live_route(route_id: str, db: Session = Depends(get_db)):
 
 # ── Admin endpoints ────────────────────────────────────────────────────────
 
+TIER_DISPLAY = {
+    "Critical": "High Demand",
+    "High":     "High Demand",
+    "Moderate": "Medium Demand",
+    "Normal":   "Low Demand",
+}
+
+
 @app.get("/admin/trips", tags=["Admin"])
 def get_all_trips(db: Session = Depends(get_db)):
     """Latest 100 trips for the admin dashboard."""
@@ -257,7 +265,7 @@ def get_system_stats(db: Session = Depends(get_db)):
         return {
             "name":        best_n or f"Cluster #{zone.cluster_id}",
             "direction":   zone.direction,
-            "demand_tier": zone.demand_tier,
+            "demand_tier": TIER_DISPLAY.get(zone.demand_tier, zone.demand_tier),
             "point_count": zone.point_count,
         }
 

@@ -596,6 +596,198 @@ def get_stop_zone_recommendations(
     }
 
 
+# ── Admin: action items — top 3 prioritized recommendations ───────────────
+
+@router.get("/admin/action-items", tags=["Admin"])
+def get_action_items(db: Session = Depends(get_db)):
+    """
+    Returns up to 3 prioritized action items derived from published stop zones
+    and trip load factor data.
+
+    P1 — Formalize candidate: High-demand zone with High trip-day coverage (>=60%)
+    P2 — Staffing signal: period+direction with avg load factor >= 85%
+         (approximated from trip start times — not per-stop measurements)
+    P3 — Consolidation candidate: Low-demand zone with High trip-day coverage (>=60%)
+    """
+    from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
+
+    PHT_OFFSET = timedelta(hours=8)
+    COVER_M    = 50.0
+    MATCH_M    = 50.0
+    LAT_TOL    = 0.00045
+    LON_TOL    = 0.00060
+
+    def _nearest_gt_local(lat: float, lon: float) -> Optional[str]:
+        best_d, best_n = MATCH_M, None
+        for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
+            d = haversine_m(lat, lon, gt_lat, gt_lon)
+            if d < best_d:
+                best_d, best_n = d, name
+        return best_n
+
+    def _period_local(h: int) -> str:
+        if   6 <= h <  9: return "Morning Peak"
+        elif 9 <= h < 16: return "Midday"
+        elif 16 <= h < 19: return "Afternoon Peak"
+        else:              return "Off-Peak"
+
+    all_trips = _get_completed_trips("MR-001", db)
+
+    trip_day_map: dict = {}
+    for trip in all_trips:
+        if trip.start_time:
+            pht_day = (trip.start_time + PHT_OFFSET).strftime("%Y-%m-%d")
+            trip_day_map.setdefault(pht_day, []).append(trip.trip_id)
+    total_trip_days = len(trip_day_map)
+
+    def _coverage_pct(z_lat: float, z_lon: float) -> float:
+        if not total_trip_days:
+            return 0.0
+        days_covered = 0
+        for _day, trip_ids in trip_day_map.items():
+            hit = False
+            for tid in trip_ids:
+                if hit:
+                    break
+                candidates = (
+                    db.query(GPSLog.latitude, GPSLog.longitude)
+                    .filter(
+                        GPSLog.trip_id == tid,
+                        GPSLog.gps_quality_flag.in_([GPSQualityEnum.GOOD, GPSQualityEnum.ACCEPTABLE]),
+                        GPSLog.latitude  >= z_lat - LAT_TOL,
+                        GPSLog.latitude  <= z_lat + LAT_TOL,
+                        GPSLog.longitude >= z_lon - LON_TOL,
+                        GPSLog.longitude <= z_lon + LON_TOL,
+                    )
+                    .limit(50)
+                    .all()
+                )
+                for cand_lat, cand_lon in candidates:
+                    if haversine_m(z_lat, z_lon, float(cand_lat), float(cand_lon)) <= COVER_M:
+                        hit = True
+                        break
+            if hit:
+                days_covered += 1
+        return (days_covered / total_trip_days * 100) if total_trip_days else 0.0
+
+    items = []
+
+    # P1 — Formalize candidate (High demand, coverage >= 60%)
+    p1_zones = (
+        db.query(PublishedStopZone)
+        .filter(
+            PublishedStopZone.route_id == "MR-001",
+            PublishedStopZone.demand_tier.in_(["Critical", "High"]),
+        )
+        .order_by(PublishedStopZone.avg_occupancy.desc())
+        .limit(5)
+        .all()
+    )
+    for z in p1_zones:
+        z_lat, z_lon = float(z.lat), float(z.lon)
+        cov = _coverage_pct(z_lat, z_lon)
+        if cov >= 60:
+            gt_name = _nearest_gt_local(z_lat, z_lon)
+            label   = f"near {gt_name}" if gt_name else f"Cluster #{z.cluster_id}"
+            items.append({
+                "priority":    1,
+                "type":        "formalize",
+                "headline": (
+                    f"Formalize stop {label} — consistently high demand "
+                    f"(avg {float(z.avg_occupancy or 0):.1f} pax, "
+                    f"{cov:.0f}% trip-day coverage)"
+                ),
+                "detail_link": "/admin/stop-zones",
+                "cluster_id":  z.cluster_id,
+                "direction":   z.direction,
+            })
+            break
+
+    # P2 — Staffing signal (period + direction with avg load factor >= 85%)
+    trip_ids_list = [t.trip_id for t in all_trips]
+    if trip_ids_list:
+        lf_rows = (
+            db.query(
+                GPSLog.trip_id,
+                func.avg(GPSLog.occupancy_count).label("avg_occ"),
+            )
+            .filter(GPSLog.trip_id.in_(trip_ids_list))
+            .group_by(GPSLog.trip_id)
+            .all()
+        )
+        lf_by_trip = {r.trip_id: float(r.avg_occ or 0) for r in lf_rows}
+
+        period_lf: dict = {}
+        for trip in all_trips:
+            cap     = trip.official_capacity or 26
+            avg_occ = lf_by_trip.get(trip.trip_id, 0)
+            lf_pct  = avg_occ / cap * 100
+            if not trip.start_time:
+                continue
+            pht_h  = (trip.start_time + PHT_OFFSET).hour
+            period = _period_local(pht_h)
+            key    = (period, trip.direction or "MALANDAY-RECTO")
+            period_lf.setdefault(key, []).append(lf_pct)
+
+        best_key, best_avg = None, 0.0
+        for key, vals in period_lf.items():
+            avg = sum(vals) / len(vals) if vals else 0.0
+            if avg > best_avg:
+                best_avg, best_key = avg, key
+
+        if best_key and best_avg >= 85:
+            period_label, direction = best_key
+            dir_label = "Malanday to Recto" if direction == "MALANDAY-RECTO" else "Recto to Malanday"
+            n_trips   = len(period_lf[best_key])
+            items.append({
+                "priority":    2,
+                "type":        "staffing",
+                "headline": (
+                    f"Consider adding a unit during {period_label}, {dir_label} — "
+                    f"avg load factor {best_avg:.1f}% across {n_trips} trips "
+                    f"(based on trip start time)"
+                ),
+                "detail_link": "/admin/corridors",
+            })
+
+    # P3 — Consolidation candidate (Low demand, coverage >= 60%)
+    p3_zones = (
+        db.query(PublishedStopZone)
+        .filter(
+            PublishedStopZone.route_id == "MR-001",
+            PublishedStopZone.demand_tier == "Normal",
+        )
+        .order_by(PublishedStopZone.avg_occupancy.asc())
+        .limit(5)
+        .all()
+    )
+    for z in p3_zones:
+        z_lat, z_lon = float(z.lat), float(z.lon)
+        cov = _coverage_pct(z_lat, z_lon)
+        if cov >= 60:
+            gt_name = _nearest_gt_local(z_lat, z_lon)
+            label   = f"near {gt_name}" if gt_name else f"Cluster #{z.cluster_id}"
+            items.append({
+                "priority":    3,
+                "type":        "consolidate",
+                "headline": (
+                    f"Review stop {label} — low demand, consistently present "
+                    f"(avg {float(z.avg_occupancy or 0):.1f} pax, "
+                    f"{cov:.0f}% trip-day coverage)"
+                ),
+                "detail_link": "/admin/stop-zones",
+                "cluster_id":  z.cluster_id,
+                "direction":   z.direction,
+            })
+            break
+
+    return {
+        "items":        items,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "footnote":     "Staffing signals are approximated from trip start time periods, not per-stop measurements.",
+    }
+
+
 # ── Public: GPS path from best completed trip (per direction) ──────────────
 
 @router.get("/public/route/{route_id}/path", tags=["Public"])

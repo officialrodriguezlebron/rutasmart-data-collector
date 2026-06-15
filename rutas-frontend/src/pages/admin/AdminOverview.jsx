@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getAdminStats, getAdminTrips, getAggregateDashboard } from "../../services/api";
+import { getAdminStats, getAdminTrips, getAggregateDashboard, getActionItems } from "../../services/api";
 import { statusColor, dirLabel, phtDateStr } from "../../utils/adminFormatters";
 import "../AdminDashboard.css";
 
@@ -27,6 +27,59 @@ function MetricCard({ label, value, sub, accent, sparkValues, sparkColor }) {
       <div className="admin-metric-value" style={{ color: accent || "white" }}>{value ?? "—"}</div>
       {sub && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginTop: 6 }}>{sub}</div>}
       {sparkValues && <Sparkline values={sparkValues} color={sparkColor || accent || "white"} />}
+    </div>
+  );
+}
+
+// ── Action items panel ────────────────────────────────────────────────────────
+const ACTION_ACCENT = {
+  formalize:   "#30d158",
+  staffing:    "#42a5f5",
+  consolidate: "#ff9f0a",
+};
+
+function ActionItemsPanel({ items }) {
+  if (!items || items.length === 0) return (
+    <div style={{
+      background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 10, padding: "14px 20px", marginBottom: 20,
+      fontSize: 12, color: "rgba(255,255,255,0.35)",
+    }}>
+      No action items at this time — publish stop zones to generate recommendations.
+    </div>
+  );
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+        {items.map((item) => {
+          const accent = ACTION_ACCENT[item.type] || "#8e9ab0";
+          return (
+            <div key={item.priority} style={{
+              display: "flex", alignItems: "flex-start", gap: 14,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderLeft: `3px solid ${accent}`,
+              borderRadius: "0 8px 8px 0",
+              padding: "11px 16px",
+            }}>
+              <span style={{
+                flexShrink: 0, fontSize: 10, fontWeight: 800,
+                padding: "3px 8px", borderRadius: 6,
+                background: accent + "22", color: accent,
+                letterSpacing: "0.06em", textTransform: "uppercase",
+              }}>
+                P{item.priority}
+              </span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.72)", lineHeight: 1.55 }}>
+                {item.headline}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", paddingLeft: 2 }}>
+        Staffing signals are based on trip start time periods, not per-stop measurements.
+      </div>
     </div>
   );
 }
@@ -59,16 +112,21 @@ function DonutRing({ count, total = 70, color, label, sub }) {
 }
 
 export default function AdminOverview() {
-  const [stats,     setStats]     = useState(null);
-  const [trips,     setTrips]     = useState([]);
-  const [aggregate, setAggregate] = useState(null);
-  const [loading,   setLoading]   = useState(true);
+  const [stats,       setStats]       = useState(null);
+  const [trips,       setTrips]       = useState([]);
+  const [aggregate,   setAggregate]   = useState(null);
+  const [actionItems, setActionItems] = useState([]);
+  const [loading,     setLoading]     = useState(true);
 
   const load = () => {
     setLoading(true);
-    Promise.all([getAdminStats(), getAdminTrips(), getAggregateDashboard()])
-      .then(([s, t, a]) => { setStats(s.data); setTrips(t.data); setAggregate(a.data); })
-      .catch(e => console.error(e))
+    Promise.allSettled([getAdminStats(), getAdminTrips(), getAggregateDashboard(), getActionItems()])
+      .then(([s, t, a, ai]) => {
+        if (s.status  === "fulfilled") setStats(s.value.data);
+        if (t.status  === "fulfilled") setTrips(t.value.data);
+        if (a.status  === "fulfilled") setAggregate(a.value.data);
+        if (ai.status === "fulfilled") setActionItems(ai.value.data.items || []);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -115,6 +173,12 @@ export default function AdminOverview() {
         <div className="admin-loading">Loading…</div>
       ) : (
         <>
+          {/* ── This Week's Action Items ───────────────────────────────── */}
+          <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
+            This Week&apos;s Action Items
+          </div>
+          <ActionItemsPanel items={actionItems} />
+
           {/* ── North-star operational KPIs ────────────────────────────── */}
           <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
             Operations Overview

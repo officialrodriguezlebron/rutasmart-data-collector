@@ -28,7 +28,7 @@ export default function StopZoneManagement() {
   const [zones,        setZones]        = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState(null);
-  const [sortKey,      setSortKey]      = useState("demand_tier");
+  const [sortKey,      setSortKey]      = useState("avg_occupancy");
   const [sortDir,      setSortDir]      = useState("desc");
   const [filterDemand, setFilterDemand] = useState("all");
   const [filterDir,    setFilterDir]    = useState("all");
@@ -79,6 +79,25 @@ export default function StopZoneManagement() {
         : <span style={{ opacity: 0.25 }}>↕</span>}
     </th>
   );
+
+  // Zones qualifying for "This week's pick" badge (P1 or P3, >= 80% trip-day coverage)
+  const priorityKeys = new Set(
+    zones
+      .filter(z =>
+        (z.demand_tier === "High" || z.demand_tier === "Low") &&
+        z.confidence === "High" &&
+        (z.trip_day_coverage_pct ?? 0) >= 80
+      )
+      .map(z => `${z.direction}-${z.cluster_id}`)
+  );
+
+  // Detect zones where the same GT stop appears in both directions with different demand tiers
+  const gtDemandMap = {};
+  for (const z of zones) {
+    if (!z.nearest_gt_name) continue;
+    if (!gtDemandMap[z.nearest_gt_name]) gtDemandMap[z.nearest_gt_name] = {};
+    gtDemandMap[z.nearest_gt_name][z.direction] = z.demand_tier;
+  }
 
   if (loading) return (
     <div className="admin-loading">Loading stop zone recommendations…</div>
@@ -169,6 +188,7 @@ export default function StopZoneManagement() {
                   <SortTh k="coverage">Trip-Day Coverage</SortTh>
                   <th>Peak Period</th>
                   <th style={{ minWidth: 240 }}>Recommendation</th>
+                  <th>Priority</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -182,12 +202,18 @@ export default function StopZoneManagement() {
                       {dirLabel(z.direction)}
                     </td>
 
-                    <td style={{
-                      maxWidth: 180, overflow: "hidden",
-                      textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      fontSize: 12,
-                    }} title={z.name}>
-                      {z.name}
+                    <td style={{ maxWidth: 200, fontSize: 12 }} title={z.name}>
+                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {z.name}
+                      </div>
+                      {z.nearest_gt_name &&
+                       gtDemandMap[z.nearest_gt_name]?.["MALANDAY-RECTO"] &&
+                       gtDemandMap[z.nearest_gt_name]?.["RECTO-MALANDAY"] &&
+                       gtDemandMap[z.nearest_gt_name]["MALANDAY-RECTO"] !== gtDemandMap[z.nearest_gt_name]["RECTO-MALANDAY"] && (
+                        <div style={{ fontSize: 9, color: "#ffd60a", marginTop: 2 }}>
+                          Demand differs by direction
+                        </div>
+                      )}
                     </td>
 
                     <td><Chip color={DEMAND_COLOR[z.demand_tier]}>{z.demand_tier}</Chip></td>
@@ -218,6 +244,12 @@ export default function StopZoneManagement() {
 
                     <td style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", minWidth: 240 }}>
                       {z.recommendation}
+                    </td>
+
+                    <td>
+                      {priorityKeys.has(`${z.direction}-${z.cluster_id}`) && (
+                        <Chip color="#bf5af2">This week&apos;s pick</Chip>
+                      )}
                     </td>
 
                     <td>
