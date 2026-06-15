@@ -11,12 +11,12 @@ const NAV_OPERATIONS = [
 ];
 
 const NAV_RESEARCH = [
-  { to: "/admin/research",     label: "🔬 Research"    },
-  { to: "/admin/pipeline",     label: "⚙ Pipeline"    },
-  { to: "/admin/sensitivity",  label: "📐 Sensitivity" },
-  { to: "/admin/evaluate",     label: "📊 Evaluation"  },
-  { to: "/admin/overlap",      label: "🔀 Overlap"     },
-  { to: "/admin/stop-zones",   label: "🗂 Stop Zones"  },
+  { to: "/admin/research",     label: "Research"     },
+  { to: "/admin/pipeline",     label: "Pipeline"     },
+  { to: "/admin/sensitivity",  label: "Sensitivity"  },
+  { to: "/admin/evaluate",     label: "Evaluation"   },
+  { to: "/admin/overlap",      label: "Overlap"      },
+  { to: "/admin/stop-zones",   label: "Stop Zones"   },
 ];
 
 const NAV_SYSTEM = [

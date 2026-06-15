@@ -252,7 +252,7 @@ export default function AdminOverview() {
             <div className="admin-card">
               <div className="admin-card-title">
                 Recent Trips
-                <a href="/route/MR-001" target="_blank" rel="noreferrer" className="admin-public-link">🔗 Public Dashboard</a>
+                <a href="/route/MR-001" target="_blank" rel="noreferrer" className="admin-public-link">Public Dashboard</a>
               </div>
               <div className="admin-table-wrap">
                 <table className="admin-table">
