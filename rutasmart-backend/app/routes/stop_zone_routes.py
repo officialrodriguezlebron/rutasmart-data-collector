@@ -687,16 +687,24 @@ def get_action_items(db: Session = Depends(get_db)):
         z_lat, z_lon = float(z.lat), float(z.lon)
         cov = _coverage_pct(z_lat, z_lon)
         if cov >= 60:
-            gt_name = _nearest_gt_local(z_lat, z_lon)
-            label   = f"near {gt_name}" if gt_name else f"Cluster #{z.cluster_id}"
+            gt_name  = _nearest_gt_local(z_lat, z_lon)
+            dir_disp = "Malanday → Recto" if z.direction == "MALANDAY-RECTO" else "Recto → Malanday"
+            if gt_name:
+                headline_p1 = (
+                    f"Formalize stop near {gt_name} — consistently high demand "
+                    f"(avg {float(z.avg_occupancy or 0):.1f} pax, "
+                    f"{cov:.0f}% trip-day coverage)"
+                )
+            else:
+                headline_p1 = (
+                    f"Formalize new boarding area (unverified stop, high demand) — "
+                    f"avg {float(z.avg_occupancy or 0):.1f} pax, "
+                    f"{cov:.0f}% trip-day coverage, {dir_disp}"
+                )
             items.append({
                 "priority":    1,
                 "type":        "formalize",
-                "headline": (
-                    f"Formalize stop {label} — consistently high demand "
-                    f"(avg {float(z.avg_occupancy or 0):.1f} pax, "
-                    f"{cov:.0f}% trip-day coverage)"
-                ),
+                "headline":    headline_p1,
                 "detail_link": "/admin/stop-zones",
                 "cluster_id":  z.cluster_id,
                 "direction":   z.direction,
@@ -739,14 +747,22 @@ def get_action_items(db: Session = Depends(get_db)):
             period_label, direction = best_key
             dir_label = "Malanday to Recto" if direction == "MALANDAY-RECTO" else "Recto to Malanday"
             n_trips   = len(period_lf[best_key])
-            items.append({
-                "priority":    2,
-                "type":        "staffing",
-                "headline": (
+            if best_avg > 100:
+                headline_p2 = (
+                    f"{period_label}, {dir_label} is running over capacity — "
+                    f"avg load factor {best_avg:.1f}% across {n_trips} trips. "
+                    f"Consider adding a unit or increasing frequency."
+                )
+            else:
+                headline_p2 = (
                     f"Consider adding a unit during {period_label}, {dir_label} — "
                     f"avg load factor {best_avg:.1f}% across {n_trips} trips "
                     f"(based on trip start time)"
-                ),
+                )
+            items.append({
+                "priority":    2,
+                "type":        "staffing",
+                "headline":    headline_p2,
                 "detail_link": "/admin/corridors",
             })
 
