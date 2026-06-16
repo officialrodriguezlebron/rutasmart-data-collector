@@ -97,6 +97,26 @@ export default function AdminCorridors() {
 
   const summaries = aggregate?.trip_summaries || [];
 
+  // Period summary: avg load factor + trip count per period (client-side from summaries)
+  const PERIODS = ["Morning Peak", "Midday", "Afternoon Peak", "Off-Peak"];
+  const lfColor = (lf) =>
+    lf == null ? "#8e9ab0"
+    : lf > 100  ? "#ff453a"
+    : (lf > 85 || lf < 50) ? "#ff9f0a"
+    : "#30d158";
+  const periodStats = PERIODS.map(p => {
+    const trips = summaries.filter(t => (t.dominant_period || t.time_period) === p);
+    const avgLF = trips.length
+      ? trips.reduce((s, t) => s + (t.avg_lf_pct ?? 0), 0) / trips.length
+      : null;
+    return {
+      period:    p,
+      tripCount: aggregate?.time_distribution?.[p] ?? trips.length,
+      avgLF,
+      color:     PERIOD_COLOR[p] || "#8e9ab0",
+    };
+  });
+
   // Build demand distribution segments (merge Critical→High, Moderate→Medium, Normal→Low)
   const demandSegments = (() => {
     if (!aggregate?.demand_distribution) return [];
@@ -132,6 +152,25 @@ export default function AdminCorridors() {
               <MetricCard label="Total GPS Logs"    value={aggregate.total_logs?.toLocaleString()} sub="Signal pings total" accent="#00b4d8" />
               <MetricCard label="Avg Load Factor"   value={`${aggregate.avg_load_factor_pct}%`}   sub="Across all trips"  accent={aggregate.avg_load_factor_pct > 100 ? "#ff453a" : "#30d158"} />
               <MetricCard label="Peak Period"       value={aggregate.peak_critical_period || "—"}  sub="Highest demand"    accent="#ff9f0a" />
+            </div>
+
+            {/* ── Service by Time Period ──────────────────────────────────── */}
+            <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
+              Service by Time Period
+            </div>
+            <div className="admin-metrics" style={{ marginBottom: 18 }}>
+              {periodStats.map(({ period, tripCount, avgLF, color }) => (
+                <div className="admin-metric-card" key={period}>
+                  <div className="admin-metric-accent" style={{ background: color }} />
+                  <div className="admin-metric-label">{period}</div>
+                  <div className="admin-metric-value" style={{ color: lfColor(avgLF) }}>
+                    {avgLF != null ? `${avgLF.toFixed(0)}%` : "—"}
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginTop: 6 }}>
+                    {tripCount} trip{tripCount !== 1 ? "s" : ""} · avg load factor
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
