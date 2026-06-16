@@ -461,7 +461,8 @@ def get_stop_zone_recommendations(
     from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
 
     PHT_OFFSET = timedelta(hours=8)
-    MATCH_M    = 50.0     # haversine threshold for GT name match
+    NEAR_M     = 50.0     # ≤50m  → "near {GT name}"
+    APPROX_M   = 120.0    # ≤120m → "near {GT name} (approx.)"  |  >120m → "New area near {GT name}"
     COVER_M    = 50.0     # haversine threshold for trip-day coverage
     LAT_TOL    = 0.00045  # bounding-box pre-filter ≈ 50 m in latitude
     LON_TOL    = 0.00060  # bounding-box pre-filter ≈ 50 m in longitude at 14.6° N
@@ -508,13 +509,18 @@ def get_stop_zone_recommendations(
             return "Medium"
         return "Low"
 
-    def _nearest_gt(lat: float, lon: float) -> Optional[str]:
-        best_d, best_n = MATCH_M, None
+    def _nearest_gt_banded(lat: float, lon: float) -> tuple:
+        """Return (display_name, raw_gt_name) using 3-band distance logic."""
+        best_d, best_n = float("inf"), None
         for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
             d = haversine_m(lat, lon, gt_lat, gt_lon)
             if d < best_d:
                 best_d, best_n = d, name
-        return best_n
+        if best_d <= NEAR_M:
+            return (f"near {best_n}", best_n)
+        if best_d <= APPROX_M:
+            return (f"near {best_n} (approx.)", best_n)
+        return (f"New area near {best_n}", best_n)
 
     def _recommend(tier: str, conf: str, days: int) -> str:
         if days < 3:
@@ -564,8 +570,7 @@ def get_stop_zone_recommendations(
         coverage_pct = (days_covered / total_trip_days * 100) if total_trip_days else 0.0
         confidence   = "High" if coverage_pct >= 60 else "Medium" if coverage_pct >= 30 else "Low"
         demand_tier  = _map_tier(zone.demand_tier or "Normal")
-        nearest_gt   = _nearest_gt(z_lat, z_lon)
-        name         = f"near {nearest_gt}" if nearest_gt else f"Cluster #{zone.cluster_id}"
+        name, nearest_gt = _nearest_gt_banded(z_lat, z_lon)
 
         result_zones.append({
             "cluster_id":            zone.cluster_id,

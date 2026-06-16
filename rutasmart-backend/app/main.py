@@ -257,13 +257,19 @@ def get_system_stats(db: Session = Depends(get_db)):
         if not zone:
             return None
         z_lat, z_lon = float(zone.lat), float(zone.lon)
-        best_d, best_n = 50.0, None
+        best_d, best_n = float("inf"), None
         for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
             d = haversine_m(z_lat, z_lon, gt_lat, gt_lon)
             if d < best_d:
                 best_d, best_n = d, name
+        if best_d <= 50.0:
+            display_name = f"near {best_n}"
+        elif best_d <= 120.0:
+            display_name = f"near {best_n} (approx.)"
+        else:
+            display_name = f"New area near {best_n}"
         return {
-            "name":        best_n or f"Cluster #{zone.cluster_id}",
+            "name":        display_name,
             "direction":   zone.direction,
             "demand_tier": TIER_DISPLAY.get(zone.demand_tier, zone.demand_tier),
             "point_count": zone.point_count,
