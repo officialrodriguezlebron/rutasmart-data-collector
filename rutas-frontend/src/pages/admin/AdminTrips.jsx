@@ -206,7 +206,7 @@ export default function AdminTrips() {
                                 ))}
                               </div>
                               <div style={{ display: "flex", gap: 7 }}>
-                                <button onClick={() => setMapTripId(t.trip_id)} className="trips-action-btn" style={{ background: "rgba(2,136,209,0.10)", color: "#0288d1", border: "1px solid rgba(2,136,209,0.25)" }}>🗺 Map</button>
+                                <button onClick={() => setMapTripId(t.trip_id)} className="trips-action-btn" style={{ background: "rgba(2,136,209,0.10)", color: "#0288d1", border: "1px solid rgba(2,136,209,0.25)" }}>Map</button>
                                 <button onClick={() => handleExport(t.trip_id, t.jeep_code)} disabled={exportingId === t.trip_id} className="trips-action-btn"
                                   style={{ background: exportDoneId === t.trip_id ? "rgba(48,209,88,0.10)" : "rgba(66,165,245,0.10)", color: exportDoneId === t.trip_id ? "#1a6630" : "#42a5f5", border: `1px solid ${exportDoneId === t.trip_id ? "rgba(48,209,88,0.30)" : "rgba(66,165,245,0.30)"}` }}>
                                   {exportingId === t.trip_id ? "…" : exportDoneId === t.trip_id ? "✓ Done" : "⬇ CSV"}

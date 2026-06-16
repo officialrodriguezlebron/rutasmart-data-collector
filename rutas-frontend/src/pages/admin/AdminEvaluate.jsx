@@ -138,7 +138,7 @@ export default function AdminEvaluate() {
                         <td style={{ padding: "6px 10px", fontSize: 10, color: "rgba(255,255,255,0.48)", fontFamily: "var(--mono)", background: "rgba(255,255,255,0.03)" }}>{m.detected_lat.toFixed(5)}, {m.detected_lon.toFixed(5)}</td>
                         <td style={{ padding: "6px 10px", fontSize: 11, color: "rgba(255,255,255,0.75)", background: "rgba(255,255,255,0.03)" }}>{m.nearest_stop}</td>
                         <td style={{ padding: "6px 10px", fontSize: 12, fontFamily: "var(--mono)", color: offsetColor, fontWeight: 700, background: "rgba(255,255,255,0.03)" }}>{m.offset_m.toFixed(0)}m</td>
-                        <td style={{ padding: "6px 10px", fontSize: 16, textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: "0 8px 8px 0" }}>{m.matched ? "✅" : "❌"}</td>
+                        <td style={{ padding: "6px 10px", fontSize: 14, textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: "0 8px 8px 0", fontWeight: 700, color: m.matched ? "#30d158" : "#ff453a" }}>{m.matched ? "✓" : "✗"}</td>
                       </tr>
                     );
                   })}

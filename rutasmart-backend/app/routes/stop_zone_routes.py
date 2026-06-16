@@ -781,16 +781,24 @@ def get_action_items(db: Session = Depends(get_db)):
         z_lat, z_lon = float(z.lat), float(z.lon)
         cov = _coverage_pct(z_lat, z_lon)
         if cov >= 60:
-            gt_name = _nearest_gt_local(z_lat, z_lon)
-            label   = f"near {gt_name}" if gt_name else f"Cluster #{z.cluster_id}"
+            gt_name  = _nearest_gt_local(z_lat, z_lon)
+            dir_disp = "Malanday → Recto" if z.direction == "MALANDAY-RECTO" else "Recto → Malanday"
+            if gt_name:
+                headline_p3 = (
+                    f"Review stop near {gt_name} — low demand, consistently present "
+                    f"(avg {float(z.avg_occupancy or 0):.1f} pax, "
+                    f"{cov:.0f}% trip-day coverage)"
+                )
+            else:
+                headline_p3 = (
+                    f"Review unverified stop zone (low demand) — "
+                    f"avg {float(z.avg_occupancy or 0):.1f} pax, "
+                    f"{cov:.0f}% trip-day coverage, {dir_disp}"
+                )
             items.append({
                 "priority":    3,
                 "type":        "consolidate",
-                "headline": (
-                    f"Review stop {label} — low demand, consistently present "
-                    f"(avg {float(z.avg_occupancy or 0):.1f} pax, "
-                    f"{cov:.0f}% trip-day coverage)"
-                ),
+                "headline":    headline_p3,
                 "detail_link": "/admin/stop-zones",
                 "cluster_id":  z.cluster_id,
                 "direction":   z.direction,

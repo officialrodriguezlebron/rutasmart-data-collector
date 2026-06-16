@@ -112,7 +112,6 @@ export default function AdminMap() {
           <div className="admin-map-wrap">
             {zones.length === 0 ? (
               <div className="admin-map-empty">
-                <div style={{ fontSize: 52, marginBottom: 16 }}>🗺</div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: "rgba(255,255,255,0.80)", marginBottom: 8 }}>
                   No stop zones published yet
                 </div>

@@ -3,11 +3,11 @@ import { authService } from "../../services/authService";
 import "../AdminDashboard.css";
 
 const NAV_OPERATIONS = [
-  { to: "/admin/map",        label: "🗺 Map"        },
-  { to: "/admin/overview",   label: "⊞ Overview"   },
-  { to: "/admin/trips",      label: "🚌 Trips"      },
-  { to: "/admin/corridors",  label: "📊 Corridors"  },
-  { to: "/admin/zones",      label: "📍 Zone Mgmt"  },
+  { to: "/admin/map",        label: "Map"        },
+  { to: "/admin/overview",   label: "Overview"   },
+  { to: "/admin/trips",      label: "Trips"      },
+  { to: "/admin/corridors",  label: "Corridors"  },
+  { to: "/admin/zones",      label: "Zone Mgmt"  },
 ];
 
 const NAV_RESEARCH = [

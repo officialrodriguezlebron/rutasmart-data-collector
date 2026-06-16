@@ -72,7 +72,7 @@ export default function AdminStopZones() {
 
       <div className="admin-card">
         <div className="admin-card-title" style={{ justifyContent: "space-between" }}>
-          <span>🗺 Passenger Stop Zone Map</span>
+          <span>Passenger Stop Zone Map</span>
           <button
             onClick={() => setShowPreview(true)}
             disabled={tripsLoading || aggTrips.length === 0}
@@ -156,7 +156,7 @@ export default function AdminStopZones() {
 
         {status && (
           <div className={`admin-msg ${status.ok ? "success" : "error"}`} style={{ marginTop: 14 }}>
-            {status.ok ? "✅ " : "❌ "}
+            <span style={{ fontWeight: 700, color: status.ok ? "#30d158" : "#ff453a" }}>{status.ok ? "✓ " : "✗ "}</span>
             {status.lines.map((line, i) => <span key={i}>{line}{i < status.lines.length - 1 && <br />}</span>)}
           </div>
         )}

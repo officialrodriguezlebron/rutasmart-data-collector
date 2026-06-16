@@ -184,7 +184,7 @@ export default function AdminCorridors() {
                 <span style={{ fontSize: 11, fontWeight: 400, color: "rgba(255,255,255,0.42)", marginLeft: 8 }}>{summaries.length} completed trips</span>
               </div>
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", margin: "0 0 10px" }}>
-                Click <strong>🗺 Map</strong> on any trip to inspect its map-matched path, detected stop clusters, and demand heatmap.
+                Click <strong>Map</strong> on any trip to inspect its map-matched path, detected stop clusters, and demand heatmap.
               </p>
               <div className="admin-table-wrap">
                 <table className="admin-table">
@@ -193,9 +193,9 @@ export default function AdminCorridors() {
                   </tr></thead>
                   <tbody>
                     {summaries.map(t => {
-                      const lf = typeof t.avg_load_factor_pct === "number" ? t.avg_load_factor_pct : null;
+                      const lf = typeof t.avg_lf_pct === "number" ? t.avg_lf_pct : null;
                       const gp = typeof t.good_pct === "number" ? t.good_pct : null;
-                      const pc = periodColorCard(t.time_period);
+                      const pc = periodColorCard(t.dominant_period);
                       return (
                         <tr key={t.trip_id}>
                           <td className="admin-mono" title={t.trip_id} style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
@@ -215,7 +215,7 @@ export default function AdminCorridors() {
                             {lf != null ? `${lf.toFixed(0)}%` : "—"}
                           </td>
                           <td>
-                            <button onClick={() => setMapTripId(t.trip_id)} className="trips-action-btn" style={{ background: "rgba(2,136,209,0.10)", color: "#0288d1", border: "1px solid rgba(2,136,209,0.25)" }}>🗺 Map</button>
+                            <button onClick={() => setMapTripId(t.trip_id)} className="trips-action-btn" style={{ background: "rgba(2,136,209,0.10)", color: "#0288d1", border: "1px solid rgba(2,136,209,0.25)" }}>Map</button>
                           </td>
                         </tr>
                       );
