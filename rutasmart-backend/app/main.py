@@ -13,7 +13,7 @@ from app.models.trip import Trip, TripStatusEnum
 from app.models.gps_log import GPSLog, GPSQualityEnum
 from app.models.user import User
 from app.models.published_stop_zone import PublishedStopZone
-from app.routes.stop_zone_routes import router as stop_zone_router
+from app.routes.stop_zone_routes import router as stop_zone_router, _nearest_gt_banded
 from app.routes.auth_routes import router as auth_router
 from app.routes.trip_routes import router as trip_router
 from app.routes.gps_routes import router as gps_router
@@ -227,9 +227,6 @@ def get_all_trips(db: Session = Depends(get_db)):
 def get_system_stats(db: Session = Depends(get_db)):
     """Overview metrics for admin dashboard."""
     from sqlalchemy import func as sqlfunc
-    from app.analytics.corridor import haversine_m
-    from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
-
     total_logs   = db.query(GPSLog).count()
     total_trips  = db.query(Trip).count()
     active_trips = db.query(Trip).filter(Trip.status == TripStatusEnum.ACTIVE).count()
@@ -256,18 +253,7 @@ def get_system_stats(db: Session = Depends(get_db)):
     def _stop_card(zone):
         if not zone:
             return None
-        z_lat, z_lon = float(zone.lat), float(zone.lon)
-        best_d, best_n = float("inf"), None
-        for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
-            d = haversine_m(z_lat, z_lon, gt_lat, gt_lon)
-            if d < best_d:
-                best_d, best_n = d, name
-        if best_d <= 50.0:
-            display_name = f"near {best_n}"
-        elif best_d <= 120.0:
-            display_name = f"near {best_n} (approx.)"
-        else:
-            display_name = f"New area near {best_n}"
+        display_name, _ = _nearest_gt_banded(float(zone.lat), float(zone.lon))
         return {
             "name":        display_name,
             "direction":   zone.direction,

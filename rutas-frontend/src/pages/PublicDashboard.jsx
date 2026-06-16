@@ -70,6 +70,7 @@ export default function PublicDashboard() {
   const [error,     setError]     = useState(null);
   const [lastPoll,  setLastPoll]  = useState(null);
   const [dirFilter, setDirFilter] = useState("all");
+  const [mapDir,    setMapDir]    = useState("MALANDAY-RECTO");
 
   const fetchData = useCallback(async () => {
     try {
@@ -121,19 +122,26 @@ export default function PublicDashboard() {
           </div>
         </div>
 
-        {/* Stats strip */}
-        <div className="pd-summary">
-          {[
-            { val:total,            label:"ACTIVE JEEPNEYS",    color:"#42a5f5" },
-            { val:available+filling,label:"AVAILABLE / FILLING",color:"#30d158" },
-            { val:overcrowd,        label:"FULL / OVERCROWDED", color:"#ff453a" },
-          ].map(({ val, label, color }) => (
-            <div key={label} className="pd-summary-item">
-              <span className="pd-summary-value" style={{ color }}>{val}</span>
-              <span className="pd-summary-label">{label}</span>
-            </div>
-          ))}
-        </div>
+        {/* Stats strip — three states: counters / offline message / nothing (loading) */}
+        {data && total > 0 ? (
+          <div className="pd-summary">
+            {[
+              { val:total,            label:"ACTIVE JEEPNEYS",    color:"#42a5f5" },
+              { val:available+filling,label:"AVAILABLE / FILLING",color:"#30d158" },
+              { val:overcrowd,        label:"FULL / OVERCROWDED", color:"#ff453a" },
+            ].map(({ val, label, color }) => (
+              <div key={label} className="pd-summary-item">
+                <span className="pd-summary-value" style={{ color }}>{val}</span>
+                <span className="pd-summary-label">{label}</span>
+              </div>
+            ))}
+          </div>
+        ) : data && total === 0 ? (
+          <div style={{ textAlign:"center", padding:"10px 0",
+            fontSize:12, color:"rgba(255,255,255,0.40)", fontWeight:600, letterSpacing:"0.3px" }}>
+            Live tracking offline — check back when conductors are active
+          </div>
+        ) : null}
       </div>
 
       {/* ── Content ─────────────────────────────────────────────── */}
@@ -147,11 +155,27 @@ export default function PublicDashboard() {
           </div>
         )}
 
-        {/* Where to Board — shows the map for the currently filtered direction.
-             If "all" is selected, show the forward direction by default. */}
+        {/* Direction toggle for the stop map — always visible, independent of live tracking */}
+        <div style={{ display:"flex", gap:8, marginBottom:4 }}>
+          {[
+            { key:"MALANDAY-RECTO", label:"Going to Recto ↓" },
+            { key:"RECTO-MALANDAY", label:"Going to Malanday ↑" },
+          ].map(({ key, label }) => (
+            <button key={key} onClick={() => setMapDir(key)} style={{
+              flex:1, padding:"9px 0", borderRadius:12,
+              border:`1.5px solid ${mapDir === key ? "#42a5f5" : "rgba(255,255,255,.12)"}`,
+              background: mapDir === key ? "rgba(66,165,245,.18)" : "rgba(255,255,255,.05)",
+              color: mapDir === key ? "#fff" : "rgba(255,255,255,.40)",
+              fontSize:12, fontWeight:700, cursor:"pointer",
+              fontFamily:"'DM Sans',sans-serif", transition:"all .15s",
+            }}>{label}</button>
+          ))}
+        </div>
+
+        {/* Stop zone map — always shown regardless of live tracking state */}
         <StopZoneMap
           routeId={routeId}
-          direction={dirFilter !== "all" ? dirFilter : "MALANDAY-RECTO"}
+          direction={mapDir}
         />
 
         {/* Error */}

@@ -64,9 +64,21 @@ function snapToRoad(lat, lon, corridor) {
 // ── Stop tier ─────────────────────────────────────────────────────────────
 function getTier(rank, total) {
   const pct = rank / total;
-  if (pct <= 0.15) return { badge:"Frequent Stop",   desc:"Jeepneys stop here very often. Best place to wait.", color:"#30d158", r:13 };
-  if (pct <= 0.45) return { badge:"Regular Stop",    desc:"Jeepneys stop here regularly.",                     color:"#ffd60a", r:9  };
-  return               { badge:"Occasional Stop", desc:"Jeepneys sometimes stop here.",                     color:"#8e9ab0", r:6  };
+  if (pct <= 0.15) return {
+    badge: "Crowded",
+    desc:  "Usually crowded — typical for this stop (based on past trips)",
+    color: "#30d158", r: 13,
+  };
+  if (pct <= 0.45) return {
+    badge: "Moderate",
+    desc:  "Moderately busy — typical for this stop (based on past trips)",
+    color: "#ffd60a", r: 9,
+  };
+  return {
+    badge: "Has Space",
+    desc:  "Usually has space — typical for this stop (based on past trips)",
+    color: "#8e9ab0", r: 6,
+  };
 }
 
 function peakLabel(p) {
@@ -163,16 +175,19 @@ function PassengerMap({ zones, direction, onClose }) {
       }).addTo(map);
 
       dot.bindTooltip(`
-        <div style="font-family:'DM Sans',sans-serif;min-width:180px;line-height:1.6;padding:4px 2px">
-          <div style="font-weight:800;font-size:13px;color:#111;margin-bottom:3px">
-            ${tier.badge}${isTop?" <small style='color:#888'>— Busiest on route</small>":""}
+        <div style="font-family:'DM Sans',sans-serif;min-width:190px;line-height:1.6;padding:4px 2px">
+          <div style="font-weight:800;font-size:13px;color:#111;margin-bottom:2px">
+            ${zone.name || "Boarding stop"}
+          </div>
+          <div style="font-size:11px;color:#666;margin-bottom:3px">
+            ${tier.badge}${isTop?" · Busiest on route":""}
           </div>
           <div style="font-size:11px;color:#555;border-top:1px solid #eee;padding-top:5px;margin-top:3px">
             ${tier.desc}<br/>
             <span style="color:#1976d2;font-weight:600">${peakLabel(zone.peak_period)}</span>
           </div>
         </div>
-      `, { sticky:true, opacity:0.98, maxWidth:240, direction:"top" });
+      `, { sticky:true, opacity:0.98, maxWidth:260, direction:"top" });
 
       const click = () => setSel(p => p === zone.cluster_id ? null : zone.cluster_id);
       dot.on("click", click); ring.on("click", click);
@@ -211,7 +226,7 @@ function PassengerMap({ zones, direction, onClose }) {
             Where to Board &amp; Alight
           </div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,.42)", marginTop:2 }}>
-            {DIR_LABELS[direction]} · {freqN} frequent · {total} total · road-matched
+            {DIR_LABELS[direction]} · {freqN} high demand · {total} total · road-matched
           </div>
         </div>
         <button onClick={onClose} style={{ background:"rgba(255,255,255,.10)",
@@ -225,9 +240,9 @@ function PassengerMap({ zones, direction, onClose }) {
         background:"rgba(0,0,0,.45)", borderBottom:"1px solid rgba(255,255,255,.07)",
         flexShrink:0, zIndex:2, flexWrap:"wrap", alignItems:"center" }}>
         {[
-          { key:"all",      label:`All (${total})`,       color:"#42a5f5" },
-          { key:"frequent", label:`Frequent (${freqN})`,  color:"#30d158" },
-          { key:"regular",  label:`Regular+ (${regN})`,   color:"#ffd60a" },
+          { key:"all",      label:`All stops (${total})`,    color:"#42a5f5" },
+          { key:"frequent", label:`Crowded (${freqN})`,    color:"#30d158" },
+          { key:"regular",  label:`Moderate+ (${regN})`,   color:"#ffd60a" },
         ].map(({ key, label, color }) => (
           <button key={key} onClick={() => setFilter(key)} style={{
             padding:"6px 14px", borderRadius:99, border:"1.5px solid",
@@ -255,11 +270,14 @@ function PassengerMap({ zones, direction, onClose }) {
           alignItems:"flex-start", justifyContent:"space-between", gap:12,
           flexShrink:0, zIndex:2 }}>
           <div style={{ flex:1 }}>
-            <div style={{ fontWeight:800, fontSize:15, color:"#fff", marginBottom:4 }}>
-              {selTier.badge}
+            <div style={{ fontWeight:800, fontSize:15, color:"#fff", marginBottom:2 }}>
+              {selZone.name || selTier.badge}
               {selZone.rank===1 && <span style={{ color:"#ffd60a", marginLeft:8, fontSize:12 }}>Busiest on route</span>}
             </div>
-            <div style={{ fontSize:13, color:"rgba(255,255,255,.65)", lineHeight:1.55 }}>
+            <div style={{ fontSize:12, color:`${selTier.color}cc`, fontWeight:700, marginBottom:4 }}>
+              {selTier.badge}
+            </div>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,.60)", lineHeight:1.55 }}>
               {selTier.desc}<br/>
               <span style={{ color:"#42a5f5", fontWeight:600 }}>{peakLabel(selZone.peak_period)}</span>
             </div>
@@ -278,7 +296,7 @@ function PassengerMap({ zones, direction, onClose }) {
       <div style={{ padding:"9px 16px", background:"rgba(0,0,0,.75)",
         borderTop:"1px solid rgba(255,255,255,.07)", display:"flex",
         gap:"14px", flexWrap:"wrap", alignItems:"center", flexShrink:0, zIndex:2 }}>
-        {[["#30d158","Frequent stop",13],["#ffd60a","Regular stop",9],["#8e9ab0","Occasional stop",6]]
+        {[["#30d158","High demand (crowded)",13],["#ffd60a","Moderate demand",9],["#8e9ab0","Lower demand (has space)",6]]
           .map(([c,l,r]) => (
             <span key={l} style={{ display:"flex", alignItems:"center", gap:6,
               fontSize:11, color:"rgba(255,255,255,.65)", fontWeight:600 }}>
@@ -368,7 +386,7 @@ export default function StopZoneMap({
           </span>
           <span style={{ display:"block", fontSize:11,
             color:"rgba(255,255,255,.50)", fontWeight:500, marginTop:2 }}>
-            {DIR_LABELS[direction]} · {freqN} frequent · {zones.length} stops
+            {DIR_LABELS[direction]} · {freqN} high demand · {zones.length} stops
           </span>
         </span>
       </span>

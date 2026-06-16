@@ -10,8 +10,26 @@ from app.models.gps_log import GPSLog, GPSQualityEnum
 from app.models.published_stop_zone import PublishedStopZone
 from app.analytics.algorithms import GPSPoint, run_dbscan
 from app.analytics.corridor import match_to_corridor, haversine_m
+from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
 
 router = APIRouter()
+
+_NEAR_M   = 50.0
+_APPROX_M = 120.0
+
+
+def _nearest_gt_banded(lat: float, lon: float) -> tuple:
+    """Return (display_name, raw_gt_name) using 3-band distance logic."""
+    best_d, best_n = float("inf"), None
+    for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
+        d = haversine_m(lat, lon, gt_lat, gt_lon)
+        if d < best_d:
+            best_d, best_n = d, name
+    if best_d <= _NEAR_M:
+        return (f"near {best_n}", best_n)
+    if best_d <= _APPROX_M:
+        return (f"near {best_n} (approx.)", best_n)
+    return (f"New area near {best_n}", best_n)
 
 TIER_COLOR = {
     "Normal":   "#2e7d32",
@@ -426,6 +444,7 @@ def get_public_stop_zones(
         "stop_zones": [
             {
                 "cluster_id":      z.cluster_id,
+                "name":            _nearest_gt_banded(float(z.lat), float(z.lon))[0],
                 "lat":             z.lat,
                 "lon":             z.lon,
                 "point_count":     z.point_count,
@@ -458,14 +477,10 @@ def get_stop_zone_recommendations(
       - nearest_gt_name (nearest ground-truth stop within 50 m)
     Pure function — no writes.
     """
-    from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
-
     PHT_OFFSET = timedelta(hours=8)
-    NEAR_M     = 50.0     # ≤50m  → "near {GT name}"
-    APPROX_M   = 120.0    # ≤120m → "near {GT name} (approx.)"  |  >120m → "New area near {GT name}"
-    COVER_M    = 50.0     # haversine threshold for trip-day coverage
-    LAT_TOL    = 0.00045  # bounding-box pre-filter ≈ 50 m in latitude
-    LON_TOL    = 0.00060  # bounding-box pre-filter ≈ 50 m in longitude at 14.6° N
+    COVER_M    = 50.0
+    LAT_TOL    = 0.00045
+    LON_TOL    = 0.00060
 
     if direction not in VALID_DIRECTIONS:
         raise HTTPException(
@@ -508,19 +523,6 @@ def get_stop_zone_recommendations(
         if raw == "Moderate":
             return "Medium"
         return "Low"
-
-    def _nearest_gt_banded(lat: float, lon: float) -> tuple:
-        """Return (display_name, raw_gt_name) using 3-band distance logic."""
-        best_d, best_n = float("inf"), None
-        for name, gt_lat, gt_lon in GROUND_TRUTH_STOPS:
-            d = haversine_m(lat, lon, gt_lat, gt_lon)
-            if d < best_d:
-                best_d, best_n = d, name
-        if best_d <= NEAR_M:
-            return (f"near {best_n}", best_n)
-        if best_d <= APPROX_M:
-            return (f"near {best_n} (approx.)", best_n)
-        return (f"New area near {best_n}", best_n)
 
     def _recommend(tier: str, conf: str, days: int) -> str:
         if days < 3:
@@ -614,8 +616,6 @@ def get_action_items(db: Session = Depends(get_db)):
          (approximated from trip start times — not per-stop measurements)
     P3 — Consolidation candidate: Low-demand zone with High trip-day coverage (>=60%)
     """
-    from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
-
     PHT_OFFSET = timedelta(hours=8)
     COVER_M    = 50.0
     MATCH_M    = 50.0
