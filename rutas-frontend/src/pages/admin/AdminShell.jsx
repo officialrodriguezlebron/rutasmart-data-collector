@@ -20,7 +20,7 @@ const NAV_RESEARCH = [
 ];
 
 const NAV_SYSTEM = [
-  { to: "/admin/conductors", label: "👤 Conductors" },
+  { to: "/admin/conductors", label: "Conductors" },
 ];
 
 export default function AdminShell() {

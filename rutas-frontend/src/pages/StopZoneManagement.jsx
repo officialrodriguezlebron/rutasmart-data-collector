@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStopZoneRecommendations } from "../services/api";
+import { getStopZoneRecommendations, getActionItems } from "../services/api";
 
 const DEMAND_COLOR = { High: "#ff453a", Medium: "#ffd60a", Low: "#30d158" };
 const CONF_COLOR   = { High: "#30d158", Medium: "#ffd60a", Low: "#ff453a" };
@@ -32,6 +32,18 @@ export default function StopZoneManagement() {
   const [sortDir,      setSortDir]      = useState("desc");
   const [filterDemand, setFilterDemand] = useState("all");
   const [filterDir,    setFilterDir]    = useState("all");
+  const [priorityKeys, setPriorityKeys] = useState(new Set());
+
+  useEffect(() => {
+    getActionItems()
+      .then(res => {
+        const keys = (res.data?.items || [])
+          .filter(it => (it.type === "formalize" || it.type === "consolidate") && it.cluster_id != null && it.direction)
+          .map(it => `${it.direction}-${it.cluster_id}`);
+        setPriorityKeys(new Set(keys));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -78,17 +90,6 @@ export default function StopZoneManagement() {
         ? <span style={{ opacity: 0.7 }}>{sortDir === "desc" ? "↓" : "↑"}</span>
         : <span style={{ opacity: 0.25 }}>↕</span>}
     </th>
-  );
-
-  // Zones qualifying for "This week's pick" badge (P1 or P3, >= 80% trip-day coverage)
-  const priorityKeys = new Set(
-    zones
-      .filter(z =>
-        (z.demand_tier === "High" || z.demand_tier === "Low") &&
-        z.confidence === "High" &&
-        (z.trip_day_coverage_pct ?? 0) >= 80
-      )
-      .map(z => `${z.direction}-${z.cluster_id}`)
   );
 
   // Detect zones where the same GT stop appears in both directions with different demand tiers
