@@ -240,7 +240,7 @@ export default function AdminCorridors() {
                           <td className="admin-mono" title={t.trip_id} style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
                           <td className="admin-mono" style={{ color: "#8e9ab0" }}>{t.date || "—"}</td>
                           <td style={{ fontSize: 11, fontWeight: 700, color: t.direction === "MALANDAY-RECTO" ? "#42a5f5" : "#00b4d8" }}>{dirLabel(t.direction)}</td>
-                          <td><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: pc.bg, color: pc.text, fontWeight: 700 }}>{t.time_period || "—"}</span></td>
+                          <td><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: pc.bg, color: pc.text, fontWeight: 700 }}>{t.dominant_period || "—"}</span></td>
                           <td className="admin-mono">{t.log_count?.toLocaleString() || "—"}</td>
                           <td>
                             <span style={{ fontWeight: 700, color: gp != null ? goodColor(gp) : "#8e9ab0" }}>
