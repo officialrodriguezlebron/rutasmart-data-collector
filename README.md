@@ -199,6 +199,16 @@ prints a clear console error so misconfiguration is caught immediately.
 
 ## Deployment
 
+### Live Production URLs
+
+| Service | URL |
+|---|---|
+| **Frontend (Vercel)** | https://rutasmart-data-collector.vercel.app |
+| **Backend API (Railway)** | https://exemplary-elegance-production-4c51.up.railway.app |
+| **Public Dashboard** | https://rutasmart-data-collector.vercel.app/route/MR-001 |
+| **Admin Dashboard** | https://rutasmart-data-collector.vercel.app/admin/overview |
+| **API Docs (Swagger)** | https://exemplary-elegance-production-4c51.up.railway.app/docs |
+
 ### Frontend — Vercel
 
 1. Connect the GitHub repo, set the project root to `rutas-frontend/`.
