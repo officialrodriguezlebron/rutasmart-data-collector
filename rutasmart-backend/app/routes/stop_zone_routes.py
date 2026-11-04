@@ -11,6 +11,7 @@ from app.models.published_stop_zone import PublishedStopZone
 from app.analytics.algorithms import GPSPoint, run_dbscan
 from app.analytics.corridor import match_to_corridor, haversine_m
 from app.analytics.cluster_evaluation import GROUND_TRUTH_STOPS
+from app.security import require_role
 
 router = APIRouter()
 
@@ -72,7 +73,8 @@ def _get_completed_trips(route_id: str, db: Session, direction: Optional[str] = 
 
 # ── Admin: publish stop zones for a route + direction ──────────────────────
 
-@router.post("/admin/route/{route_id}/publish-stops", tags=["Admin"])
+@router.post("/admin/route/{route_id}/publish-stops", tags=["Admin"],
+             dependencies=[Depends(require_role("ADMIN"))])
 def publish_stop_zones(
     route_id: str,
     direction: str = Query("MALANDAY-RECTO",
@@ -86,6 +88,10 @@ def publish_stop_zones(
 
     Each direction is published independently so both can coexist in the DB.
     Uses thesis-validated parameters: ε = 15 m, minPts = 10.
+
+    ADMIN only. Publishing atomically replaces the stored stop zones for a
+    route+direction, so an unauthorised caller could overwrite published
+    research output.
     """
     if direction not in VALID_DIRECTIONS:
         raise HTTPException(

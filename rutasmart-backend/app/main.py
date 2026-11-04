@@ -20,6 +20,7 @@ from app.routes.gps_routes import router as gps_router
 from app.routes.analytics_routes import router as analytics_router
 from app.analytics.ml_optimized_dbscan import router as ml_router
 from app.routes.ml_random_forest import router as rf_router
+from app.security import require_role
 
 logging.basicConfig(
     level=logging.INFO,
@@ -343,9 +344,15 @@ def get_system_stats(db: Session = Depends(get_db)):
     }
 
 
-@app.delete("/admin/trip/{trip_id}", tags=["Admin"])
+@app.delete("/admin/trip/{trip_id}", tags=["Admin"],
+            dependencies=[Depends(require_role("ADMIN"))])
 def delete_trip(trip_id: str, db: Session = Depends(get_db)):
-    """Hard-delete a trip and ALL its GPS logs."""
+    """Hard-delete a trip and ALL its GPS logs.
+
+    ADMIN only. This destroys a trip and every GPS log attached to it — the
+    thesis dataset — and there is no undo, so it is the first endpoint
+    enforcement was applied to.
+    """
     trip = db.query(Trip).filter(Trip.trip_id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
@@ -362,9 +369,14 @@ def delete_trip(trip_id: str, db: Session = Depends(get_db)):
     }
 
 
-@app.post("/admin/import", tags=["Admin"])
+@app.post("/admin/import", tags=["Admin"],
+          dependencies=[Depends(require_role("ADMIN"))])
 async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Import a trip and its GPS logs from a CSV file."""
+    """Import a trip and its GPS logs from a CSV file.
+
+    ADMIN only. This inserts rows directly into trips and gps_logs, so an
+    unauthenticated caller could otherwise fabricate research data.
+    """
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a CSV")
 
