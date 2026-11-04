@@ -222,7 +222,8 @@ def publish_stop_zones(
 
 # ── Admin: dry-run preview — same DBSCAN pipeline, nothing saved ───────────
 
-@router.get("/admin/route/{route_id}/preview-stops", tags=["Admin"])
+@router.get("/admin/route/{route_id}/preview-stops", tags=["Admin"],
+            dependencies=[Depends(require_role("ADMIN"))])
 def preview_stop_zones(
     route_id: str,
     direction: str = Query("MALANDAY-RECTO"),
@@ -325,7 +326,8 @@ def preview_stop_zones(
 
 # ── Admin: view published stop zones (per direction) ───────────────────────
 
-@router.get("/admin/route/{route_id}/published-stops", tags=["Admin"])
+@router.get("/admin/route/{route_id}/published-stops", tags=["Admin"],
+            dependencies=[Depends(require_role("ADMIN"))])
 def get_published_stops_admin(
     route_id: str,
     direction: Optional[str] = Query(None),
@@ -469,7 +471,8 @@ def get_public_stop_zones(
 
 # ── Admin: rule-based recommendations per published stop zone ─────────────
 
-@router.get("/stop-zones/recommendations", tags=["Admin"])
+@router.get("/stop-zones/recommendations", tags=["Admin"],
+            dependencies=[Depends(require_role("ADMIN"))])
 def get_stop_zone_recommendations(
     route_id:  str = Query("MR-001"),
     direction: str = Query("MALANDAY-RECTO"),
@@ -611,7 +614,8 @@ def get_stop_zone_recommendations(
 
 # ── Admin: action items — top 3 prioritized recommendations ───────────────
 
-@router.get("/admin/action-items", tags=["Admin"])
+@router.get("/admin/action-items", tags=["Admin"],
+            dependencies=[Depends(require_role("ADMIN"))])
 def get_action_items(db: Session = Depends(get_db)):
     """
     Returns up to 3 prioritized action items derived from published stop zones

@@ -27,7 +27,7 @@ from slowapi.util import get_remote_address
 
 from app.database import get_db
 from app.models.user import User, UserRole
-from app.security import create_token
+from app.security import create_token, require_role
 from app.schemas.auth_schema import (
     AdminAnalystLoginRequest,
     ConductorLoginRequest,
@@ -252,9 +252,14 @@ def seed_users(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/conductors", tags=["Authentication"])
+@router.get("/conductors", tags=["Authentication"],
+            dependencies=[Depends(require_role("ADMIN"))])
 def get_conductors(db: Session = Depends(get_db)):
-    """List all conductor accounts — for the admin dashboard table."""
+    """List all conductor accounts — for the admin dashboard table.
+
+    ADMIN only. Returns employee IDs and jeep assignments for every
+    conductor, which is roster data and half of a conductor's credentials.
+    """
     conductors = db.query(User).filter(User.role == UserRole.CONDUCTOR).all()
     return [
         {

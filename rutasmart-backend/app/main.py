@@ -259,7 +259,8 @@ TIER_DISPLAY = {
 }
 
 
-@app.get("/admin/trips", tags=["Admin"])
+@app.get("/admin/trips", tags=["Admin"],
+         dependencies=[Depends(require_role("ADMIN"))])
 def get_all_trips(db: Session = Depends(get_db)):
     """Latest 100 trips for the admin dashboard."""
     trips = db.query(Trip).order_by(Trip.start_time.desc()).limit(100).all()
@@ -278,7 +279,8 @@ def get_all_trips(db: Session = Depends(get_db)):
     ]
 
 
-@app.get("/admin/stats", tags=["Admin"])
+@app.get("/admin/stats", tags=["Admin"],
+         dependencies=[Depends(require_role("ADMIN"))])
 def get_system_stats(db: Session = Depends(get_db)):
     """Overview metrics for admin dashboard."""
     from sqlalchemy import func as sqlfunc
@@ -506,7 +508,8 @@ async def import_trip_csv(file: UploadFile = File(...), db: Session = Depends(ge
     }
 
 
-@app.get("/admin/aggregate", tags=["Admin"])
+@app.get("/admin/aggregate", tags=["Admin"],
+         dependencies=[Depends(require_role("ADMIN"))])
 def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
     """Aggregate analytics across completed trips — single SQL aggregation, no ORM row scan."""
     from datetime import timedelta, date as dt_date, datetime
@@ -628,9 +631,23 @@ def get_aggregate_dashboard(date: str = None, db: Session = Depends(get_db)):
     }
 
 
-@app.post("/admin/clean-stale-trips", tags=["Admin"])
+@app.post("/admin/clean-stale-trips", tags=["Admin"],
+          dependencies=[Depends(require_role("ADMIN"))])
 def clean_stale_trips(hours: int = 8, db: Session = Depends(get_db)):
-    """Auto-end any ACTIVE trip whose start_time is older than hours."""
+    """Auto-end any ACTIVE trip whose start_time is older than hours.
+
+    ADMIN only. This is an administrative cleanup operation: it mutates trip
+    status, flipping ACTIVE rows to COMPLETED and stamping end_time, which
+    changes what the public dashboard reports and what the analytics
+    aggregate over.
+
+    An earlier audit note claimed the conductor Recording page calls this and
+    that the dependency therefore had to admit CONDUCTOR. That was wrong —
+    the only mention of the path in the frontend is inside a console warning
+    string, and it is not exported from api.js or called anywhere. Nothing in
+    the conductor workflow reaches this endpoint, so it is scoped to ADMIN
+    like the rest of /admin/*.
+    """
     from datetime import timedelta
     cutoff = datetime.utcnow() - timedelta(hours=hours)
 
