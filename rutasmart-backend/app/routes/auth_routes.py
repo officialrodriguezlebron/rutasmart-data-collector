@@ -123,6 +123,16 @@ def create_user(
     """
     Public signup endpoint — CONDUCTOR accounts only.
     ADMIN accounts must be provisioned manually.
+
+    PRODUCTION BLOCKER — see docs/security-production-blockers.md (BLOCKER-1).
+    This endpoint is unauthenticated: anyone who can reach the API may create a
+    CONDUCTOR account, and a conductor account can POST /trip/start-trip and
+    POST /log/, which write to the trips and gps_logs tables that hold the
+    thesis dataset. It is left open deliberately to preserve the local signup
+    workflow, and must be restricted to ADMIN, put behind an approval queue, or
+    disabled before this service is exposed on a public domain. The X-API-Key
+    middleware does not mitigate this — that key ships inside the browser
+    bundle and is readable by anyone who loads the site.
     """
     role_str = body.get("role", "").upper()
     if role_str != "CONDUCTOR":

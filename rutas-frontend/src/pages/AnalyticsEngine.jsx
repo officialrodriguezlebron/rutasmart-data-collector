@@ -461,7 +461,8 @@ export default function AnalyticsEngine() {
     setLoading(true); setError(null); setData(null);
     try {
       const res = await fetch(
-        `${API}/analytics/${encodeURIComponent(id)}/run-all?eps_m=${epsM}&min_samples=${minPts}`
+        `${API}/analytics/${encodeURIComponent(id)}/run-all?eps_m=${epsM}&min_samples=${minPts}`,
+        { headers: { "X-API-Key": import.meta.env.VITE_API_KEY || "" } }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -481,7 +482,8 @@ export default function AnalyticsEngine() {
     setLoading(true); setError(null);
     try {
       const res = await fetch(
-        `${API}/analytics/${encodeURIComponent(data.trip_id)}/dbscan?eps_m=${epsM}&min_samples=${minPts}`
+        `${API}/analytics/${encodeURIComponent(data.trip_id)}/dbscan?eps_m=${epsM}&min_samples=${minPts}`,
+        { headers: { "X-API-Key": import.meta.env.VITE_API_KEY || "" } }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const dbscan = await res.json();

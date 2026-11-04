@@ -42,6 +42,17 @@ def _sha256(plain: str) -> str:
 class UserRole(str, enum.Enum):
     ADMIN     = "ADMIN"
     CONDUCTOR = "CONDUCTOR"
+    # ANALYST exists in the users table from an earlier revision of the system.
+    # Without a matching enum member SQLAlchemy raises LookupError the moment
+    # such a row is loaded, which surfaced as HTTP 500 from the unauthenticated
+    # POST /auth/login/admin — both a crash and an account-enumeration oracle
+    # (500 for a real address, 401 for an unknown one).
+    #
+    # Declaring the member only lets the ORM represent the row. It grants no
+    # access: /auth/login/admin requires role == ADMIN and /auth/login/conductor
+    # requires role == CONDUCTOR, so an ANALYST still cannot authenticate — it
+    # now receives a correct 401 instead of a 500.
+    ANALYST   = "ANALYST"
 
 
 class User(Base):

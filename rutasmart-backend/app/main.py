@@ -55,6 +55,14 @@ API_KEY = os.getenv("RUTASMART_API_KEY", "")
 #   /docs, /redoc, /openapi.json — interactive API documentation
 EXEMPT_PATHS = {"/", "/docs", "/openapi.json", "/redoc"}
 
+# Prefixes that stay reachable without an API key.
+# The passenger-facing dashboard at /route/{id} is anonymous by design and
+# calls these endpoints with no credentials of any kind. They were previously
+# subject to the API-key check, so configuring RUTASMART_API_KEY — i.e. any
+# real deployment — returned 401 to every passenger. The failure is invisible
+# locally because the key is unset there.
+EXEMPT_PREFIXES = ("/public/",)
+
 
 def _api_key_required(request: Request) -> bool:
     """Whether this request must carry a valid X-API-Key header.
@@ -65,12 +73,18 @@ def _api_key_required(request: Request) -> bool:
         OPTIONS preflight, so enforcing the key here would reject every
         cross-origin POST/DELETE before the real request is ever sent.
       * Health probe and documentation paths (EXEMPT_PATHS).
+      * Anonymous public endpoints (EXEMPT_PREFIXES).
     """
     if not API_KEY:
         return False
     if request.method == "OPTIONS":
         return False
-    return request.url.path not in EXEMPT_PATHS
+    path = request.url.path
+    if path in EXEMPT_PATHS:
+        return False
+    if path.startswith(EXEMPT_PREFIXES):
+        return False
+    return True
 
 
 @app.middleware("http")
