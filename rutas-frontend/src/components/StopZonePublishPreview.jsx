@@ -15,6 +15,7 @@ import {
   CircleMarker, MapContainer, TileLayer, Tooltip, useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { TILE_URL, TILE_ATTRIBUTION, TILE_MAX_ZOOM } from "../config/basemap";
 import {
   getPublishedStops,
   getStopZonePreview,
@@ -23,8 +24,6 @@ import {
 import "./StopZonePublishPreview.css";
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const TILE_DARK   = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const ATTR_DARK   = '&copy; <a href="https://carto.com/">CARTO</a>';
 const MAP_CENTER  = [14.66, 120.975];
 const MATCH_M     = 60;   // metres — threshold for "same stop"
 
@@ -171,7 +170,7 @@ function MiniMap({ stops, color, selfRef, otherRef, isSyncing, onSelectStop }) {
         zoomControl={false}
         style={{ width: "100%", height: "100%" }}
       >
-        <TileLayer attribution={ATTR_DARK} url={TILE_DARK} />
+        <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} maxZoom={TILE_MAX_ZOOM} />
         <MapSyncer selfRef={selfRef} otherRef={otherRef} isSyncing={isSyncing} />
 
         {/* Ground truth stops — gray outline, always rendered for alignment reference */}

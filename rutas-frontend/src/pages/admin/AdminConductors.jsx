@@ -58,7 +58,7 @@ export default function AdminConductors() {
                 {conductors.map(c => {
                   const init = (c.display_name || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
                   return (
-                    <div key={c.user_id} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.14)" }}>
+                    <div key={c.employee_id} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.14)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                         <div className="admin-user-avatar" style={{ width: 38, height: 38, fontSize: 13 }}>{init}</div>
                         <div>

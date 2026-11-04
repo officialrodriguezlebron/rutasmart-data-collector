@@ -34,3 +34,18 @@ button {
 button, a {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ── Basemap dark treatment ──────────────────────────────────────────────────
+   The basemap is OpenStreetMap's keyless standard tile set (see
+   src/config/basemap.js), which is light; the RutaSmart UI is dark. This
+   filter darkens the tiles client-side so the maps match the surrounding UI.
+
+   It is scoped to .leaflet-tile-pane deliberately. That pane holds basemap
+   tiles only, so GPS paths, heatmap canvases, cluster markers, stop-zone
+   circles, popups, tooltips and zoom/attribution controls — which Leaflet
+   renders in the overlay, marker, popup, tooltip and control panes — are
+   unaffected and keep their exact colours. Do not move this rule up to
+   .leaflet-container, which would recolour the data overlays too. */
+.leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55);
+}

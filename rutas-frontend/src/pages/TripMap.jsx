@@ -25,6 +25,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { TILE_URL, TILE_ATTRIBUTION, TILE_MAX_ZOOM } from "../config/basemap";
 import "leaflet.heat";  // eager import — guarantees L.heatLayer exists before first render
 import { getRawLogs, runAllAnalytics } from "../services/api";
 import "./TripMap.css";
@@ -41,8 +42,6 @@ L.Icon.Default.mergeOptions({
 const CORRIDOR_CENTER = [14.6600, 120.975];
 const CORRIDOR_BOUNDS = [[14.55, 120.95], [14.75, 121.05]];
 
-const TILE_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const ATTR_DARK = '&copy; <a href="https://carto.com/">CARTO</a>';
 
 const CLUSTER_COLORS = {
   TRUE_STOP:      "#1565c0",
@@ -528,8 +527,9 @@ export default function TripMap({ tripId, onClose }) {
               style={{ width: "100%", height: "100%" }}
             >
               <TileLayer
-                attribution={ATTR_DARK}
-                url={TILE_DARK}
+                attribution={TILE_ATTRIBUTION}
+                url={TILE_URL}
+                maxZoom={TILE_MAX_ZOOM}
               />
               <ZoomControl position="bottomright" />
               <ScaleControl position="bottomleft" imperial={false} />

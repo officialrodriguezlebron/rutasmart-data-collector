@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { TILE_URL, TILE_ATTRIBUTION, TILE_MAX_ZOOM } from "../../config/basemap";
 import { getStopZoneRecommendations, getAggregateDashboard } from "../../services/api";
 import { CORRIDOR, RETURN_CORRIDOR } from "../../data/corridor";
 import "../AdminDashboard.css";
@@ -12,8 +13,6 @@ import "./AdminMap.css";
 delete L.Icon.Default.prototype._getIconUrl;
 
 const TIER_COLOR  = { High: "#ff453a", Medium: "#ffd60a", Low: "#30d158" };
-const CARTO_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const CARTO_ATTR  = '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>';
 
 // ── Auto-fit bounds when zones change ─────────────────────────────────────────
 function BoundsFitter({ zones }) {
@@ -139,7 +138,7 @@ export default function AdminMap() {
                   style={{ width: "100%", height: "100%" }}
                   zoomControl
                 >
-                  <TileLayer url={CARTO_DARK} attribution={CARTO_ATTR} />
+                  <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={TILE_MAX_ZOOM} />
                   <BoundsFitter zones={zones} />
                   <FlyToController target={flyTarget} />
 

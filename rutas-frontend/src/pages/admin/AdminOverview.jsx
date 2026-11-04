@@ -135,6 +135,15 @@ export default function AdminOverview() {
   const summaries = aggregate?.trip_summaries || [];
   const recent    = [...trips].sort((a, b) => new Date(b.start_time) - new Date(a.start_time)).slice(0, 5);
 
+  // GET /admin/trips does not carry a log count, so the Logs column read an
+  // undefined field and always rendered "—". GET /admin/aggregate does report
+  // a per-trip log_count, counted server-side from gps_logs, so the two are
+  // joined on trip_id here. No value is estimated: a trip with no aggregate
+  // entry (an ACTIVE trip, which /admin/aggregate excludes) stays "—".
+  const logCountByTripId = Object.fromEntries(
+    summaries.filter(t => typeof t.log_count === "number").map(t => [t.trip_id, t.log_count])
+  );
+
   const pubMR  = stats?.published_stops_mr  ?? 0;
   const pubRM  = stats?.published_stops_rm  ?? 0;
   const pubTot = stats?.published_stops_total ?? (pubMR + pubRM);
@@ -150,7 +159,10 @@ export default function AdminOverview() {
     const d = t.date || "unknown";
     if (!byDate[d]) byDate[d] = { logs: 0, loadFactors: [] };
     byDate[d].logs += t.log_count || 0;
-    if (t.avg_load_factor_pct != null) byDate[d].loadFactors.push(t.avg_load_factor_pct);
+    // Field is avg_lf_pct in the /admin/aggregate response. This read
+    // avg_load_factor_pct, which is undefined, so the utilization
+    // sparkline was flat at zero on every day.
+    if (t.avg_lf_pct != null) byDate[d].loadFactors.push(t.avg_lf_pct);
   }
   const last7Dates     = Object.keys(byDate).sort().slice(-7);
   const passSparkVals  = last7Dates.map(d => byDate[d].logs);
@@ -185,9 +197,9 @@ export default function AdminOverview() {
           </div>
           <div className="admin-metrics" style={{ marginBottom: 20 }}>
             <MetricCard
-              label="Total Passengers"
+              label="Occupancy Readings (Sum)"
               value={totalOcc != null ? totalOcc.toLocaleString() : "—"}
-              sub="Total occupancy readings across all logs"
+              sub="Occupancy summed across every GPS log. Logs repeat every few seconds, so a passenger is counted once per log — a sampling total, not unique passengers."
               accent="#bf5af2"
               sparkValues={passSparkVals.length >= 2 ? passSparkVals : null}
               sparkColor="#bf5af2"
@@ -268,7 +280,8 @@ export default function AdminOverview() {
                           <td style={{ fontSize: 12, fontWeight: 600, color: t.direction === "MALANDAY-RECTO" ? "#42a5f5" : "#00b4d8" }}>{dirLabel(t.direction)}</td>
                           <td><span className="admin-status-badge" style={{ background: sc + "22", color: sc }}>{t.status}</span></td>
                           <td className="admin-mono">{phtDateStr(t.start_time)}</td>
-                          <td className="admin-mono">{t.log_count?.toLocaleString() || "—"}</td>
+                          <td className="admin-mono">{logCountByTripId[t.trip_id] != null
+                            ? logCountByTripId[t.trip_id].toLocaleString() : "—"}</td>
                         </tr>
                       );
                     })}

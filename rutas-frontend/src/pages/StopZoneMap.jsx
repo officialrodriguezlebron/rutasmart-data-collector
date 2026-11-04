@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { TILE_URL, TILE_OPTIONS } from "../config/basemap";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -113,8 +114,8 @@ function PassengerMap({ zones, direction, onClose }) {
       center: [14.66, 120.975], zoom: 12,
       scrollWheelZoom: true, zoomControl: true, attributionControl: true,
     });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      { subdomains:"abcd", maxZoom:19, attribution:"© CARTO © OSM" }).addTo(map);
+    // Basemap comes from the shared config (see src/config/basemap.js).
+    L.tileLayer(TILE_URL, { ...TILE_OPTIONS }).addTo(map);
 
     // Road line from the clean corridor — no GPS track, no async
     L.polyline(corridor, {
