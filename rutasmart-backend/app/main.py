@@ -6,7 +6,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from datetime import datetime
-import os, csv, io, uuid, logging, time
+import os, csv, io, uuid, logging, secrets, time
 
 from app.database import engine, Base, get_db
 from app.models.trip import Trip, TripStatusEnum
@@ -47,32 +47,72 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "")
 if FRONTEND_URL and FRONTEND_URL not in ALLOWED_ORIGINS:
     ALLOWED_ORIGINS.append(FRONTEND_URL)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
-
 API_KEY = os.getenv("RUTASMART_API_KEY", "")
+
+# Paths that stay reachable without an API key:
+#   "/"                          — liveness/health probe (platform healthcheck
+#                                  and the frontend useBackendHealth hook)
+#   /docs, /redoc, /openapi.json — interactive API documentation
 EXEMPT_PATHS = {"/", "/docs", "/openapi.json", "/redoc"}
+
+
+def _api_key_required(request: Request) -> bool:
+    """Whether this request must carry a valid X-API-Key header.
+
+    Exempt from the check:
+      * No key configured — local development runs open by design.
+      * CORS preflight. A browser never attaches custom headers to the
+        OPTIONS preflight, so enforcing the key here would reject every
+        cross-origin POST/DELETE before the real request is ever sent.
+      * Health probe and documentation paths (EXEMPT_PATHS).
+    """
+    if not API_KEY:
+        return False
+    if request.method == "OPTIONS":
+        return False
+    return request.url.path not in EXEMPT_PATHS
 
 
 @app.middleware("http")
 async def request_logger_and_api_key(request: Request, call_next):
     start = time.perf_counter()
-    if API_KEY and request.url.path not in EXEMPT_PATHS:
+    if _api_key_required(request):
         client_key = request.headers.get("X-API-Key", "")
-        if client_key != API_KEY:
+        # compare_digest on bytes: constant-time, and tolerant of non-ASCII
+        # header values that would make a str comparison raise.
+        if not secrets.compare_digest(client_key.encode("utf-8"),
+                                      API_KEY.encode("utf-8")):
             logger.warning("Rejected request — invalid API key | path=%s ip=%s",
                            request.url.path, request.client.host if request.client else "?")
-            raise HTTPException(status_code=401, detail="Missing or invalid API key.")
+            # Returned, not raised. An HTTPException raised inside
+            # BaseHTTPMiddleware bypasses FastAPI's exception handlers and
+            # surfaces to the client as a 500; returning the response here
+            # produces a true 401.
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid API key."},
+            )
     response = await call_next(request)
     elapsed_ms = (time.perf_counter() - start) * 1000
     logger.info("%s %s → %d  (%.1fms)",
                 request.method, request.url.path, response.status_code, elapsed_ms)
     return response
+
+
+# ── CORS — registered LAST so that it is the OUTERMOST middleware ────────────
+# Starlette applies user middleware in reverse registration order, so whatever
+# is added last wraps everything added before it. Registering CORS after the
+# API-key middleware guarantees that a 401 raised by that middleware still
+# travels back out through CORSMiddleware and carries the
+# Access-Control-Allow-Origin header. With the opposite ordering the browser
+# cannot read the response and reports an opaque network error instead of 401.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(Exception)

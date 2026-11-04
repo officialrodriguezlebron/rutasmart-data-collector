@@ -1,17 +1,48 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-python-dotenv
-scikit-learn
-numpy
-pandas
-slowapi
-python-multipart
+# ── RutaSmart backend runtime dependencies ───────────────────────────────────
+# Versions are pinned to the exact set verified to install and pass the test
+# suite in rutasmart-backend/.venv. Re-pin only after re-running `pytest`.
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+
+# ── PostgreSQL driver — keep SQLAlchemy and the DBAPI in step ────────────────
+# SQLAlchemy is held on the 2.0 line deliberately. A bare "postgresql://" URL
+# resolves to a different DBAPI depending on the SQLAlchemy major.minor:
+#     2.0.x  ->  psycopg2   (PGDialect_psycopg2)
+#     2.1.x  ->  psycopg 3  (PGDialect_psycopg)
+# DATABASE_URL uses the bare "postgresql://" scheme, so pairing 2.1.x with
+# psycopg2-binary alone raises ModuleNotFoundError: No module named 'psycopg'.
+# Keeping 2.0.x makes psycopg2-binary — the driver this project has always
+# declared — the driver actually used, with no DATABASE_URL change.
+# To move to SQLAlchemy 2.1+ later, either declare psycopg[binary] and drop
+# psycopg2-binary, or switch DATABASE_URL to "postgresql+psycopg2://".
+sqlalchemy==2.0.57
+psycopg2-binary==2.9.13
+python-dotenv==1.2.4
+pydantic==2.14.2
+python-multipart==0.0.32
+slowapi==0.1.10
+
+# ── Analytics / ML ───────────────────────────────────────────────────────────
+# scipy and threadpoolctl arrive transitively via scikit-learn.
+# joblib is pinned explicitly because app code imports it directly
+# (app/routes/ml_random_forest.py, app/analytics/train_random_forest.py).
+numpy==2.5.4
+pandas==3.1.0
+scikit-learn==1.9.1
+joblib==1.6.0
+
+# ── Password / PIN hashing ───────────────────────────────────────────────────
+# bcrypt is held at 4.0.1 deliberately: passlib 1.7.4 reads bcrypt.__about__,
+# which was removed in bcrypt 4.1. Do not bump bcrypt without upgrading passlib.
 bcrypt==4.0.1
 passlib[bcrypt]==1.7.4
-pydantic
+
+# ── Optional, intentionally NOT installed ────────────────────────────────────
+# imbalanced-learn (SMOTE) is imported under try/except in
+# app/analytics/train_random_forest.py and falls back cleanly when absent.
+# Installing it would enable SMOTE and change Random Forest training
+# behaviour, so it stays out of this file until that change is reviewed.
 
 # ── Development / testing (not required at runtime) ──────────────────────────
-pytest>=8.0
-pytest-cov>=5.0
+pytest==9.2.0
+pytest-cov==7.1.0
