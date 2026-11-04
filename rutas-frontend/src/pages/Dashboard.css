@@ -277,3 +277,55 @@
 }
 
 .full { width: 100%; }
+
+/* ── Desktop layout for the conductor dashboard ───────────────────────────
+   The conductor UI is mobile-first by design — it is used in-cab on a phone —
+   so the base layout above stays a single narrow column and is untouched.
+
+   From 900px the same markup is re-laid-out as a two-column grid, so the card
+   no longer renders as a narrow strip in the middle of a desktop monitor. No
+   page is duplicated, no markup is branched, and the conductor workflow and
+   API calls are identical in both layouts.
+
+   Scoped to .dashboard-card so the other conductor screens that share
+   .app-card (Recording, TripSetup, SavedTrips, TripSummary) are unaffected. */
+@media (min-width: 900px) {
+  .dashboard-card {
+    max-width: 880px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  /* Header spans the full width above both columns. */
+  .dashboard-card > .header {
+    grid-column: 1 / -1;
+    padding: 32px 32px 28px;
+  }
+
+  .dashboard-card > .header h1 { font-size: 32px; }
+
+  /* Left column — identity, status, device. */
+  .dashboard-card .dashboard-info {
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    padding-bottom: 8px;
+  }
+
+  /* Right column — primary actions and active-trip state, vertically centred
+     so the two columns read as one balanced panel. */
+  .dashboard-card .dashboard-primary {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .dashboard-card .dashboard-info .device-id,
+  .dashboard-card .dashboard-info .status-row { padding-inline: 32px; }
+
+  .dashboard-card .actions { padding: 8px 32px; }
+  .dashboard-card .stats   { padding: 8px 32px 0; }
+
+  /* The last row in the left column should not show a divider under it. */
+  .dashboard-card .dashboard-info > :last-child { border-bottom: none; }
+}

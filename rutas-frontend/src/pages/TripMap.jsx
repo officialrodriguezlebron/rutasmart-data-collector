@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer, TileLayer, CircleMarker,
-  Polyline, Rectangle, Tooltip, useMap, ZoomControl, ScaleControl,
+  Polyline, Rectangle, Tooltip, useMap, useMapEvents, ZoomControl, ScaleControl,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -157,6 +157,32 @@ function snapToRoad(lat, lon, corridorRoute) {
     if (d < bDist) { bDist = d; bLat = sLat; bLon = sLon; }
   }
   return { lat: bLat, lon: bLon };
+}
+
+// ── Label decluttering ────────────────────────────────────────────────────
+// Every TRUE_STOP cluster used to get a permanent tooltip, so clusters that sit
+// close together stacked their labels on top of each other and hid one another.
+//
+// Web Mercator pixel position at a given zoom (Leaflet CRS.EPSG3857 uses a
+// 256 * 2^zoom world). Only the distance *between* labels matters, and that
+// depends on zoom alone — panning moves every point by the same offset — so the
+// map instance is not needed and this stays a pure function.
+function projectPx(lat, lon, zoom) {
+  const scale = 256 * Math.pow(2, zoom);
+  const x = ((lon + 180) / 360) * scale;
+  const s = Math.sin((lat * Math.PI) / 180);
+  const y = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * scale;
+  return { x, y };
+}
+
+// Reports the live zoom level so label collisions can be recomputed. State is
+// set from a Leaflet event callback, never from an effect.
+function ZoomTracker({ onZoom }) {
+  const map = useMapEvents({
+    zoomend: () => onZoom(map.getZoom()),
+    moveend: () => onZoom(map.getZoom()),
+  });
+  return null;
 }
 
 // ── Distance utility (Haversine, meters) ──────────────────────────────────
@@ -298,6 +324,7 @@ export default function TripMap({ tripId, onClose }) {
   // View
   const [fitTrigger,      setFitTrigger]      = useState(0);
   const [showLegendPanel, setShowLegendPanel] = useState(false);
+  const [mapZoom,         setMapZoom]         = useState(13);
 
   // ── Load data ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -341,9 +368,21 @@ export default function TripMap({ tripId, onClose }) {
           );
         }
 
-        const avgLF = clusterList.length
+        // Two distinct quantities — see docs/load-factor-definitions.md.
+        //
+        // avgStopOcc: unweighted mean of the per-cluster load factor across the
+        // detected stop clusters. It covers dwell points only, not the whole
+        // trip, and weights a 3-point cluster the same as a 16-point one. It is
+        // therefore NOT the trip's load factor and must not be labelled as one.
+        const avgStopOcc = clusterList.length
           ? clusterList.reduce((s, c) => s + (c.load_factor_pct || 0), 0) / clusterList.length
           : 0;
+
+        // overallLF: the trip-level load factor the backend already computes —
+        // mean of occupancy / official_capacity across every GPS log. This is
+        // read straight from the run-all payload this component already
+        // fetches; nothing is recomputed on the client.
+        const overallLF = analyticsRes?.data?.load_factor?.overall?.avg_lf ?? null;
 
         setStats({
           total: raw.length,
@@ -355,7 +394,8 @@ export default function TripMap({ tripId, onClose }) {
           moving:    clusterList.filter(c => c.cluster_type === "MOVING").length,
           outOfCorridor,
           distanceKm: distM / 1000,
-          avgLF,
+          avgStopOcc,
+          overallLF,
         });
       })
       .catch(e => setError(e.response?.data?.detail || "Failed to load map data."))
@@ -367,6 +407,53 @@ export default function TripMap({ tripId, onClose }) {
     const s = snapToRoad(l.lat, l.lon, getCorridorForTrip(tripId));
     return { ...l, lat: s.lat, lon: s.lon };
   }), [logs]);
+
+  // ── Derived: which cluster labels can be shown permanently ─────────────
+  // Previously every TRUE_STOP cluster carried a permanent tooltip, so clusters
+  // sitting close together stacked their labels and hid one another.
+  //
+  // Greedy top-down placement. The START and END pins are reserved first —
+  // they are fixed landmarks and must never be covered — then the busiest
+  // clusters claim their label box. A cluster whose box would overlap one
+  // already placed falls back to a hover tooltip instead of a permanent one.
+  // Nothing is removed: every cluster keeps its marker, rings, number bubble
+  // and full tooltip content on hover. Zooming in frees space, so more labels
+  // become permanent automatically.
+  const permanentLabelIds = useMemo(() => {
+    const LABEL_W = 172, LABEL_H = 54, GAP = 4;
+    const PIN_W = 78, PIN_H = 26, PIN_R = 11;
+    const placed = [];
+    const keep = new Set();
+
+    // Reserve the START / END pin labels before anything else.
+    const ends = [];
+    if (filteredLogs.length > 0) ends.push(filteredLogs[0]);
+    if (filteredLogs.length > 1) ends.push(filteredLogs[filteredLogs.length - 1]);
+    for (const e of ends) {
+      const p = projectPx(e.lat, e.lon, mapZoom);
+      placed.push({
+        x1: p.x - PIN_W / 2 - GAP, x2: p.x + PIN_W / 2 + GAP,
+        y1: p.y - PIN_R - PIN_H - 12 - GAP, y2: p.y - PIN_R - 12 + GAP,
+      });
+    }
+
+    const ordered = clusters
+      .filter(c => c.cluster_type === "TRUE_STOP")
+      .slice()
+      .sort((a, b) => (b.point_count || 0) - (a.point_count || 0));
+    for (const c of ordered) {
+      const p = projectPx(c.centroid_lat, c.centroid_lon, mapZoom);
+      const r = Math.max(14, Math.min(48, (c.point_count || 0) * 2.5));
+      const box = {
+        x1: p.x - LABEL_W / 2 - GAP, x2: p.x + LABEL_W / 2 + GAP,
+        y1: p.y - r - LABEL_H - GAP, y2: p.y - r + GAP,
+      };
+      const collides = placed.some(q =>
+        box.x1 < q.x2 && box.x2 > q.x1 && box.y1 < q.y2 && box.y2 > q.y1);
+      if (!collides) { placed.push(box); keep.add(c.cluster_id); }
+    }
+    return keep;
+  }, [clusters, filteredLogs, mapZoom]);
 
   // ── Derived: filtered clusters by demand tier ──────────────────────────
   const filteredClusters = useMemo(() => {
@@ -422,7 +509,14 @@ export default function TripMap({ tripId, onClose }) {
             <span>📏 <strong>{stats.distanceKm.toFixed(2)}</strong> km traveled</span>
             <span>🚏 <strong>{stats.trueStops}</strong> true stops</span>
             <span>👥 <strong>{stats.maxOcc}</strong> max occupancy</span>
-            <span>📊 <strong>{stats.avgLF.toFixed(0)}%</strong> avg load factor</span>
+            {stats.overallLF != null && (
+              <span title="Mean of occupancy ÷ capacity across every GPS log in this trip (backend /load-factor).">
+                📊 <strong>{stats.overallLF.toFixed(1)}%</strong> overall load factor
+              </span>
+            )}
+            <span title="Unweighted mean of the per-cluster load factor across detected stop clusters — dwell points only, not the whole trip.">
+              📈 <strong>{stats.avgStopOcc.toFixed(0)}%</strong> avg occupancy at detected stops
+            </span>
           </div>
         )}
 
@@ -531,6 +625,7 @@ export default function TripMap({ tripId, onClose }) {
                 url={TILE_URL}
                 maxZoom={TILE_MAX_ZOOM}
               />
+              <ZoomTracker onZoom={setMapZoom} />
               <ZoomControl position="bottomright" />
               <ScaleControl position="bottomleft" imperial={false} />
 
@@ -654,7 +749,7 @@ export default function TripMap({ tripId, onClose }) {
                       }}
                     >
                       <Tooltip
-                        permanent={c.cluster_type === "TRUE_STOP"}
+                        permanent={permanentLabelIds.has(c.cluster_id)}
                         direction="top"
                         offset={[0, -radius]}
                       >

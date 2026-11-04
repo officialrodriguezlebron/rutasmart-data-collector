@@ -45,7 +45,7 @@ export default function Dashboard() {
 
   return (
     <div className="app-container">
-      <div className="app-card">
+      <div className="app-card dashboard-card">
 
         {/* Header */}
         <div className="header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -62,6 +62,8 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* Identity + status — left column on desktop, stacked on mobile */}
+        <div className="dashboard-info">
         {/* Conductor info */}
         {user && (
           <div className="device-id" style={{ marginTop: 12 }}>
@@ -88,7 +90,10 @@ export default function Dashboard() {
           <span className="device-label">Device ID</span>
           <span className="device-value">{deviceId}</span>
         </div>
+        </div>
 
+        {/* Actions + active trip — right column on desktop */}
+        <div className="dashboard-primary">
         {/* Actions */}
         <div className="actions">
           {hasActiveTrip ? (
@@ -111,6 +116,7 @@ export default function Dashboard() {
             <div className="stat-label">Active Trip</div>
             <div className="stat-value">{hasActiveTrip ? "Running" : "None"}</div>
           </div>
+        </div>
         </div>
 
       </div>
