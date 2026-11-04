@@ -1,4 +1,5 @@
 import axios from "axios";
+import { authService } from "./authService";
 
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -8,6 +9,78 @@ const API = axios.create({
     "X-API-Key": import.meta.env.VITE_API_KEY || "",
   },
 });
+
+// Login endpoints answer 401 for a wrong password or PIN. That is a failed
+// attempt, not an expired session, so it must never clear stored state.
+const isLoginRequest = (url = "") => url.includes("/auth/login/");
+
+/**
+ * Tear down the session and send the user to the login screen.
+ *
+ * Uses a full navigation rather than the router, because this runs from an
+ * axios interceptor outside the React tree, and a hard reload guarantees no
+ * component is left holding stale authenticated state.
+ */
+export function expireSession(
+  message = "Your session has expired. Please sign in again."
+) {
+  authService.clearSession();
+  authService.setSessionNotice(message);
+  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+    window.location.replace("/login");
+  }
+}
+
+/**
+ * Headers for a protected endpoint called through raw fetch().
+ *
+ * Mirrors what the axios interceptors below attach, so the two transports
+ * stay in step. Do NOT use this for /public/* — those endpoints are
+ * anonymous by design and are exempt from the API key on the backend.
+ */
+export function protectedHeaders(extra = {}) {
+  const headers = {
+    "X-API-Key": import.meta.env.VITE_API_KEY || "",
+    ...extra,
+  };
+  const token = authService.getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+/** fetch() for protected endpoints: attaches auth headers, handles 401. */
+export async function protectedFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: protectedHeaders(options.headers || {}),
+  });
+  if (res.status === 401 && !isLoginRequest(url)) expireSession();
+  return res;
+}
+
+// ── Attach the signed session token to every axios request ─────────────────
+// The backend issues it at login but does not verify it yet (Phase 3A Step 4
+// adds enforcement). Sending it now means enforcement can be switched on
+// without a second frontend change.
+API.interceptors.request.use((config) => {
+  const token = authService.getToken();
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ── Treat a 401 on a protected route as an expired session ─────────────────
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const url = error?.config?.url || "";
+    if (status === 401 && !isLoginRequest(url)) expireSession();
+    return Promise.reject(error);
+  }
+);
 
 // ── Auth ───────────────────────────────────────────────────────────────────
 export const loginAdmin     = (data) => API.post("/auth/login/admin", data);

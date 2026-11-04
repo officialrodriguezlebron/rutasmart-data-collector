@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService } from "../services/authService";
-// getAggregateDashboard removed — analytics engine fetches directly via fetch()
+// Analytics engine calls the backend through raw fetch(); protectedFetch adds
+// the API key and the signed Authorization token and handles a 401 centrally.
+import { protectedFetch } from "../services/api";
 import TripMap from "./TripMap";
 import "./AnalyticsEngine.css";
 
@@ -435,8 +437,7 @@ export default function AnalyticsEngine() {
   const [tripsLoading, setTripsLoading] = useState(true);
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_API_KEY || "";
-    fetch(`${API}/admin/trips`, { headers: { "X-API-Key": apiKey } })
+    protectedFetch(`${API}/admin/trips`)
       .then(r => r.json())
       .then(d => {
         const completed = (d || []).filter(t => t.status === "COMPLETED");
@@ -460,9 +461,8 @@ export default function AnalyticsEngine() {
     if (!id) { setError("Enter a trip ID first."); return; }
     setLoading(true); setError(null); setData(null);
     try {
-      const res = await fetch(
-        `${API}/analytics/${encodeURIComponent(id)}/run-all?eps_m=${epsM}&min_samples=${minPts}`,
-        { headers: { "X-API-Key": import.meta.env.VITE_API_KEY || "" } }
+      const res = await protectedFetch(
+        `${API}/analytics/${encodeURIComponent(id)}/run-all?eps_m=${epsM}&min_samples=${minPts}`
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -481,9 +481,8 @@ export default function AnalyticsEngine() {
     if (!data) return;
     setLoading(true); setError(null);
     try {
-      const res = await fetch(
-        `${API}/analytics/${encodeURIComponent(data.trip_id)}/dbscan?eps_m=${epsM}&min_samples=${minPts}`,
-        { headers: { "X-API-Key": import.meta.env.VITE_API_KEY || "" } }
+      const res = await protectedFetch(
+        `${API}/analytics/${encodeURIComponent(data.trip_id)}/dbscan?eps_m=${epsM}&min_samples=${minPts}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const dbscan = await res.json();
@@ -506,14 +505,12 @@ export default function AnalyticsEngine() {
     setActiveTab("compare");
 
     try {
-      const apiKey = import.meta.env.VITE_API_KEY || "";
-      const headers = { "X-API-Key": apiKey };
 
       // Merged mode — use the /merged/compare endpoint
       if ((mode === "day" || mode === "all") && aggData?.source_trips?.length) {
         const ids = aggData.source_trips.join(",");
         const url = `${API}/analytics/merged/compare?trip_ids=${encodeURIComponent(ids)}&eps_m=${epsM}&min_samples=${minPts}`;
-        const res = await fetch(url, { headers });
+        const res = await protectedFetch(url);
         const json = await res.json();
         if (json.detail) throw new Error(json.detail);
 
@@ -533,10 +530,10 @@ export default function AnalyticsEngine() {
       if (!id) return;
       const eps = epsM; const mp = minPts;
       const [vanillaRes, kalmanRes, wRes, evalRes] = await Promise.all([
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan?eps_m=${eps}&min_samples=${mp}`, { headers }),
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan-kalman?eps_m=${eps}&min_samples=${mp}`, { headers }),
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/wdbscan?eps_m=${eps}&min_samples=${mp}`, { headers }),
-        fetch(`${API}/analytics/${encodeURIComponent(id)}/evaluate?eps_m=${eps}&min_samples=${mp}`, { headers }),
+        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan?eps_m=${eps}&min_samples=${mp}`),
+        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan-kalman?eps_m=${eps}&min_samples=${mp}`),
+        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/wdbscan?eps_m=${eps}&min_samples=${mp}`),
+        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/evaluate?eps_m=${eps}&min_samples=${mp}`),
       ]);
       const [vanilla, kalman, weighted, evalData] = await Promise.all([
         vanillaRes.json(), kalmanRes.json(), wRes.json(), evalRes.json(),
@@ -560,8 +557,6 @@ export default function AnalyticsEngine() {
     setActiveTab("overview");
 
     try {
-      const apiKey = import.meta.env.VITE_API_KEY || "";
-      const headers = { "X-API-Key": apiKey };
 
       // Step 1 — collect trip IDs for this mode
       let tripIds = [];
@@ -593,7 +588,7 @@ export default function AnalyticsEngine() {
 
       // Step 2 — call merged run-all endpoint
       const url = `${API}/analytics/merged/run-all?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minPts}`;
-      const res = await fetch(url, { headers });
+      const res = await protectedFetch(url);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${res.status}`);

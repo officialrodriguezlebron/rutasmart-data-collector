@@ -10,6 +10,11 @@ export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
 
+  // Why the user is here: a legacy session purged at startup, or a 401 on a
+  // protected request. Read once via a lazy initializer rather than an effect,
+  // and consumed in the process so it shows a single time.
+  const [notice] = useState(() => authService.takeSessionNotice());
+
   // Admin fields
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -128,6 +133,15 @@ export default function Login() {
                 Works offline · PWA mobile
               </div>
             </>
+          )}
+
+          {notice && !error && (
+            <div className="login-error" role="status"
+                 style={{ background: "rgba(255,159,10,0.10)",
+                          borderColor: "rgba(255,159,10,0.35)",
+                          color: "#8a5200" }}>
+              {notice}
+            </div>
           )}
 
           {error && (
