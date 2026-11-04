@@ -29,8 +29,9 @@ signature added::
 ``display_name`` may itself contain ":", so the payload is parsed positionally
 from both ends rather than by a naive split.
 
-STATUS: tokens are ISSUED and can be VERIFIED, but no endpoint enforces them
-yet. Wiring ``verify_token`` into request handling is Phase 3A Step 4.
+STATUS: tokens are ISSUED and can be VERIFIED, and the FastAPI dependencies
+``get_current_user`` and ``require_role`` exist — but they are applied to NO
+endpoint yet. Attaching them route by route is Phase 3A Step 4b onwards.
 """
 
 import base64
@@ -41,7 +42,9 @@ import secrets
 import time
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Optional
+from typing import Callable, Optional
+
+from fastapi import Depends, Header, HTTPException
 
 logger = logging.getLogger("rutasmart.security")
 
@@ -191,3 +194,85 @@ def try_verify_token(token: str) -> Optional[TokenPayload]:
         return verify_token(token)
     except TokenError:
         return None
+
+
+# ── FastAPI dependencies ─────────────────────────────────────────────────────
+# Declared here but deliberately attached to no route yet. Enforcement is
+# switched on group by group so each change can be verified against the UI:
+#   1. destructive admin writes   2. the rest of /admin/*
+#   3. analytics and ML           4. conductor write routes
+#
+# Two constraints carried over from the Phase 3A audit:
+#   * /public/* must never require a token. Those endpoints back the anonymous
+#     passenger dashboard and are already exempt from the API key.
+#   * POST /admin/clean-stale-trips is called by the conductor Recording page,
+#     so it must allow CONDUCTOR as well as ADMIN. Making it admin-only would
+#     break recording.
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> TokenPayload:
+    """Resolve the caller from the Authorization header.
+
+    Raises 401 for a missing, malformed, unsigned, forged or expired token.
+    Authentication only — it says who the caller is, not what they may do.
+    """
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    scheme, _, raw = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not raw.strip():
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header must be 'Bearer <token>'.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        return verify_token(raw.strip())
+    except TokenExpired:
+        # Distinguished from a bad token so the client can tell "sign in
+        # again" from "something is wrong with this request".
+        raise HTTPException(
+            status_code=401,
+            detail="Session expired. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except TokenInvalid:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def require_role(*roles: str) -> Callable[..., TokenPayload]:
+    """Dependency factory requiring the caller to hold one of ``roles``.
+
+    Authenticated but insufficiently privileged callers get 403, not 401:
+    re-authenticating would not help, and a 401 would make the frontend clear
+    a perfectly good session.
+
+    At least one role must be named. An empty ``require_role()`` is a
+    programming error — read either as "anyone" or "no one" depending on the
+    implementation — so it fails loudly at import time instead. Use
+    ``get_current_user`` directly when any authenticated caller will do.
+    """
+    if not roles:
+        raise ValueError(
+            "require_role() needs at least one role; "
+            "use get_current_user for any authenticated caller."
+        )
+    allowed = {r.upper() for r in roles}
+
+    def _require(user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
+        if user.role.upper() not in allowed:
+            raise HTTPException(
+                status_code=403,
+                detail="This account does not have access to this resource.",
+            )
+        return user
+
+    return _require

@@ -56,11 +56,34 @@ Steps 2-5 and Phase 3B. Listed here so the production checklist is complete.
 
 | ID | Item | Phase |
 |---|---|---|
-| S1 | Tokens are unsigned base64 and are never verified server-side | 3A Step 2-4 |
-| S2 | No role authorization on any `/admin/*` endpoint, including `DELETE /admin/trip/{id}` and `POST /admin/import` | 3A Step 4 |
+| S1 | Tokens are now HMAC-signed and verifiable, but no endpoint enforces them | 3A Step 4b |
+| S2 | No role authorization on any `/admin/*` endpoint, including `DELETE /admin/trip/{id}` and `POST /admin/import` | 3A Step 4b |
 | S6 | `POST /auth/seed` is gated only by a defaulted `ENV` var and can mint the README-published admin account | 3A Step 5 |
+| D1 | Interrupted queue flush can duplicate GPS rows — see below | 3A Step 4b/4c |
 | — | `recorder_id` and `device_id` are client-supplied, so trip and log ownership is unverifiable | 3B |
 | — | `ALLOWED_ORIGINS` still contains stale Vercel/Render hosts | pre-deploy cleanup |
+
+### D1 — interrupted queue flush can duplicate GPS rows
+
+**Status:** tracked, deliberately not fixed in the 4a data-preservation work.
+
+`flushQueue` in `rutas-frontend/src/pages/Recording.jsx` uploads each queued
+log in turn and only rewrites the queue once the loop finishes. If the page is
+reloaded, navigated away from, or killed mid-flush, every log in that pass
+stays queued — including any already accepted by the backend — and is sent
+again on the next flush.
+
+That ordering is deliberate and correct as a trade: it favours duplicates over
+loss, and losing field GPS data is the worse outcome. The cost is that
+`POST /log/` mints its own `log_id` server-side, so a duplicate submission
+becomes a duplicate row in `gps_logs` rather than an idempotent no-op. Repeated
+rows at one position would inflate the point counts DBSCAN clusters on, so this
+is a research-data concern as well as a tidiness one.
+
+Resolving it needs an idempotency key: the PWA already stamps `client_seq` per
+trip, so `(trip_id, client_seq)` is a natural unique constraint, with the insert
+becoming an upsert. That is a schema change plus a backend change, which is why
+it is not folded into the frontend-only 4a commit.
 
 ---
 
