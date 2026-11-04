@@ -8,16 +8,17 @@ POST /auth/seed            — Dev-only — disabled when ENV=production
 GET  /auth/conductors      — List conductor accounts (admin view)
 
 Auth model: two roles, ADMIN and CONDUCTOR.
-Token format (prototype): base64({user_id}:{role}:{display_name}:{timestamp})
-Pre-LGU: replace with python-jose JWT with expiry + refresh.
+
+Tokens are HMAC-SHA256 signed with an issued-at and an expiry — see
+app/security.py, which also records why JWT was evaluated and not adopted.
+They are issued here but not yet enforced by any endpoint; wiring verification
+into request handling is Phase 3A Step 4.
 
 Password and PIN hashes are bcrypt. Legacy SHA-256 hashes are accepted on
 login but are silently upgraded to bcrypt on success.
 """
 
-import base64
 import os
-import time
 import uuid as _uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from slowapi.util import get_remote_address
 
 from app.database import get_db
 from app.models.user import User, UserRole
+from app.security import create_token
 from app.schemas.auth_schema import (
     AdminAnalystLoginRequest,
     ConductorLoginRequest,
@@ -39,8 +41,17 @@ ENV = os.getenv("ENV", "development").lower()
 
 
 def make_token(user: User) -> str:
-    payload = f"{user.user_id}:{user.role.value}:{user.display_name}:{int(time.time())}"
-    return base64.b64encode(payload.encode()).decode()
+    """Issue a signed session token for an authenticated user.
+
+    Thin adapter over app.security.create_token so the call sites below stay
+    unchanged. The returned string is still a base64 payload, now followed by
+    ".<signature>", so the frontend continues to store it verbatim.
+    """
+    return create_token(
+        user_id=user.user_id,
+        role=user.role.value,
+        display_name=user.display_name,
+    )
 
 
 # ── Admin login ────────────────────────────────────────────────────────────
