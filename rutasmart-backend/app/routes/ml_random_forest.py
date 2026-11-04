@@ -31,7 +31,9 @@ from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.security import require_role
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -144,7 +146,12 @@ class RFResult(BaseModel):
 
 # ── Router ────────────────────────────────────────────────────────────────────
 
-router = APIRouter(prefix="/api/clusters", tags=["ML-Random-Forest"])
+# Every route on this router is ADMIN-only. The dependency is attached to the
+# router rather than to each endpoint so no current or future route can be
+# added without it — these endpoints expose model internals and run
+# inference over the research dataset.
+router = APIRouter(prefix="/api/clusters", tags=["ML-Random-Forest"],
+                   dependencies=[Depends(require_role("ADMIN"))])
 
 
 @router.post("/ml-random-forest", response_model=RFResult)

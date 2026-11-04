@@ -25,12 +25,6 @@ import AdminEvaluate    from "./pages/admin/AdminEvaluate";
 import AdminOverlap     from "./pages/admin/AdminOverlap";
 import AdminConductors  from "./pages/admin/AdminConductors";
 
-// Must be logged in
-function RequireAuth({ children }) {
-  if (!authService.isLoggedIn()) return <Navigate to="/login" replace />;
-  return children;
-}
-
 // Conductor only
 function RequireConductor({ children }) {
   if (!authService.isLoggedIn())  return <Navigate to="/login" replace />;
@@ -70,8 +64,13 @@ export default function App() {
         <Route path="/summary"     element={<RequireConductor><TripSummary /></RequireConductor>} />
         <Route path="/saved-trips" element={<RequireConductor><SavedTrips /></RequireConductor>} />
 
-        {/* Analytics — Admin AND Analyst both land here */}
-        <Route path="/analytics" element={<RequireAuth><AnalyticsEngine /></RequireAuth>} />
+        {/* Analytics — ADMIN only.
+            The backend scopes every /analytics/* and /api/clusters/* route to
+            ADMIN, so a conductor reaching this page would only see failed
+            requests. The guard now matches, and the comment that claimed an
+            "Analyst" also lands here was stale: ANALYST cannot authenticate
+            and is authorized nowhere. */}
+        <Route path="/analytics" element={<RequireAdmin><AnalyticsEngine /></RequireAdmin>} />
 
         {/* Admin panel — Admin only, Analyst never sees this */}
         <Route path="/admin" element={<RequireAdmin><AdminShell /></RequireAdmin>}>

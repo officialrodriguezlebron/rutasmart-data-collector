@@ -15,6 +15,8 @@ GET /analytics/{trip_id}/run-all      All four features in one call
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from app.security import require_role
 from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -63,7 +65,12 @@ from app.analytics.schemas import (
     GroundTruthMatchOut,
 )
 
-router = APIRouter(prefix="/analytics", tags=["Analytics"])
+# Every route on this router is ADMIN-only. The dependency is attached to the
+# router rather than to each endpoint so no current or future route can be
+# added without it — these endpoints expose the research dataset, including
+# raw GPS coordinates via /{trip_id}/logs.
+router = APIRouter(prefix="/analytics", tags=["Analytics"],
+                   dependencies=[Depends(require_role("ADMIN"))])
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────

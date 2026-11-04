@@ -38,7 +38,9 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.security import require_role
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -122,7 +124,12 @@ class MLDBSCANResult(BaseModel):
 # Router
 # ─────────────────────────────────────────────────────────────────────────────
 
-router = APIRouter(prefix="/api/clusters", tags=["ML-Optimized DBSCAN"])
+# Every route on this router is ADMIN-only. The dependency is attached to the
+# router rather than to each endpoint so no current or future route can be
+# added without it — this endpoint runs clustering over the
+# research dataset.
+router = APIRouter(prefix="/api/clusters", tags=["ML-Optimized DBSCAN"],
+                   dependencies=[Depends(require_role("ADMIN"))])
 
 
 @router.post("/ml-optimized", response_model=MLDBSCANResult)
