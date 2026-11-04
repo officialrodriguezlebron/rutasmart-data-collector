@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginAdmin, loginConductor } from "../services/api";
+import { loginAdmin, loginConductor, resetSessionExpiryLatch } from "../services/api";
 import { authService } from "../services/authService";
 import "./Login.css";
 
@@ -35,6 +35,7 @@ export default function Login() {
         res = await loginAdmin({ email, password });
       }
       authService.setSession(res.data);
+      resetSessionExpiryLatch();   // a future expiry must be handled again
       navigate(authService.getHomeRoute(), { replace: true });
     } catch (err) {
       setError(

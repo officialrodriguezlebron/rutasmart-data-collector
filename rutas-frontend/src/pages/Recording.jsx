@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { logGPS, endTrip as endTripAPI } from "../services/api";
+import { logGPS, endTrip as endTripAPI, SESSION_EXPIRED_EVENT } from "../services/api";
 import { tripService } from "../services/tripService.js";
 import { useBackendHealth } from "../hooks/useBackendHealth.js";
 import "./Recording.css";
@@ -34,6 +34,16 @@ function Recording() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [queueCount, setQueueCount] = useState(0);
   const [debugLog, setDebugLog] = useState([]);
+
+  // Number of logs that could not be uploaded when End Trip was pressed.
+  // Non-zero means the trip deliberately stayed active rather than finishing
+  // with unsent GPS data.
+  const [endBlocked, setEndBlocked] = useState(0);
+  const [retrying, setRetrying] = useState(false);
+
+  // Set when the session expires while this screen is mounted. Capture and
+  // queueing are local and keep running; only uploading needs a session.
+  const [sessionLost, setSessionLost] = useState(false);
 
   const [gpsData, setGpsData] = useState({
     latitude: null,
@@ -163,10 +173,19 @@ function Recording() {
     addDebug(`Queued. Queue size: ${queue.length}`);
   };
 
+  /**
+   * Try to upload everything currently queued.
+   *
+   * Returns the number of logs still unsent afterwards, so callers — End Trip
+   * especially — can tell the difference between "all delivered" and "nothing
+   * got through". Previously this returned nothing and End Trip cleared the
+   * queue unconditionally, discarding unsent GPS data whenever the backend
+   * was unreachable, which is exactly the case the queue exists for.
+   */
   const flushQueue = async () => {
-    if (isFlushing.current) return;
+    if (isFlushing.current) return getQueue().length;
     const snapshot = getQueue();          // snapshot length at flush start
-    if (snapshot.length === 0) return;
+    if (snapshot.length === 0) return 0;
 
     isFlushing.current = true;
     addDebug(`Flushing ${snapshot.length} queued logs...`);
@@ -196,9 +215,23 @@ function Recording() {
     // flush (new offline failures) plus whatever we couldn't send.
     const current = getQueue();
     const addedDuringFlush = current.slice(snapshot.length);
-    saveQueue([...failed, ...addedDuringFlush]);
+    const remaining = [...failed, ...addedDuringFlush];
+    saveQueue(remaining);
 
     isFlushing.current = false;
+    return remaining.length;
+  };
+
+  /** Manual retry offered when End Trip is blocked by unsent logs. */
+  const handleRetryUpload = async () => {
+    setRetrying(true);
+    addDebug("Manual retry — flushing queue...");
+    const remaining = await flushQueue();
+    setEndBlocked(remaining);
+    addDebug(remaining === 0
+      ? "All queued logs uploaded. You can end the trip now."
+      : `${remaining} log(s) still unsent.`);
+    setRetrying(false);
   };
 
   useEffect(() => {
@@ -206,6 +239,18 @@ function Recording() {
       setQueueCount(getQueue().length);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The session can expire mid-trip. api.js deliberately does not navigate
+  // away while a trip is active, so this screen stays mounted and keeps
+  // capturing and queueing — neither needs a token. Show the state instead.
+  useEffect(() => {
+    const onExpired = () => {
+      setSessionLost(true);
+      addDebug("Signed out — logs are still being saved locally.");
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);
 
   useEffect(() => {
@@ -354,19 +399,33 @@ function Recording() {
     isEndingRef.current = true; // suppress the activeTrip guard redirect
 
     try {
+      // Capture stable references BEFORE any async calls
+      const finalLogsSent = logsSentRef.current;
+      const tripSnapshot   = { ...activeTrip }; // snapshot in case localStorage is cleared
+
+      // Flush first, and only dismantle GPS capture once the trip can really
+      // be closed. Tearing down before the flush would leave the jeepney
+      // untracked while the trip is still, in fact, active.
+      addDebug("Trip ending — final flush...");
+      const remaining = await flushQueue();
+
+      if (remaining > 0) {
+        // Do not finish a trip while GPS data is still undelivered: the queue,
+        // active_trip and the recording screen all stay exactly as they are.
+        isEndingRef.current = false;
+        setEndBlocked(remaining);
+        addDebug(`End blocked — ${remaining} log(s) could not be uploaded.`);
+        return;
+      }
+
+      setEndBlocked(0);
       clearInterval(intervalRef.current);
 
       if (watchIdRef.current) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
 
-      // Capture stable references BEFORE any async calls
-      const finalLogsSent = logsSentRef.current;
-      const tripSnapshot   = { ...activeTrip }; // snapshot in case localStorage is cleared
-
-      addDebug("Trip ending — final flush...");
-      await flushQueue();
-      clearQueue();
+      clearQueue();   // safe: the flush above confirmed nothing is left
 
       let endTripSucceeded = false;
       const RETRY_DELAYS_MS = [0, 2000, 5000];
@@ -448,6 +507,51 @@ function Recording() {
             <span className="status-badge queue">Queue: {queueCount}</span>
           )}
         </div>
+
+        {/* Session expired mid-trip — capture and queueing continue locally */}
+        {sessionLost && (
+          <div className="wakelock-banner wakelock-warn"
+               style={{ background: "#fff7ed", color: "#7c2d12", borderColor: "#fed7aa" }}>
+            Signed out — GPS logs are being saved locally. Sign in to resume
+            uploading.
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              style={{ marginLeft: 10, padding: "4px 12px", borderRadius: 8,
+                       border: "1px solid #fdba74", background: "#ffedd5",
+                       color: "#7c2d12", fontWeight: 700, cursor: "pointer" }}
+            >
+              Sign in
+            </button>
+            <div style={{ marginTop: 6, fontSize: 11, opacity: 0.85 }}>
+              Your active trip and queued logs are kept. After signing in,
+              choose “Continue Active Trip”.
+            </div>
+          </div>
+        )}
+
+        {/* End Trip blocked — unsent GPS logs would otherwise be discarded */}
+        {endBlocked > 0 && (
+          <div className="wakelock-banner wakelock-warn"
+               style={{ background: "#fef2f2", color: "#7f1d1d", borderColor: "#fecaca" }}>
+            Some GPS logs could not be uploaded. The trip remains active.
+            Reconnect and retry.
+            <div style={{ marginTop: 6, fontSize: 12 }}>
+              <strong>{endBlocked}</strong> log{endBlocked === 1 ? "" : "s"} still queued.
+            </div>
+            <button
+              type="button"
+              onClick={handleRetryUpload}
+              disabled={retrying}
+              style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8,
+                       border: "1px solid #fca5a5", background: "#fee2e2",
+                       color: "#7f1d1d", fontWeight: 700,
+                       cursor: retrying ? "not-allowed" : "pointer" }}
+            >
+              {retrying ? "Retrying…" : "Retry upload"}
+            </button>
+          </div>
+        )}
 
         {/* Backend unreachable banner — distinct from device-offline */}
         {isOnline && backendStatus === "down" && (

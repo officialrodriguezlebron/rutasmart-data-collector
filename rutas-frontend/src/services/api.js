@@ -1,5 +1,6 @@
 import axios from "axios";
 import { authService } from "./authService";
+import { tripService } from "./tripService.js";
 
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -14,21 +15,58 @@ const API = axios.create({
 // attempt, not an expired session, so it must never clear stored state.
 const isLoginRequest = (url = "") => url.includes("/auth/login/");
 
+/** Fired once when a session expires, so mounted screens can react in place. */
+export const SESSION_EXPIRED_EVENT = "rutasmart:session-expired";
+
+// A single failure can produce several concurrent 401s (the recording screen
+// posts every 3s and flushes a queue in a loop). Without this latch each one
+// would clear state and trigger its own navigation.
+let sessionExpiryHandled = false;
+
 /**
- * Tear down the session and send the user to the login screen.
+ * Tear down the session.
  *
- * Uses a full navigation rather than the router, because this runs from an
- * axios interceptor outside the React tree, and a hard reload guarantees no
- * component is left holding stale authenticated state.
+ * Normally this also navigates to /login: the call site is an axios
+ * interceptor outside the React tree, and a full load guarantees no component
+ * is left holding stale authenticated state.
+ *
+ * The exception is an active recording trip. Navigating away would unmount
+ * Recording, cancelling its geolocation watch and its 3-second interval, so
+ * the jeepney would stop being tracked the moment a token expired — a hole in
+ * the trip's GPS coverage. Capture and queueing are purely local and need no
+ * token, so the screen is left mounted and told to surface the state instead.
+ * The conductor can sign in when convenient; active_trip and the offline
+ * queue are never touched here, so nothing is lost either way.
  */
 export function expireSession(
   message = "Your session has expired. Please sign in again."
 ) {
-  authService.clearSession();
+  if (sessionExpiryHandled) return;
+  sessionExpiryHandled = true;
+
+  authService.clearSession();          // token + user only, never trip data
   authService.setSessionNotice(message);
-  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.replace("/login");
+
+  let hasActiveTrip = false;
+  try {
+    hasActiveTrip = !!tripService.getActiveTrip();
+  } catch {
+    hasActiveTrip = false;
   }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, {
+      detail: { message, hasActiveTrip },
+    }));
+    if (!hasActiveTrip && window.location.pathname !== "/login") {
+      window.location.replace("/login");
+    }
+  }
+}
+
+/** Re-arm the latch after a successful sign-in. */
+export function resetSessionExpiryLatch() {
+  sessionExpiryHandled = false;
 }
 
 /**
