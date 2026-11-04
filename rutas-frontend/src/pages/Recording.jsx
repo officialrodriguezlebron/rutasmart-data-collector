@@ -2,13 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { logGPS, endTrip as endTripAPI, SESSION_EXPIRED_EVENT } from "../services/api";
 import { tripService } from "../services/tripService.js";
+import { getOrCreateDeviceId, toEpochMillis } from "../utils/deviceId.js";
 import { useBackendHealth } from "../hooks/useBackendHealth.js";
 import "./Recording.css";
 
 function Recording() {
   const navigate = useNavigate();
   const activeTrip = tripService.getActiveTrip();
-  const deviceId = localStorage.getItem("rutasmart_device_id");
+  // get-or-create, never a bare read: a null device_id fails backend
+  // validation (min_length 3) and every GPS log is rejected with 422.
+  const deviceId = getOrCreateDeviceId();
   const backendStatus = useBackendHealth({ intervalMs: 30000 });
   const isEndingRef   = useRef(false); // prevents guard from redirecting to /dashboard during end-trip
 
@@ -345,7 +348,10 @@ function Recording() {
         accuracy:       gps.accuracy,
         occupancy_count: occ,
         // KPI instrumentation — all three fields
-        gps_timestamp:  gps.fixTimestamp ?? null,   // epoch-ms from Geolocation API (KPI #7)
+        // position.timestamp is a DOMHighResTimeStamp (a double); the backend
+        // field is Optional[int] and rejects a fractional value. See
+        // toEpochMillis for why rounding is safe for KPI #7.
+        gps_timestamp:  toEpochMillis(gps.fixTimestamp),   // epoch-ms (KPI #7)
         client_seq:     clientSeqRef.current,        // sequence number (KPI #5)
         client_online_event_at: null,                // set on first post-reconnect flush only
       };

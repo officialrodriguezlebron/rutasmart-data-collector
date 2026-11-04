@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { tripService } from "../services/tripService";
 import { startTrip as startTripAPI } from "../services/api";
 import "./TripSetup.css";
+import { getOrCreateDeviceId } from "../utils/deviceId.js";
 
 function TripSetup() {
   const navigate = useNavigate();
@@ -15,11 +16,9 @@ function TripSetup() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const DEVICE_KEY = "rutasmart_device_id";
-
-  const [deviceId] = useState(() => {
-    return localStorage.getItem(DEVICE_KEY) || "";
-  });
+  // get-or-create so a conductor who reaches Trip Setup without passing
+  // through the dashboard still has a device id to record against.
+  const [deviceId] = useState(() => getOrCreateDeviceId());
 
   const handleStartTrip = async () => {
     setError("");

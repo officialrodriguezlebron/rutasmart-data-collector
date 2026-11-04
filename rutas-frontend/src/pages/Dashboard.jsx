@@ -3,21 +3,7 @@ import { useState, useEffect } from "react";
 import { tripService } from "../services/tripService";
 import { authService } from "../services/authService";
 import "./Dashboard.css";
-
-const DEVICE_KEY = "rutasmart_device_id";
-
-function generateDeviceId() {
-  return "RS-" + crypto.randomUUID().slice(0, 8).toUpperCase();
-}
-
-function getOrCreateDeviceId() {
-  let storedId = localStorage.getItem(DEVICE_KEY);
-  if (!storedId) {
-    storedId = generateDeviceId();
-    localStorage.setItem(DEVICE_KEY, storedId);
-  }
-  return storedId;
-}
+import { getOrCreateDeviceId } from "../utils/deviceId.js";
 
 export default function Dashboard() {
   const navigate      = useNavigate();
