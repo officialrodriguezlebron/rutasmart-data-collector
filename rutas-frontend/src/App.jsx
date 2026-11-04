@@ -18,6 +18,7 @@ import AdminTrips       from "./pages/admin/AdminTrips";
 import AdminCorridors   from "./pages/admin/AdminCorridors";
 import AdminZoneMgmt    from "./pages/admin/AdminZoneMgmt";
 import AdminStopZones   from "./pages/admin/AdminStopZones";
+import AdminExport      from "./pages/admin/AdminExport";
 import AdminResearch    from "./pages/admin/AdminResearch";
 import AdminPipeline    from "./pages/admin/AdminPipeline";
 import AdminSensitivity from "./pages/admin/AdminSensitivity";
@@ -72,13 +73,21 @@ export default function App() {
             and is authorized nowhere. */}
         <Route path="/analytics" element={<RequireAdmin><AnalyticsEngine /></RequireAdmin>} />
 
-        {/* Admin panel — Admin only, Analyst never sees this */}
+        {/* Admin panel — Admin only, Analyst never sees this.
+
+            Phase UI-1 renamed the corridor analytics route from /corridors to
+            /demand so the path matches the sidebar label "Demand and Load
+            Factor". /corridors is kept as a redirect: it is the path the
+            earlier build used and may be bookmarked or referenced elsewhere.
+            Every other pre-existing path is unchanged. */}
         <Route path="/admin" element={<RequireAdmin><AdminShell /></RequireAdmin>}>
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview"   element={<AdminOverview />} />
           <Route path="map"        element={<AdminMap />} />
           <Route path="trips"      element={<AdminTrips />} />
-          <Route path="corridors"  element={<AdminCorridors />} />
+          <Route path="demand"     element={<AdminCorridors />} />
+          <Route path="corridors"  element={<Navigate to="/admin/demand" replace />} />
+          <Route path="export"     element={<AdminExport />} />
           <Route path="zones"      element={<AdminZoneMgmt />} />
           <Route path="stop-zones"   element={<AdminStopZones />} />
           <Route path="research"     element={<AdminResearch />} />

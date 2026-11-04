@@ -1,0 +1,472 @@
+/**
+ * RutaSmart admin UI primitives
+ * =============================
+ * A small token layer plus the styles for the shared components in this
+ * folder. This is deliberately NOT a design system: it defines only the
+ * tokens the redesigned pages actually consume, so colour, spacing and type
+ * stop being re-declared as literals in every page body.
+ *
+ * Scope
+ * -----
+ * These rules are additive. AdminDashboard.css still owns the existing
+ * layout (.admin-page, .admin-sidebar, .admin-main) and every page that has
+ * not been redesigned yet. Nothing here overrides it; the class prefix is
+ * `rs-` so the two cannot collide.
+ *
+ * Contrast
+ * --------
+ * The previous secondary text colour was rgba(255,255,255,0.35) over a
+ * near-black panel, which does not reach the WCAG 2.1 AA 4.5:1 ratio for
+ * normal-size text. Manuscript 6.4.1 names AA as a target, so the text
+ * tokens below start at 0.62, and the accents used for TEXT are separate,
+ * lightened variants of the ones used for FILLS: #ff453a is fine as a bar
+ * fill but only about 4.0:1 as small text on this ground.
+ */
+
+:root {
+  /* Surfaces: the existing dark-blue identity, kept. */
+  --rs-bg:            #0b1220;
+  --rs-surface:       #111a2b;
+  --rs-surface-2:     #141d30;
+  --rs-surface-hi:    #1b2740;
+  --rs-border:        rgba(255, 255, 255, 0.10);
+  --rs-border-strong: rgba(255, 255, 255, 0.18);
+
+  /* Text: all of these reach >= 4.5:1 on --rs-bg and --rs-surface. */
+  --rs-text:          rgba(255, 255, 255, 0.95);
+  --rs-text-2:        rgba(255, 255, 255, 0.78);
+  --rs-text-3:        rgba(255, 255, 255, 0.62);
+
+  /* Accents for FILLS (bars, dots, rings, map markers). */
+  --rs-fill-normal:   #30d158;
+  --rs-fill-moderate: #ffd60a;
+  --rs-fill-high:     #ff9f0a;
+  --rs-fill-critical: #ff453a;
+  --rs-fill-info:     #42a5f5;
+
+  /* Accents for TEXT (lightened so small text passes AA). */
+  --rs-on-normal:     #4ade80;
+  --rs-on-moderate:   #fde047;
+  --rs-on-high:       #fbbf24;
+  --rs-on-critical:   #ff8a80;
+  --rs-on-info:       #7cc4fa;
+
+  /* Spacing scale. */
+  --rs-1: 4px;  --rs-2: 8px;  --rs-3: 12px; --rs-4: 16px;
+  --rs-5: 20px; --rs-6: 24px; --rs-8: 32px; --rs-10: 40px;
+
+  --rs-radius:    10px;
+  --rs-radius-sm: 7px;
+  --rs-focus:     #7cc4fa;
+}
+
+/* Visible keyboard focus everywhere in the admin area (AA 2.4.7). */
+.rs-btn:focus-visible,
+.rs-select:focus-visible,
+.rs-tip:focus-visible,
+.rs-focusable:focus-visible {
+  outline: 2px solid var(--rs-focus);
+  outline-offset: 2px;
+}
+
+/* Screen-reader-only text, to give icon-only affordances a name. */
+.rs-sr {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Sidebar additions
+   ------------------------------------------------------------------------
+   Additive only: AdminDashboard.css still owns .admin-sidebar and
+   .admin-nav-item. These rules raise the inactive nav label from
+   rgba(255,255,255,0.55), which is about 3.6:1 on the sidebar ground and so
+   below the AA 4.5:1 minimum, and add the collapsible research group. */
+
+.admin-nav-item { color: rgba(255, 255, 255, 0.74); }
+.admin-nav-item:focus-visible { outline: 2px solid var(--rs-focus); outline-offset: 2px; }
+.admin-nav-section { color: rgba(255, 255, 255, 0.52); }
+
+.rs-navdisclosure {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; margin-top: var(--rs-4); padding: 9px 14px;
+  border: 1px dashed var(--rs-border-strong); border-radius: 10px;
+  background: transparent; color: rgba(255, 255, 255, 0.62);
+  font: inherit; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+}
+
+.rs-navdisclosure:hover { color: rgba(255, 255, 255, 0.9); border-color: var(--rs-text-3); }
+.rs-navdisclosure:focus-visible { outline: 2px solid var(--rs-focus); outline-offset: 2px; }
+
+.rs-navsub { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.rs-navsub .admin-nav-item { font-size: 12px; padding: 8px 14px; }
+
+@media (max-width: 768px) {
+  .rs-navdisclosure { width: auto; margin-top: 0; padding: 7px 12px; gap: 6px; }
+  .rs-navsub { flex-direction: row; flex-wrap: wrap; width: 100%; }
+}
+
+/* Page header
+   ------------------------------------------------------------------------ */
+
+.rs-pagehead { margin-bottom: var(--rs-6); }
+
+.rs-pagehead-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--rs-4); flex-wrap: wrap;
+}
+
+.rs-pagehead h1 {
+  margin: 0; font-size: 26px; font-weight: 650;
+  letter-spacing: -0.015em; line-height: 1.2; color: var(--rs-text);
+}
+
+.rs-pagehead-sub {
+  margin: var(--rs-2) 0 0; max-width: 70ch;
+  font-size: 13px; line-height: 1.55; color: var(--rs-text-3);
+}
+
+.rs-pagehead-actions { display: flex; gap: var(--rs-2); flex-wrap: wrap; }
+
+/* Section header
+   ------------------------------------------------------------------------ */
+
+.rs-sectionhead {
+  display: flex; align-items: baseline; gap: var(--rs-3);
+  flex-wrap: wrap; margin: var(--rs-8) 0 var(--rs-3);
+}
+
+.rs-sectionhead h2 {
+  margin: 0; font-size: 15px; font-weight: 640;
+  letter-spacing: 0.01em; color: var(--rs-text);
+}
+
+.rs-sectionhead-note { font-size: 12px; line-height: 1.5; color: var(--rs-text-3); }
+
+/* Metric card
+   ------------------------------------------------------------------------ */
+
+.rs-metrics {
+  display: grid; gap: var(--rs-3);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.rs-metric {
+  position: relative; overflow: hidden;
+  background: var(--rs-surface); border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius); padding: var(--rs-4) var(--rs-4) var(--rs-3);
+}
+
+.rs-metric-accent { position: absolute; inset: 0 0 auto 0; height: 2px; }
+
+.rs-metric-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--rs-text-3);
+}
+
+.rs-metric-value {
+  margin-top: var(--rs-2);
+  font-size: 27px; font-weight: 660; letter-spacing: -0.02em;
+  line-height: 1.1; color: var(--rs-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-metric-value.rs-na {
+  font-size: 15px; font-weight: 550; letter-spacing: 0; color: var(--rs-text-3);
+}
+
+.rs-metric-sub { margin-top: 6px; font-size: 11.5px; line-height: 1.45; color: var(--rs-text-3); }
+
+/* Definition tooltip
+   ------------------------------------------------------------------------ */
+
+.rs-tip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; flex: none; padding: 0;
+  border: 1px solid var(--rs-border-strong); border-radius: 50%;
+  background: transparent; cursor: help;
+  font-size: 10px; font-weight: 700; line-height: 1; color: var(--rs-text-3);
+}
+
+.rs-tip:hover, .rs-tip:focus-visible { color: var(--rs-text); border-color: var(--rs-text-3); }
+
+/* Status badge
+   ------------------------------------------------------------------------ */
+
+.rs-badges { display: flex; gap: var(--rs-2); flex-wrap: wrap; align-items: center; }
+
+.rs-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--rs-border-strong);
+  background: var(--rs-surface); color: var(--rs-text-2);
+  font-size: 11.5px; font-weight: 560; line-height: 1.3;
+}
+
+.rs-badge-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+
+.rs-badge--ok {
+  border-color: rgba(48, 209, 88, 0.42);
+  background: rgba(48, 209, 88, 0.10); color: var(--rs-on-normal);
+}
+
+.rs-badge--warn {
+  border-color: rgba(255, 214, 10, 0.42);
+  background: rgba(255, 214, 10, 0.10); color: var(--rs-on-moderate);
+}
+
+.rs-badge--info {
+  border-color: rgba(66, 165, 245, 0.42);
+  background: rgba(66, 165, 245, 0.10); color: var(--rs-on-info);
+}
+
+/* Provenance callout: the local-sample disclaimer.
+   ------------------------------------------------------------------------ */
+
+.rs-provenance {
+  display: flex; gap: var(--rs-3); align-items: flex-start;
+  padding: var(--rs-3) var(--rs-4); margin-bottom: var(--rs-5);
+  border: 1px solid rgba(255, 214, 10, 0.34);
+  border-left: 3px solid var(--rs-fill-moderate);
+  border-radius: var(--rs-radius-sm);
+  background: rgba(255, 214, 10, 0.07);
+}
+
+.rs-provenance-body { font-size: 12.5px; line-height: 1.6; color: var(--rs-text-2); }
+.rs-provenance-body strong { color: var(--rs-on-moderate); font-weight: 640; }
+
+/* Panels
+   ------------------------------------------------------------------------ */
+
+.rs-panel {
+  background: var(--rs-surface); border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius); padding: var(--rs-4);
+}
+
+.rs-panel--flush { padding: 0; overflow: hidden; }
+
+.rs-grid-2 {
+  display: grid; gap: var(--rs-3);
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+}
+
+/* Controls
+   ------------------------------------------------------------------------ */
+
+.rs-controls {
+  display: flex; gap: var(--rs-3); flex-wrap: wrap; align-items: flex-end;
+  margin-bottom: var(--rs-5); padding: var(--rs-3) var(--rs-4);
+  background: var(--rs-surface-2); border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+}
+
+.rs-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+.rs-field-label {
+  font-size: 10.5px; font-weight: 640; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--rs-text-3);
+}
+
+.rs-select, .rs-btn {
+  font: inherit; font-size: 12.5px; padding: 7px 11px;
+  border-radius: var(--rs-radius-sm); border: 1px solid var(--rs-border-strong);
+  background: var(--rs-surface-hi); color: var(--rs-text); cursor: pointer;
+}
+
+.rs-select { min-width: 160px; }
+.rs-btn:hover:not(:disabled), .rs-select:hover { border-color: var(--rs-text-3); }
+.rs-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.rs-btn--primary {
+  background: rgba(66, 165, 245, 0.16);
+  border-color: rgba(66, 165, 245, 0.48);
+  color: var(--rs-on-info); font-weight: 600;
+}
+
+/* Tables
+   ------------------------------------------------------------------------ */
+
+.rs-tablewrap { overflow-x: auto; }
+
+.rs-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+
+.rs-table th {
+  padding: 10px var(--rs-3); text-align: left; white-space: nowrap;
+  font-size: 10.5px; font-weight: 640; letter-spacing: 0.055em;
+  text-transform: uppercase; color: var(--rs-text-3);
+  background: var(--rs-surface-hi);
+  border-bottom: 1px solid var(--rs-border);
+}
+
+.rs-table td {
+  padding: 9px var(--rs-3); color: var(--rs-text-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-table tbody tr:last-child td { border-bottom: none; }
+.rs-table tbody tr:hover td { background: rgba(255, 255, 255, 0.035); }
+.rs-table .rs-num { text-align: right; }
+.rs-table .rs-rank { width: 1%; white-space: nowrap; font-weight: 640; color: var(--rs-text-3); }
+
+/* Tier / period pill
+   ------------------------------------------------------------------------ */
+
+.rs-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 620; white-space: nowrap;
+}
+
+/* Bars
+   ------------------------------------------------------------------------ */
+
+.rs-bars { display: flex; flex-direction: column; gap: var(--rs-3); }
+
+.rs-bar-row {
+  display: grid; grid-template-columns: 112px 1fr 76px;
+  gap: var(--rs-3); align-items: center;
+}
+
+.rs-bar-name { font-size: 12px; color: var(--rs-text-2); }
+
+.rs-bar-track {
+  position: relative; height: 18px; border-radius: 5px;
+  background: rgba(255, 255, 255, 0.07); overflow: visible;
+}
+
+.rs-bar-fill { height: 100%; border-radius: 5px; transition: width 0.3s ease; }
+
+/* The 100% reference line, so "above 100% = over capacity" is legible. */
+.rs-bar-ref {
+  position: absolute; top: -3px; bottom: -3px; width: 2px;
+  background: var(--rs-text-2); opacity: 0.85;
+}
+
+.rs-bar-val {
+  font-size: 12.5px; font-weight: 620; text-align: right;
+  color: var(--rs-text); font-variant-numeric: tabular-nums;
+}
+
+.rs-stack {
+  display: flex; height: 26px; width: 100%;
+  border-radius: 6px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.rs-stack-seg { height: 100%; }
+
+/* Legend
+   ------------------------------------------------------------------------ */
+
+.rs-legend {
+  display: flex; gap: var(--rs-4); flex-wrap: wrap;
+  margin-top: var(--rs-3); padding-top: var(--rs-3);
+  border-top: 1px solid var(--rs-border);
+}
+
+.rs-legend-item { display: flex; align-items: flex-start; gap: 7px; min-width: 128px; }
+.rs-legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; margin-top: 3px; }
+.rs-legend-name { font-size: 12px; font-weight: 600; color: var(--rs-text-2); }
+.rs-legend-def { font-size: 11px; line-height: 1.45; color: var(--rs-text-3); }
+
+/* Quality summary
+   ------------------------------------------------------------------------ */
+
+.rs-quality-grid {
+  display: grid; gap: var(--rs-3);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.rs-quality-cell {
+  padding: var(--rs-3); border-radius: var(--rs-radius-sm);
+  background: rgba(255, 255, 255, 0.035); border: 1px solid var(--rs-border);
+}
+
+.rs-quality-k {
+  font-size: 10.5px; font-weight: 640; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--rs-text-3);
+}
+
+.rs-quality-v {
+  margin-top: 5px; font-size: 19px; font-weight: 650;
+  color: var(--rs-text); font-variant-numeric: tabular-nums;
+}
+
+.rs-quality-n { margin-top: 3px; font-size: 11px; color: var(--rs-text-3); }
+
+.rs-deflist { margin: var(--rs-3) 0 0; display: grid; gap: 7px; }
+.rs-deflist div { font-size: 11.5px; line-height: 1.55; color: var(--rs-text-3); }
+.rs-deflist b { color: var(--rs-text-2); font-weight: 620; }
+
+/* Empty / loading / error
+   ------------------------------------------------------------------------ */
+
+.rs-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: var(--rs-2);
+  padding: var(--rs-10) var(--rs-5); text-align: center;
+  border: 1px dashed var(--rs-border-strong); border-radius: var(--rs-radius);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rs-state-title { font-size: 14px; font-weight: 620; color: var(--rs-text-2); }
+.rs-state-body { font-size: 12.5px; line-height: 1.6; max-width: 52ch; color: var(--rs-text-3); }
+
+.rs-state--error {
+  border-style: solid; border-color: rgba(255, 69, 58, 0.42);
+  background: rgba(255, 69, 58, 0.06);
+}
+
+.rs-state--error .rs-state-title { color: var(--rs-on-critical); }
+
+.rs-spinner {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-top-color: var(--rs-on-info);
+  animation: rs-spin 0.75s linear infinite;
+}
+
+@keyframes rs-spin { to { transform: rotate(360deg); } }
+
+.rs-skeleton {
+  border-radius: var(--rs-radius);
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.09) 37%, rgba(255,255,255,0.05) 63%);
+  background-size: 400% 100%;
+  animation: rs-shimmer 1.4s ease infinite;
+}
+
+@keyframes rs-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-spinner, .rs-skeleton { animation: none; }
+  .rs-bar-fill { transition: none; }
+}
+
+/* Map
+   ------------------------------------------------------------------------ */
+
+.rs-map { height: 380px; width: 100%; border-radius: var(--rs-radius); overflow: hidden; }
+.rs-map .leaflet-container { height: 100%; width: 100%; background: var(--rs-bg); }
+
+/* Tablet / narrow desktop
+   ------------------------------------------------------------------------ */
+
+@media (max-width: 1100px) {
+  .rs-grid-2 { grid-template-columns: 1fr; }
+  .rs-map { height: 320px; }
+}
+
+@media (max-width: 760px) {
+  .rs-pagehead h1 { font-size: 22px; }
+  .rs-metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .rs-metric-value { font-size: 23px; }
+  .rs-controls { padding: var(--rs-3); }
+  .rs-select, .rs-field { min-width: 0; width: 100%; }
+  .rs-bar-row { grid-template-columns: 92px 1fr 62px; gap: var(--rs-2); }
+  .rs-map { height: 260px; }
+}

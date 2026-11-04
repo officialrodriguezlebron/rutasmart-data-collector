@@ -418,7 +418,15 @@ export default function AnalyticsEngine() {
   const [data, setData]           = useState(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  // The admin sidebar deep-links here with ?tab=time and ?tab=dbscan, so the
+  // Analytics Engine sections are reachable from navigation rather than only
+  // by landing on Overview and clicking across. Unknown values fall back to
+  // Overview so a stale link cannot render an empty tab.
+  const [activeTab, setActiveTab] = useState(() => {
+    const wanted = searchParams.get("tab");
+    const valid = ["overview", "dbscan", "load factor", "demand", "time", "compare"];
+    return valid.includes(wanted) ? wanted : "overview";
+  });
   const [comparing,    setComparing]    = useState(false);
   const [compareData,  setCompareData]  = useState(null);
   const [compareError, setCompareError] = useState(null);
@@ -455,6 +463,16 @@ export default function AnalyticsEngine() {
     // re-fetch on every keystroke in the trip ID input, which is wasteful.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the tab in step with ?tab= while this page stays mounted. The admin
+  // sidebar links to /analytics?tab=time and /analytics?tab=dbscan, and React
+  // Router reuses the component between them, so the useState initialiser
+  // above runs only for the first of the two.
+  const tabParam = searchParams.get("tab");
+  useEffect(() => {
+    const valid = ["overview", "dbscan", "load factor", "demand", "time", "compare"];
+    if (tabParam && valid.includes(tabParam)) setActiveTab(tabParam);
+  }, [tabParam]);
 
   const runAnalysis = useCallback(async () => {
     const id = tripId.trim();

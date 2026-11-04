@@ -179,6 +179,29 @@ export const runMlRandomForest = (body) => API.post("/api/clusters/ml-random-for
 export const runMergedCompare = (tripIds, epsM = 50, minSamples = 5) =>
   API.get(`/analytics/merged/compare?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minSamples}`);
 
+/**
+ * Full analytical pipeline across several trips combined.
+ *
+ * This is the manuscript-faithful corridor aggregation: every figure it
+ * returns is computed PER GPS LOG RECORD and then aggregated, which is the
+ * method described in sections 3.10.3 to 3.10.5. It reports the three-way
+ * GPS quality split, per-record demand tiers, per-record load factor by
+ * operating period, the per-record time distribution, and the DBSCAN
+ * clusters, plus source_trips and total_logs as denominators.
+ *
+ * Prefer this over /admin/aggregate for any figure an inspector reads as a
+ * corridor statistic. /admin/aggregate bins whole trips — one period from
+ * the trip's start hour, one tier from the trip's maximum occupancy — so its
+ * distributions are trip counts, not record counts, and cannot be compared
+ * with the manuscript's tables.
+ *
+ * The backend caps this at 50 trip ids per call.
+ */
+export const MERGED_TRIP_LIMIT = 50;
+
+export const runMergedAll = (tripIds, epsM = 50, minSamples = 5) =>
+  API.get(`/analytics/merged/run-all?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minSamples}`);
+
 // ── Per-trip research endpoints ──────────────────────────────────────────────
 export const getTripPipeline    = (tripId)                        => API.get(`/analytics/${encodeURIComponent(tripId)}/pipeline`);
 export const getTripSensitivity = (tripId)                        => API.get(`/analytics/${encodeURIComponent(tripId)}/sensitivity`);
