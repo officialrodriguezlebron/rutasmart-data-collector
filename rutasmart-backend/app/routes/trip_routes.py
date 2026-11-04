@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.trip import Trip, TripStatusEnum
 from app.models.gps_log import GPSLog
 from app.schemas.trip_schema import TripStartRequest, TripStartResponse
+from app.security import require_role
 
 logger  = logging.getLogger(__name__)
 router  = APIRouter(prefix="/trip", tags=["Trip Management"])
@@ -17,7 +18,8 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 # 🔹 START TRIP
-@router.post("/start-trip", response_model=TripStartResponse)
+@router.post("/start-trip", response_model=TripStartResponse,
+             dependencies=[Depends(require_role("CONDUCTOR", "ADMIN"))])
 @limiter.limit("10/minute")
 def start_trip(body: TripStartRequest, request: Request, db: Session = Depends(get_db)):
 
@@ -75,7 +77,8 @@ def start_trip(body: TripStartRequest, request: Request, db: Session = Depends(g
 
 
 # 🔹 END TRIP
-@router.post("/end-trip/{trip_id}")
+@router.post("/end-trip/{trip_id}",
+             dependencies=[Depends(require_role("CONDUCTOR", "ADMIN"))])
 @limiter.limit("10/minute")
 def end_trip(trip_id: str, request: Request, db: Session = Depends(get_db)):
 
@@ -103,8 +106,21 @@ def end_trip(trip_id: str, request: Request, db: Session = Depends(get_db)):
 
 
 # 🔹 EXPORT TRIP CSV
-@router.get("/export/{trip_id}")
+@router.get("/export/{trip_id}",
+            dependencies=[Depends(require_role("CONDUCTOR", "ADMIN"))])
 def export_trip_csv(trip_id: str, db: Session = Depends(get_db)):
+    """Stream a completed trip and all of its GPS logs as CSV.
+
+    CONDUCTOR or ADMIN. A read, but it emits every coordinate, timestamp and
+    occupancy reading for the trip — the research dataset in bulk — so it is
+    scoped alongside the write routes rather than left anonymous. Conductors
+    keep access because SavedTrips and TripSummary offer the download.
+
+    Scoped by role only for now: there is no ownership check, so any
+    conductor can export any completed trip. See the ownership design
+    (Phase 3B) — the same gap that lets a conductor write to another
+    conductor's trip.
+    """
 
     trip = db.query(Trip).filter(Trip.trip_id == trip_id).first()
 

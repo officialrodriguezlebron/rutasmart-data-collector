@@ -9,13 +9,15 @@ from app.database import get_db
 from app.models.gps_log import GPSLog, GPSQualityEnum
 from app.models.trip import Trip, TripStatusEnum
 from app.schemas.gps_schema import GPSLogCreate, GPSLogResponse
+from app.security import require_role
 
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/log", tags=["GPS Logs"])
 
 
-@router.post("/", response_model=GPSLogResponse)
+@router.post("/", response_model=GPSLogResponse,
+             dependencies=[Depends(require_role("CONDUCTOR", "ADMIN"))])
 @limiter.limit("30/minute")
 def create_gps_log(request: Request, log: GPSLogCreate, db: Session = Depends(get_db)):
 
