@@ -107,7 +107,10 @@ function LoadFactorBar({ name, pct, logCount, max }) {
         />
       </div>
       <span className="rs-bar-val" style={over ? { color: "var(--rs-on-critical)" } : undefined}>
-        {pct.toFixed(1)}%
+        {/* Two decimals: the manuscript reports load factor to 2dp
+            (Afternoon Peak 107.19%), and the backend now serialises it
+            at that precision. */}
+        {pct.toFixed(2)}%
         <span className="rs-sr">
           {over ? ", over seated capacity" : ""}, from {logCount} GPS log records
         </span>
@@ -485,7 +488,7 @@ export default function AdminOverview() {
             />
             <MetricCard
               label="Peak load factor"
-              value={peak == null ? null : `${peak.pct.toFixed(1)}%`}
+              value={peak == null ? null : `${peak.pct.toFixed(2)}%`}
               sub={peak ? `${peak.name} — ${peak.pct > 100 ? "over seated capacity" : "within seated capacity"}` : undefined}
               accent={peak && peak.pct > 100 ? "var(--rs-fill-critical)" : "var(--rs-fill-moderate)"}
               definition={DEF.peakLoadFactor}
@@ -560,7 +563,7 @@ export default function AdminOverview() {
                 ) : (
                   <>
                     <div className="rs-stack" role="img"
-                      aria-label={TIER_ORDER.map((t) => `${t} ${(demandDist[t]?.pct ?? 0).toFixed(1)}%`).join(", ")}>
+                      aria-label={TIER_ORDER.map((t) => `${t} ${(demandDist[t]?.pct ?? 0).toFixed(2)}%`).join(", ")}>
                       {TIER_ORDER.map((t) => {
                         const pct = demandDist[t]?.pct ?? 0;
                         if (pct <= 0) return null;
@@ -569,7 +572,7 @@ export default function AdminOverview() {
                             key={t}
                             className="rs-stack-seg"
                             style={{ width: `${pct}%`, background: DEMAND_COLOR[t] }}
-                            title={`${t}: ${pct.toFixed(1)}% (${(demandDist[t]?.count ?? 0).toLocaleString()} records)`}
+                            title={`${t}: ${pct.toFixed(2)}% (${(demandDist[t]?.count ?? 0).toLocaleString()} records)`}
                           />
                         );
                       })}

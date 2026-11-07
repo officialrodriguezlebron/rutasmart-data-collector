@@ -530,11 +530,11 @@ def get_pipeline_report(
                 "description":  "Server-side GPS quality classification",
                 "total_logs":   total,
                 "good_count":   good,
-                "good_pct":     round(good   / total * 100, 1) if total else 0,
+                "good_pct":     round(good   / total * 100, 2) if total else 0,
                 "acceptable_count": acceptable,
-                "acceptable_pct":   round(acceptable / total * 100, 1) if total else 0,
+                "acceptable_pct":   round(acceptable / total * 100, 2) if total else 0,
                 "poor_count":   poor,
-                "poor_pct":     round(poor   / total * 100, 1) if total else 0,
+                "poor_pct":     round(poor   / total * 100, 2) if total else 0,
                 "thresholds":   {"GOOD": "≤20m", "ACCEPTABLE": "≤50m", "POOR": ">50m"},
             },
             "stage_4_poor_exclusion": {
@@ -542,7 +542,7 @@ def get_pipeline_report(
                 "logs_before_filter":  total,
                 "logs_after_filter":   dbscan_eligible,
                 "logs_excluded":       poor,
-                "exclusion_rate_pct":  round(poor / total * 100, 1) if total else 0,
+                "exclusion_rate_pct":  round(poor / total * 100, 2) if total else 0,
                 "rationale":           (
                     "POOR logs have positional error > 50m = epsilon. "
                     "Including them risks ghost clusters at multipath positions. "

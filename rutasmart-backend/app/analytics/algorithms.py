@@ -646,7 +646,7 @@ def classify_demand_distribution(
     return {
         tier: {
             "count": count,
-            "pct": round(count / total * 100, 1) if total else 0.0,
+            "pct": round(count / total * 100, 2) if total else 0.0,
         }
         for tier, count in tiers.items()
     }
@@ -748,7 +748,7 @@ def time_period_distribution(points: List[GPSPoint]) -> dict:
     return {
         period: {
             "count": count,
-            "pct": round(count / total * 100, 1) if total else 0.0,
+            "pct": round(count / total * 100, 2) if total else 0.0,
         }
         for period, count in periods.items()
     }
@@ -775,9 +775,9 @@ def gps_quality_summary(points: List[GPSPoint]) -> dict:
         "good_count":       counts["GOOD"],
         "acceptable_count": counts["ACCEPTABLE"],
         "poor_count":       counts["POOR"],
-        "good_pct":         round(counts["GOOD"]       / total * 100, 1) if total else 0.0,
-        "acceptable_pct":   round(counts["ACCEPTABLE"] / total * 100, 1) if total else 0.0,
-        "poor_pct":         round(counts["POOR"]       / total * 100, 1) if total else 0.0,
+        "good_pct":         round(counts["GOOD"]       / total * 100, 2) if total else 0.0,
+        "acceptable_pct":   round(counts["ACCEPTABLE"] / total * 100, 2) if total else 0.0,
+        "poor_pct":         round(counts["POOR"]       / total * 100, 2) if total else 0.0,
         "dbscan_eligible":  dbscan_eligible,
         "dbscan_excluded":  counts["POOR"],
     }
