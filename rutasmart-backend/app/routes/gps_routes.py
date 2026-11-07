@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -113,8 +114,47 @@ def create_gps_log(request: Request, log: GPSLogCreate, db: Session = Depends(ge
         timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
+    # ── Idempotent insert on (trip_id, client_seq) ───────────────────────────
+    # The PWA re-sends logs after an interrupted flush: it only rewrites its
+    # offline queue once a whole flush completes, so a reload mid-flush replays
+    # everything in that pass, including rows already stored. Returning the
+    # existing row instead of inserting a second one keeps the queue
+    # converging — the client sees 200, drops the log and moves on — without
+    # duplicating GPS points that DBSCAN would then cluster on.
+    #
+    # client_seq is optional, so a payload without one cannot be deduplicated
+    # and is inserted as before.
+    if log.client_seq is not None:
+        existing = (
+            db.query(GPSLog)
+            .filter(GPSLog.trip_id == log.trip_id,
+                    GPSLog.client_seq == log.client_seq)
+            .first()
+        )
+        if existing is not None:
+            logger.info("Duplicate log ignored | trip=%s seq=%s",
+                        log.trip_id, log.client_seq)
+            return existing
+
     db.add(new_log)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Lost the race against a concurrent identical submission: the other
+        # request already stored this (trip_id, client_seq). Return its row.
+        db.rollback()
+        existing = (
+            db.query(GPSLog)
+            .filter(GPSLog.trip_id == log.trip_id,
+                    GPSLog.client_seq == log.client_seq)
+            .first()
+        )
+        if existing is None:
+            raise
+        logger.info("Duplicate log resolved on conflict | trip=%s seq=%s",
+                    log.trip_id, log.client_seq)
+        return existing
+
     db.refresh(new_log)
 
     return new_log

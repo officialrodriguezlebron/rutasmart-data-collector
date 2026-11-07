@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     Enum,
     Index,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.sql import func
@@ -31,6 +32,18 @@ class GPSLog(Base):
         CheckConstraint("occupancy_count >= 0", name="check_occupancy_non_negative"),
         Index("idx_trip_id", "trip_id"),
         Index("idx_device_id", "device_id"),  # 🔹 NEW
+        # One row per (trip, client sequence number).
+        #
+        # The PWA stamps client_seq per trip and only empties its offline queue
+        # once a flush finishes, so a flush interrupted by a reload or a crash
+        # re-sends logs the backend already stored. log_id is minted fresh on
+        # every request, so it cannot catch that — the replay simply became a
+        # second row, inflating the point counts DBSCAN clusters on.
+        #
+        # Postgres treats NULLs as distinct in a unique index, so legacy and
+        # offline payloads that carry no client_seq are unaffected: any number
+        # of them may coexist for the same trip.
+        UniqueConstraint("trip_id", "client_seq", name="uq_gps_logs_trip_seq"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
