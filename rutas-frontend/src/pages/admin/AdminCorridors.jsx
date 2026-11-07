@@ -168,7 +168,7 @@ export default function AdminCorridors() {
             />
             <MetricCard
               label="Mean load factor"
-              value={a.overall?.avg_lf == null ? null : `${a.overall.avg_lf.toFixed(1)}%`}
+              value={a.overall?.avg_lf == null ? null : `${a.overall.avg_lf.toFixed(2)}%`}
               sub={`Across ${(a.totalLogs ?? 0).toLocaleString()} GPS log records`}
               accent={a.overall?.avg_lf > 100 ? "var(--rs-fill-critical)" : "var(--rs-fill-normal)"}
               definition={DEF.loadFactor}
@@ -176,7 +176,7 @@ export default function AdminCorridors() {
             />
             <MetricCard
               label="Peak load factor"
-              value={a.peak == null ? null : `${a.peak.pct.toFixed(1)}%`}
+              value={a.peak == null ? null : `${a.peak.pct.toFixed(2)}%`}
               sub={a.peak ? `${a.peak.name} — ${a.peak.pct > 100 ? "over seated capacity" : "within seated capacity"}` : undefined}
               accent={a.peak && a.peak.pct > 100 ? "var(--rs-fill-critical)" : "var(--rs-fill-moderate)"}
               definition={DEF.peakLoadFactor}
