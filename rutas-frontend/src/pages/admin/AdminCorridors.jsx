@@ -1,278 +1,304 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
-import { getAggregateDashboard } from "../../services/api";
-import { goodColor, dirLabel, periodColorCard, PERIOD_COLOR, DEMAND_COLOR } from "../../utils/adminFormatters";
+import { Link } from "react-router-dom";
 import TripMap from "../TripMap";
+import { dirLabel, phtDateStr, phtTimeStr } from "../../utils/adminFormatters";
+import {
+  AdminPageHeader, SectionHeader, MetricCard,
+  DataStatusBadge, DataProvenanceNotice,
+  EmptyState, ErrorState, LoadingState, SkeletonMetrics,
+  DemandTierLegend, DataQualitySummary,
+  LoadFactorByPeriod, DemandDistribution, TimeDistribution,
+  useCorridorAnalytics, DEF,
+} from "../../components/admin";
 import "../AdminDashboard.css";
 
-function MetricCard({ label, value, sub, accent }) {
-  return (
-    <div className="admin-metric-card">
-      {accent && <div className="admin-metric-accent" style={{ background: accent }} />}
-      <div className="admin-metric-label">{label}</div>
-      <div className="admin-metric-value" style={{ color: accent || "white" }}>{value ?? "—"}</div>
-      {sub && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginTop: 6 }}>{sub}</div>}
-    </div>
-  );
-}
+/**
+ * Demand and Load Factor.
+ *
+ * Every figure here is computed per GPS log record by
+ * /analytics/merged/run-all, matching manuscript sections 3.10.3 to 3.10.5.
+ *
+ * What changed from the previous Corridor Analysis page
+ * -----------------------------------------------------
+ * It read /admin/aggregate, which bins whole trips, and then:
+ *
+ *   - the demand donut collapsed the manuscript's FOUR tiers into three,
+ *     merging Critical into High and relabelling Normal and Moderate as
+ *     "Low Demand" and "Medium Demand". The four-tier classification is a
+ *     stated contribution of the study, so it is restored here.
+ *   - "Trips by Time Period" counted trips, not GPS log records, so a
+ *     40-minute trip and a 3-hour trip counted the same.
+ *   - per-period load factor was averaged from per-trip means grouped by
+ *     each trip's start hour, which cannot reproduce the manuscript's
+ *     per-period figures.
+ *   - "Signal Quality" reported GOOD only, with ACCEPTABLE folded into POOR.
+ *
+ * The per-trip table below is still trip-level, which is the right
+ * granularity for a trip list, and is labelled as such.
+ */
 
-// ── Horizontal stacked bar (all periods in one row) ───────────────────────────
-function StackedBar({ distribution, colorMap }) {
-  const total = Object.values(distribution).reduce((s, c) => s + c, 0) || 1;
-  return (
-    <div>
-      <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden", marginBottom: 10 }}>
-        {Object.entries(distribution).map(([period, count]) => (
-          <div key={period}
-            style={{ width: `${(count / total) * 100}%`, background: colorMap[period] || "#8e9ab0", minWidth: count > 0 ? 2 : 0 }}
-            title={`${period}: ${count}`}
-          />
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-        {Object.entries(distribution).map(([period, count]) => (
-          <div key={period} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: colorMap[period] || "#8e9ab0", flexShrink: 0 }} />
-            <span style={{ color: "rgba(255,255,255,0.55)" }}>{period}</span>
-            <span style={{ color: colorMap[period] || "#8e9ab0", fontWeight: 700 }}>{count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+const DIRECTIONS = [
+  { value: "ALL", label: "Both directions" },
+  { value: "MALANDAY-RECTO", label: "Malanday to Recto" },
+  { value: "RECTO-MALANDAY", label: "Recto to Malanday" },
+];
 
-// ── SVG donut chart ───────────────────────────────────────────────────────────
-function DonutChart({ segments, size = 80 }) {
-  const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
-  const r = 28; const cx = size / 2; const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-  let accumulated = 0;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-      <svg width={size} height={size} style={{ flexShrink: 0 }}>
-        {segments.map(seg => {
-          const dash    = (seg.value / total) * circumference;
-          const offset  = accumulated;
-          accumulated  += dash;
-          return (
-            <circle key={seg.label} cx={cx} cy={cy} r={r}
-              fill="none" stroke={seg.color} strokeWidth={12}
-              strokeDasharray={`${dash} ${circumference - dash}`}
-              strokeDashoffset={-offset}
-              transform={`rotate(-90 ${cx} ${cy})`}
-            />
-          );
-        })}
-        {/* Donut hole */}
-        <circle cx={cx} cy={cy} r={20} fill="#05101f" />
-      </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        {segments.map(seg => (
-          <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
-            <span style={{ color: "rgba(255,255,255,0.55)" }}>{seg.label}</span>
-            <span style={{ color: seg.color, fontWeight: 700, fontFamily: "var(--mono)" }}>{seg.value.toLocaleString()}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+const RANGES = [
+  { value: "ALL", label: "All completed trips" },
+  { value: "7", label: "Last 7 days" },
+  { value: "30", label: "Last 30 days" },
+];
 
 export default function AdminCorridors() {
-  const [aggregate,  setAggregate]  = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [mapTripId,  setMapTripId]  = useState(null);
+  const [direction, setDirection] = useState("ALL");
+  const [range, setRange] = useState("ALL");
+  const [mapTripId, setMapTripId] = useState(null);
 
-  const load = () => {
-    setLoading(true);
-    getAggregateDashboard()
-      .then(r => setAggregate(r.data))
-      .catch(e => console.error(e))
-      .finally(() => setLoading(false));
-  };
+  const a = useCorridorAnalytics({ direction, range });
 
-  useEffect(() => { load(); }, []);
-
-  const summaries = aggregate?.trip_summaries || [];
-
-  // Period summary: avg load factor + trip count per period (client-side from summaries)
-  const PERIODS = ["Morning Peak", "Midday", "Afternoon Peak", "Off-Peak"];
-  const lfColor = (lf) =>
-    lf == null ? "#8e9ab0"
-    : lf > 100  ? "#ff453a"
-    : (lf > 85 || lf < 50) ? "#ff9f0a"
-    : "#30d158";
-  const periodStats = PERIODS.map(p => {
-    const trips = summaries.filter(t => (t.dominant_period || t.time_period) === p);
-    const avgLF = trips.length
-      ? trips.reduce((s, t) => s + (t.avg_lf_pct ?? 0), 0) / trips.length
-      : null;
-    return {
-      period:    p,
-      tripCount: aggregate?.time_distribution?.[p] ?? trips.length,
-      avgLF,
-      color:     PERIOD_COLOR[p] || "#8e9ab0",
-    };
-  });
-
-  // Build demand distribution segments (merge Critical→High, Moderate→Medium, Normal→Low)
-  const demandSegments = (() => {
-    if (!aggregate?.demand_distribution) return [];
-    const d = aggregate.demand_distribution;
-    const merged = {
-      "High Demand":   (d.High || 0) + (d.Critical || 0),
-      "Medium Demand": d.Moderate || 0,
-      "Low Demand":    d.Normal   || 0,
-    };
-    return [
-      { label: "High Demand",   value: merged["High Demand"],   color: "#ff453a" },
-      { label: "Medium Demand", value: merged["Medium Demand"], color: "#ffd60a" },
-      { label: "Low Demand",    value: merged["Low Demand"],    color: "#30d158" },
-    ].filter(s => s.value > 0);
-  })();
+  const badges = (
+    <>
+      <DataStatusBadge tone="info" label="Route MR-001"
+        title="The corridor is fixed to MR-001 in software." />
+      <DataStatusBadge
+        tone={a.activeCount > 0 ? "ok" : "default"}
+        label={a.activeCount > 0
+          ? `${a.activeCount} trip${a.activeCount === 1 ? "" : "s"} recording now`
+          : "No trip recording now"}
+        title="Active trips are excluded; analytics run after a trip completes." />
+      {a.fetchedAt && (
+        <DataStatusBadge tone="default"
+          label={`Computed ${a.fetchedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`}
+          title="When this page last recomputed its figures." />
+      )}
+    </>
+  );
 
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-        <div className="admin-topbar">
-          <h1>Corridor Analysis</h1>
-          <button className="admin-refresh" onClick={load} disabled={loading}>↺ Refresh</button>
-        </div>
-
-        {loading ? (
-          <div className="admin-loading">Computing aggregate data across all trips…</div>
-        ) : !aggregate ? (
-          <div className="admin-loading">No data available.</div>
-        ) : (
+      <AdminPageHeader
+        title="Demand and Load Factor"
+        subtitle={
+          "Demand intensity and capacity utilisation on the Malanday to Recto corridor. " +
+          "Every figure is computed per GPS log record across the trips you select, then " +
+          "aggregated. These describe what was recorded; they are not projections."
+        }
+        badges={badges}
+        actions={
           <>
-            <div className="admin-metrics">
-              <MetricCard label="Trips Analyzed"    value={aggregate.total_trips}                  sub="Completed trips"    accent="#42a5f5" />
-              <MetricCard label="Total GPS Logs"    value={aggregate.total_logs?.toLocaleString()} sub="Signal pings total" accent="#00b4d8" />
-              <MetricCard label="Avg Load Factor"   value={`${aggregate.avg_load_factor_pct}%`}   sub="Across all trips"  accent={aggregate.avg_load_factor_pct > 100 ? "#ff453a" : "#30d158"} />
-              <MetricCard label="Peak Period"       value={aggregate.peak_critical_period || "—"}  sub="Highest demand"    accent="#ff9f0a" />
-            </div>
-
-            {/* ── Service by Time Period ──────────────────────────────────── */}
-            <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.30)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, paddingLeft: 2 }}>
-              Service by Time Period
-            </div>
-            <div className="admin-metrics" style={{ marginBottom: 18 }}>
-              {periodStats.map(({ period, tripCount, avgLF, color }) => (
-                <div className="admin-metric-card" key={period}>
-                  <div className="admin-metric-accent" style={{ background: color }} />
-                  <div className="admin-metric-label">{period}</div>
-                  <div className="admin-metric-value" style={{ color: lfColor(avgLF) }}>
-                    {avgLF != null ? `${avgLF.toFixed(0)}%` : "—"}
-                  </div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginTop: 6 }}>
-                    {tripCount} trip{tripCount !== 1 ? "s" : ""} · avg load factor
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-              {/* Stacked bar replaces individual time period bars */}
-              {aggregate.time_distribution && (
-                <div className="admin-card">
-                  <div className="admin-card-title">Trips by Time Period</div>
-                  <StackedBar distribution={aggregate.time_distribution} colorMap={PERIOD_COLOR} />
-                </div>
-              )}
-              {/* Donut replaces demand distribution bars */}
-              {demandSegments.length > 0 && (
-                <div className="admin-card">
-                  <div className="admin-card-title">Demand Distribution</div>
-                  <DonutChart segments={demandSegments} size={80} />
-                </div>
-              )}
-            </div>
-
-            {/* By-corridor bars — unchanged from Checkpoint 1 */}
-            <div className="admin-card" style={{ marginBottom: 18 }}>
-              <div className="admin-card-title">By Corridor</div>
-              {[
-                { label: "Malanday → Recto", dir: "MALANDAY-RECTO", color: "#42a5f5" },
-                { label: "Recto → Malanday", dir: "RECTO-MALANDAY", color: "#00b4d8" },
-              ].map(({ label, dir, color }) => {
-                const ct   = summaries.filter(t => t.direction === dir);
-                const avg  = ct.length ? ct.reduce((s, t) => s + (t.good_pct || 0), 0) / ct.length : 0;
-                const logs = ct.reduce((s, t) => s + (t.log_count || 0), 0);
-                return (
-                  <div key={dir} className="agg-bar-row" style={{ marginBottom: 14 }}>
-                    <span className="agg-bar-label" style={{ width: 160, display: "flex", alignItems: "center", gap: 7 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
-                      {label}
-                    </span>
-                    <div className="agg-bar-track">
-                      <div className="agg-bar-fill" style={{ width: `${avg}%`, background: color }} />
-                    </div>
-                    <span style={{ color: "rgba(255,255,255,0.42)", fontSize: 11, minWidth: 70, textAlign: "right" }}>{logs.toLocaleString()} logs</span>
-                    <span style={{ fontWeight: 700, color, fontSize: 13, minWidth: 44, textAlign: "right" }}>{avg.toFixed(1)}%</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Trip Summaries with quality visual column */}
-            <div className="admin-card">
-              <div className="admin-card-title">
-                Trip Summaries
-                <span style={{ fontSize: 11, fontWeight: 400, color: "rgba(255,255,255,0.42)", marginLeft: 8 }}>{summaries.length} completed trips</span>
-              </div>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", margin: "0 0 10px" }}>
-                Click <strong>Map</strong> on any trip to inspect its map-matched path, detected stop clusters, and demand heatmap.
-              </p>
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead><tr>
-                    <th>Trip ID</th><th>Date</th><th>Direction</th><th>Period</th><th>Pings</th><th>Signal Quality</th><th>Load Factor</th><th style={{ width: 70 }}>Map</th>
-                  </tr></thead>
-                  <tbody>
-                    {summaries.map(t => {
-                      const lf = typeof t.avg_lf_pct === "number" ? t.avg_lf_pct : null;
-                      const gp = typeof t.good_pct === "number" ? t.good_pct : null;
-                      const pc = periodColorCard(t.dominant_period);
-                      return (
-                        <tr key={t.trip_id}>
-                          <td className="admin-mono" title={t.trip_id} style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.trip_id}</td>
-                          <td className="admin-mono" style={{ color: "#8e9ab0" }}>{t.date || "—"}</td>
-                          <td style={{ fontSize: 11, fontWeight: 700, color: t.direction === "MALANDAY-RECTO" ? "#42a5f5" : "#00b4d8" }}>{dirLabel(t.direction)}</td>
-                          <td><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: pc.bg, color: pc.text, fontWeight: 700 }}>{t.dominant_period || "—"}</span></td>
-                          <td className="admin-mono">{t.log_count?.toLocaleString() || "—"}</td>
-                          <td>
-                            <span style={{ fontWeight: 700, color: gp != null ? goodColor(gp) : "#8e9ab0" }}>
-                              {gp != null ? `${typeof gp === "number" ? gp.toFixed(1) : gp}%` : "—"}
-                            </span>
-                            <div style={{ width: 60, height: 4, background: "rgba(255,255,255,0.12)", borderRadius: 99, marginTop: 3 }}>
-                              {gp != null && <div style={{ height: "100%", width: `${gp}%`, background: goodColor(gp), borderRadius: 99 }} />}
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 700, color: lf != null ? (lf > 120 ? "#ff453a" : lf > 80 ? "#ff9f0a" : "#30d158") : "#8e9ab0" }}>
-                            {lf != null ? `${lf.toFixed(0)}%` : "—"}
-                          </td>
-                          <td>
-                            <button onClick={() => setMapTripId(t.trip_id)} className="trips-action-btn" style={{ background: "rgba(2,136,209,0.10)", color: "#0288d1", border: "1px solid rgba(2,136,209,0.25)" }}>Map</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {summaries.length === 0 && (
-                      <tr><td colSpan={8} style={{ textAlign: "center", color: "rgba(255,255,255,0.38)", padding: "32px 0" }}>No completed trips to analyze.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <Link className="rs-btn" to="/admin/overview">Overview</Link>
+            <Link className="rs-btn rs-btn--primary" to="/analytics?tab=demand">Analytics Engine</Link>
           </>
-        )}
+        }
+      />
+
+      <div className="rs-controls">
+        <div className="rs-field">
+          <label className="rs-field-label" htmlFor="dlf-dir">Direction</label>
+          <select id="dlf-dir" className="rs-select" value={direction}
+            onChange={(e) => setDirection(e.target.value)}>
+            {DIRECTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+        </div>
+        <div className="rs-field">
+          <label className="rs-field-label" htmlFor="dlf-range">Data period</label>
+          <select id="dlf-range" className="rs-select" value={range}
+            onChange={(e) => setRange(e.target.value)}>
+            {RANGES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+        </div>
+        <div className="rs-field">
+          <span className="rs-field-label">Selection</span>
+          <span style={{ fontSize: 12.5, color: "var(--rs-text-2)", paddingBottom: 7 }}>
+            {a.tripsLoading
+              ? "Loading trips…"
+              : `${a.sentTrips.length} of ${a.completed.length} completed trip${a.completed.length === 1 ? "" : "s"}`}
+          </span>
+        </div>
+        <button type="button" className="rs-btn" onClick={a.reload}
+          disabled={a.loading || a.tripsLoading} style={{ marginLeft: "auto" }}>
+          {a.loading ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
+
+      {a.data && (
+        <DataProvenanceNotice
+          trips={a.sourceTripCount ?? a.sentTrips.length}
+          logs={a.totalLogs}
+          days={a.collectionDays}
+        />
+      )}
+
+      {a.tripsErr && <ErrorState title="Trip list unavailable" body={a.tripsErr} onRetry={a.reload} />}
+      {a.error && <ErrorState title="Analytics unavailable" body={a.error} onRetry={a.reload} />}
+
+      {!a.tripsErr && !a.tripsLoading && a.completed.length === 0 && (
+        <EmptyState
+          title="No completed trips yet"
+          body="Demand and load factor are computed after a trip is completed."
+          action={<Link className="rs-btn" to="/admin/trips">Open Trips</Link>}
+        />
+      )}
+
+      {!a.tripsErr && a.completed.length > 0 && a.sentTrips.length === 0 && (
+        <EmptyState
+          title="No trips match these filters"
+          body="Widen the data period or choose both directions."
+          action={
+            <button type="button" className="rs-btn"
+              onClick={() => { setDirection("ALL"); setRange("ALL"); }}>
+              Clear filters
+            </button>
+          }
+        />
+      )}
+
+      {a.loading && !a.data && <SkeletonMetrics count={4} />}
+
+      {a.data && (
+        <>
+          <div className="rs-metrics">
+            <MetricCard
+              label="Trips analysed"
+              value={(a.sourceTripCount ?? a.sentTrips.length).toLocaleString()}
+              sub={a.collectionDays ? `Across ${a.collectionDays} collection day${a.collectionDays === 1 ? "" : "s"} (PHT)` : "Completed trips only"}
+              accent="var(--rs-fill-info)"
+              definition={DEF.tripsAnalyzed}
+            />
+            <MetricCard
+              label="Mean load factor"
+              value={a.overall?.avg_lf == null ? null : `${a.overall.avg_lf.toFixed(1)}%`}
+              sub={`Across ${(a.totalLogs ?? 0).toLocaleString()} GPS log records`}
+              accent={a.overall?.avg_lf > 100 ? "var(--rs-fill-critical)" : "var(--rs-fill-normal)"}
+              definition={DEF.loadFactor}
+              unavailableNote="The analytics response carried no load factor."
+            />
+            <MetricCard
+              label="Peak load factor"
+              value={a.peak == null ? null : `${a.peak.pct.toFixed(1)}%`}
+              sub={a.peak ? `${a.peak.name} — ${a.peak.pct > 100 ? "over seated capacity" : "within seated capacity"}` : undefined}
+              accent={a.peak && a.peak.pct > 100 ? "var(--rs-fill-critical)" : "var(--rs-fill-moderate)"}
+              definition={DEF.peakLoadFactor}
+              unavailableNote="No period in this selection carried GPS log records."
+            />
+            <MetricCard
+              label="Over-capacity share"
+              value={a.overCapacityPct == null ? null : `${a.overCapacityPct.toFixed(2)}%`}
+              sub="Records above seated capacity (Moderate, High, Critical)"
+              accent="var(--rs-fill-high)"
+              definition={DEF.overCapacity}
+              unavailableNote="The analytics response carried no demand distribution."
+            />
+          </div>
+
+          <SectionHeader
+            title="Load factor by operating period"
+            note={`Per GPS log record, binned to PHT. The vertical line marks 100% of seated capacity.`}
+          />
+          <div className="rs-panel">
+            <LoadFactorByPeriod byPeriod={a.byPeriod} capacity={a.capacity} />
+          </div>
+
+          <div className="rs-grid-2" style={{ marginTop: 12 }}>
+            <div>
+              <SectionHeader
+                title="Demand intensity distribution"
+                note={a.totalLogs ? `Four tiers, per GPS log record` : undefined}
+              />
+              <div className="rs-panel">
+                <DemandDistribution distribution={a.demandDist} totalLogs={a.totalLogs} />
+                <DemandTierLegend capacity={a.capacity} />
+              </div>
+            </div>
+
+            <div>
+              <SectionHeader
+                title="Records by operating period"
+                note="Share of GPS log records, not trips"
+              />
+              <div className="rs-panel">
+                <TimeDistribution distribution={a.timeDist} />
+              </div>
+            </div>
+          </div>
+
+          <SectionHeader
+            title="Data quality for these figures"
+            note="Three-way GPS accuracy classification"
+          />
+          <div className="rs-panel">
+            <DataQualitySummary quality={a.quality} dbscan={a.dbscan} />
+          </div>
+
+          {/* ── Per-trip table: trip-level by nature, and labelled so ─────── */}
+          <SectionHeader
+            title="Supporting trips"
+            note={`${a.sentTrips.length} trip${a.sentTrips.length === 1 ? "" : "s"}. Values below are trip-level records, not the per-record figures above.`}
+          />
+          <div className="rs-panel rs-panel--flush">
+            <div className="rs-tablewrap">
+              <table className="rs-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Trip</th>
+                    <th scope="col">Date (PHT)</th>
+                    <th scope="col">Start</th>
+                    <th scope="col">Direction</th>
+                    <th scope="col">Jeep</th>
+                    <th scope="col" className="rs-num">Capacity</th>
+                    <th scope="col">Inspect</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a.sentTrips.map((t) => (
+                    <tr key={t.trip_id}>
+                      <td style={{ fontSize: 11, color: "var(--rs-text-3)" }}>{t.trip_id}</td>
+                      <td>{phtDateStr(t.start_time)}</td>
+                      <td>{phtTimeStr(t.start_time)}</td>
+                      <td>{dirLabel(t.direction)}</td>
+                      <td>{t.jeep_code || "—"}</td>
+                      <td className="rs-num">{t.official_capacity ?? "—"}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <button type="button" className="rs-btn"
+                            style={{ padding: "4px 9px", fontSize: 11.5 }}
+                            onClick={() => setMapTripId(t.trip_id)}>
+                            Map
+                          </button>
+                          <Link className="rs-btn" style={{ padding: "4px 9px", fontSize: 11.5 }}
+                            to={`/analytics?trip=${encodeURIComponent(t.trip_id)}`}>
+                            Details
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p style={{
+            margin: "18px 0 8px", fontSize: 11.5, lineHeight: 1.6,
+            color: "var(--rs-text-3)", maxWidth: "85ch",
+          }}>
+            This page is descriptive. It reports demand and capacity utilisation as
+            recorded over the selected window and does not forecast demand, optimise
+            routes, or recommend operational changes.
+          </p>
+        </>
+      )}
+
+      {a.loading && a.data && (
+        <div style={{ marginTop: 16 }}>
+          <LoadingState label="Recomputing for the new selection" />
+        </div>
+      )}
 
       {mapTripId && createPortal(
         <TripMap tripId={mapTripId} onClose={() => setMapTripId(null)} />,
-        document.body
+        document.body,
       )}
     </>
   );

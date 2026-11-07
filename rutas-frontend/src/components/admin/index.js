@@ -14,4 +14,9 @@ export { default as EmptyState, UnavailableState, ErrorState } from "./EmptyStat
 export { default as LoadingState, SkeletonMetrics } from "./LoadingState";
 export { default as DemandTierLegend, PeriodLegend } from "./DemandTierLegend";
 export { default as DataQualitySummary } from "./DataQualitySummary";
-export { DEF, TIER_DEFS, PERIOD_DEFS, PERIOD_ORDER, TIER_ORDER, OFFICIAL_DATASET } from "./definitions";
+export { LoadFactorBar, LoadFactorByPeriod, DemandDistribution, TimeDistribution } from "./Charts";
+export { useCorridorAnalytics } from "./useCorridorAnalytics";
+export {
+  DEF, TIER_DEFS, PERIOD_DEFS, PERIOD_ORDER, TIER_ORDER, OFFICIAL_DATASET,
+  describeCluster, clusterActivityLabel,
+} from "./definitions";

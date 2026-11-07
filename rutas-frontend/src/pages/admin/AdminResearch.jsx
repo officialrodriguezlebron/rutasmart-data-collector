@@ -1,7 +1,26 @@
 import { useState, useEffect } from "react";
 import { getAggregateDashboard, getMlStatus, runMergedCompare } from "../../services/api";
 import { goodColor, dirLabel, periodColorCard, phtDateStr, phtTimeStr } from "../../utils/adminFormatters";
+import {
+  DataProvenanceNotice, DataQualitySummary, SectionHeader,
+  useCorridorAnalytics,
+} from "../../components/admin";
 import "../AdminDashboard.css";
+
+/**
+ * Research summary.
+ *
+ * "Stop Detection Readiness" counted GOOD log points only, summed from
+ * /admin/aggregate per-trip rows. That endpoint hardcodes acceptable_count
+ * to 0 and reports everything that is not GOOD as POOR, so the figure both
+ * understated available data and could not show the manuscript's three-way
+ * classification.
+ *
+ * The readiness cards still count GOOD points, because GOOD is what the
+ * label says, but they are now labelled as a GOOD-only count and the
+ * three-way split for the same selection is shown beneath them from
+ * /analytics/merged/run-all, which classifies per GPS log record.
+ */
 
 function FeatureBar({ feature, importance, maxImportance }) {
   const pct   = (importance * 100).toFixed(1);
@@ -27,6 +46,9 @@ export default function AdminResearch() {
   const [compareData, setCompareData] = useState(null);
   const [comparing,   setComparing]   = useState(false);
   const [compareErr,  setCompareErr]  = useState(null);
+
+  // Per-GPS-log-record figures for the same corridor.
+  const corridor = useCorridorAnalytics({ direction: "ALL", range: "ALL" });
 
   const load = () => {
     setLoading(true);
@@ -78,9 +100,22 @@ export default function AdminResearch() {
         <div className="admin-loading">Loading research data…</div>
       ) : (
         <>
+          {corridor.data && (
+            <DataProvenanceNotice
+              trips={corridor.sourceTripCount ?? corridor.sentTrips.length}
+              logs={corridor.totalLogs}
+              days={corridor.collectionDays}
+            />
+          )}
+
           {/* ── Stop Detection Readiness ──────────────────────────────────── */}
           <div className="admin-card">
             <div className="admin-card-title">Stop Detection Readiness</div>
+            <p className="admin-card-desc">
+              GOOD-accuracy log points available for clustering, by direction. GOOD
+              means accuracy of 20 m or better. ACCEPTABLE points (up to 50 m) also
+              pass the quality threshold and are counted in the three-way split below.
+            </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {[
                 { label: "Malanday → Recto", good: mrGood,          color: "#42a5f5" },
@@ -94,11 +129,22 @@ export default function AdminResearch() {
                   </div>
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: "-0.5px", fontFamily: "var(--mono)" }}>{good.toLocaleString()}</div>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", textTransform: "uppercase", letterSpacing: "0.06em" }}>GOOD log points</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.62)", textTransform: "uppercase", letterSpacing: "0.06em" }}>GOOD log points (trip-level sum)</div>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* ── Three-way GPS quality, per GPS log record ─────────────────── */}
+          {corridor.data && (
+            <div className="admin-card">
+              <SectionHeader
+                title="GPS quality, per log record"
+                note="Computed across the same completed trips by /analytics/merged/run-all"
+              />
+              <DataQualitySummary quality={corridor.quality} dbscan={corridor.dbscan} />
+            </div>
+          )}
 
           {/* ── ML Model Intelligence ─────────────────────────────────────── */}
           <div className="admin-card">

@@ -1,174 +1,332 @@
-import { useState, useEffect } from "react";
-import { getAggregateDashboard, publishStopZones } from "../../services/api";
-import { dirLabel, periodColorCard } from "../../utils/adminFormatters";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import StopZonePublishPreview from "../../components/StopZonePublishPreview";
+import { dirLabel, phtDateStr, phtTimeStr, DEMAND_COLOR, PERIOD_COLOR } from "../../utils/adminFormatters";
+import {
+  AdminPageHeader, SectionHeader, MetricCard,
+  DataStatusBadge, DataProvenanceNotice,
+  EmptyState, ErrorState, SkeletonMetrics,
+  DemandTierLegend, DataQualitySummary,
+  useCorridorAnalytics, DEF, clusterActivityLabel,
+} from "../../components/admin";
 import "../AdminDashboard.css";
 
-const Icon = ({ name, size = 18 }) => {
-  const icons = {
-    clock: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />,
-  };
-  return (
-    <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ flexShrink: 0 }}>
-      {icons[name]}
-    </svg>
-  );
-};
+/**
+ * Stop Zones.
+ *
+ * Previously this page listed trips and their GOOD-only signal quality, and
+ * described the system as one that "recommends stop zones for transport
+ * planners". It never showed the detected clusters themselves, which is the
+ * evidence a stop zone is published from.
+ *
+ * It now shows the DBSCAN clusters returned by /analytics/merged/run-all,
+ * with the point count, mean and peak occupancy, load factor, demand tier
+ * and busiest period behind each one, plus the velocity post-classification
+ * (TRUE_STOP, CREEPING_QUEUE, MOVING) that separates genuine stops from
+ * congestion.
+ *
+ * Wording is descriptive. The study does not optimise routes or prescribe
+ * stop changes (delimitations 2 and 11), so clusters are reported by
+ * recorded activity and the reader decides what to do about them.
+ *
+ * Publishing still runs through StopZonePublishPreview, unchanged. An
+ * unreachable duplicate handlePublish() that no control called has been
+ * removed; it was dead code and two of the file's ESLint errors.
+ */
+
+const DIRECTIONS = [
+  { value: "ALL", label: "Both directions" },
+  { value: "MALANDAY-RECTO", label: "Malanday to Recto" },
+  { value: "RECTO-MALANDAY", label: "Recto to Malanday" },
+];
 
 export default function AdminStopZones() {
-  const [aggTrips,     setAggTrips]     = useState([]);
-  const [tripsLoading, setTripsLoading] = useState(true);
-  const [status,       setStatus]       = useState(null);
-  const [loading,      setLoading]      = useState(false);
-  const [showPreview,  setShowPreview]  = useState(false);
+  const [direction, setDirection] = useState("ALL");
+  const [showPreview, setShowPreview] = useState(false);
+  const [published, setPublished] = useState(null);
 
-  useEffect(() => {
-    getAggregateDashboard()
-      .then(r => setAggTrips(r.data.trip_summaries || []))
-      .catch(() => setAggTrips([]))
-      .finally(() => setTripsLoading(false));
-  }, []);
+  const a = useCorridorAnalytics({ direction, range: "ALL" });
 
-  const byDate = {};
-  for (const t of aggTrips) {
-    if (!byDate[t.date]) byDate[t.date] = { "MALANDAY-RECTO": [], "RECTO-MALANDAY": [] };
-    if (t.direction in byDate[t.date]) byDate[t.date][t.direction].push(t);
-  }
-  const sortedDates = Object.keys(byDate).sort();
-
-  const handlePublish = async () => {
-    if (!window.confirm(
-      "Publish stop zones for MR-001 (both directions)?\n\n" +
-      "Runs stop detection across all completed trips for Malanday→Recto and Recto→Malanday " +
-      "and updates the passenger map."
-    )) return;
-    setLoading(true);
-    setStatus(null);
-    try {
-      const [resMR, resRM] = await Promise.all([
-        publishStopZones("MR-001", "MALANDAY-RECTO"),
-        publishStopZones("MR-001", "RECTO-MALANDAY"),
-      ]);
-      setStatus({
-        ok: true,
-        lines: [
-          `Malanday → Recto: ${resMR.data.stop_zones} stop zones published (${resMR.data.logs_analyzed?.toLocaleString()} logs)`,
-          `Recto → Malanday: ${resRM.data.stop_zones} stop zones published (${resRM.data.logs_analyzed?.toLocaleString()} logs)`,
-        ],
-      });
-    } catch (e) {
-      const detail = e.response?.data?.detail || e.message || "Publish failed.";
-      setStatus({ ok: false, lines: [detail] });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const trueStops = a.rankedClusters.filter((c) => c.cluster_type === "TRUE_STOP").length;
+  const queues = a.rankedClusters.filter((c) => c.cluster_type === "CREEPING_QUEUE").length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      <div className="admin-topbar">
-        <h1>Stop Zones</h1>
-      </div>
+    <div>
+      <AdminPageHeader
+        title="Stop Zones"
+        subtitle={
+          "Boarding and alighting clusters detected from recorded GPS data, with the " +
+          "evidence behind each one. Publishing makes the selected zones visible on the " +
+          "public passenger map."
+        }
+        badges={
+          <>
+            <DataStatusBadge tone="info" label="Route MR-001" />
+            {a.dbscan && (
+              <DataStatusBadge
+                tone="default"
+                label={`eps ${a.dbscan.eps_m} m · minPts ${a.dbscan.min_samples}`}
+                title="DBSCAN parameters used for this detection run." />
+            )}
+          </>
+        }
+        actions={
+          <>
+            <Link className="rs-btn" to="/admin/map">Live Map</Link>
+            <button
+              type="button"
+              className="rs-btn rs-btn--primary"
+              onClick={() => setShowPreview(true)}
+              disabled={a.tripsLoading || a.completed.length === 0}
+            >
+              Review and publish
+            </button>
+          </>
+        }
+      />
 
-      <div className="admin-card">
-        <div className="admin-card-title" style={{ justifyContent: "space-between" }}>
-          <span>Passenger Stop Zone Map</span>
-          <button
-            onClick={() => setShowPreview(true)}
-            disabled={tripsLoading || aggTrips.length === 0}
-            style={{
-              padding: "7px 16px",
-              background: tripsLoading || aggTrips.length === 0
-                ? "rgba(0,0,0,0.10)" : "linear-gradient(135deg,#1044a3,#1565c0)",
-              color: tripsLoading || aggTrips.length === 0 ? "#8e9ab0" : "white",
-              border: "none", borderRadius: 10, fontSize: 12, fontWeight: 700,
-              cursor: tripsLoading || aggTrips.length === 0 ? "not-allowed" : "pointer",
-              fontFamily: "var(--font)", boxShadow: tripsLoading || aggTrips.length === 0 ? "none" : "0 4px 12px rgba(16,68,163,0.35)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            📤 Publish Stop Zones
-          </button>
+      <div className="rs-controls">
+        <div className="rs-field">
+          <label className="rs-field-label" htmlFor="sz-dir">Direction</label>
+          <select id="sz-dir" className="rs-select" value={direction}
+            onChange={(e) => setDirection(e.target.value)}>
+            {DIRECTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
         </div>
-        <p className="admin-card-desc">
-          RutaSmart identifies high-demand passenger activity areas from collected GPS data and recommends stop zones for transport planners. Review both corridors before publishing to the passenger map.
-        </p>
-
-        {tripsLoading ? (
-          <div style={{ fontSize: 13, color: "#8e9ab0" }}>Loading trips…</div>
-        ) : sortedDates.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#c62828" }}>No completed trips found.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", padding: "2px 4px" }}>
-              Signal Quality:&nbsp;
-              <span style={{ color: "#30d158", fontWeight: 700 }}>≥95% excellent</span>
-              {" · "}
-              <span style={{ color: "#ffd60a", fontWeight: 700 }}>≥70% normal</span>
-              {" · "}
-              <span style={{ color: "#ff453a", fontWeight: 700 }}>&lt;70% degraded</span>
-            </div>
-            {sortedDates.map(date => (
-              <div key={date}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
-                  <Icon name="clock" size={13} />
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#42a5f5", textTransform: "uppercase", letterSpacing: "0.06em" }}>📅 {date}</span>
-                </div>
-                {["MALANDAY-RECTO", "RECTO-MALANDAY"].map(dir => {
-                  const dirTrips = byDate[date][dir];
-                  if (!dirTrips.length) return null;
-                  return (
-                    <div key={dir} style={{ marginBottom: 6 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.40)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 4 }}>
-                        {dirLabel(dir)}
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                        {dirTrips.map(t => {
-                          const pc = periodColorCard(t.dominant_period || t.time_period);
-                          const gp = typeof t.good_pct === "number" ? t.good_pct : null;
-                          const gpColor = gp == null ? "rgba(255,255,255,0.38)" : gp >= 95 ? "#30d158" : gp >= 70 ? "#ffd60a" : "#ff453a";
-                          return (
-                            <div key={t.trip_id} style={{
-                              display: "grid", gridTemplateColumns: "64px 120px 1fr 88px",
-                              alignItems: "center", gap: 8,
-                              background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "6px 12px",
-                              border: "1px solid rgba(255,255,255,0.10)", fontSize: 12,
-                            }}>
-                              <span style={{ color: "rgba(255,255,255,0.55)", fontWeight: 600, fontFamily: "var(--mono)" }}>{t.pht_start || "—"}</span>
-                              <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: pc.bg, color: pc.text, fontWeight: 700, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {t.dominant_period || t.time_period || "—"}
-                              </span>
-                              <span style={{ color: "rgba(255,255,255,0.70)" }}>{t.log_count?.toLocaleString()} logs</span>
-                              <span style={{ fontWeight: 700, textAlign: "right", fontSize: 12, color: gpColor }}>
-                                {gp != null ? `${gp.toFixed(1)}%` : "—"}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {status && (
-          <div className={`admin-msg ${status.ok ? "success" : "error"}`} style={{ marginTop: 14 }}>
-            <span style={{ fontWeight: 700, color: status.ok ? "#30d158" : "#ff453a" }}>{status.ok ? "✓ " : "✗ "}</span>
-            {status.lines.map((line, i) => <span key={i}>{line}{i < status.lines.length - 1 && <br />}</span>)}
-          </div>
-        )}
-
-        {showPreview && (
-          <StopZonePublishPreview
-            routeId="MR-001"
-            onClose={() => setShowPreview(false)}
-            onSuccess={() => setStatus({ ok: true, lines: ["Stop zones published successfully."] })}
-          />
-        )}
+        <div className="rs-field">
+          <span className="rs-field-label">Selection</span>
+          <span style={{ fontSize: 12.5, color: "var(--rs-text-2)", paddingBottom: 7 }}>
+            {a.tripsLoading
+              ? "Loading trips…"
+              : `${a.sentTrips.length} completed trip${a.sentTrips.length === 1 ? "" : "s"}`}
+          </span>
+        </div>
+        <button type="button" className="rs-btn" onClick={a.reload}
+          disabled={a.loading || a.tripsLoading} style={{ marginLeft: "auto" }}>
+          {a.loading ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
+
+      {published && (
+        <div className="rs-provenance" role="status"
+          style={{ borderLeftColor: "var(--rs-fill-normal)", background: "rgba(48,209,88,0.07)", borderColor: "rgba(48,209,88,0.34)" }}>
+          <div className="rs-provenance-body">{published}</div>
+        </div>
+      )}
+
+      {a.data && (
+        <DataProvenanceNotice
+          trips={a.sourceTripCount ?? a.sentTrips.length}
+          logs={a.totalLogs}
+          days={a.collectionDays}
+        />
+      )}
+
+      {a.tripsErr && <ErrorState title="Trip list unavailable" body={a.tripsErr} onRetry={a.reload} />}
+      {a.error && <ErrorState title="Cluster detection unavailable" body={a.error} onRetry={a.reload} />}
+
+      {!a.tripsErr && !a.tripsLoading && a.completed.length === 0 && (
+        <EmptyState
+          title="No completed trips yet"
+          body="Stop detection runs over completed trips. Once a recording finishes, detected clusters appear here."
+          action={<Link className="rs-btn" to="/admin/trips">Open Trips</Link>}
+        />
+      )}
+
+      {a.loading && !a.data && <SkeletonMetrics count={4} />}
+
+      {a.data && (
+        <>
+          <div className="rs-metrics">
+            <MetricCard
+              label="Clusters detected"
+              value={a.rankedClusters.length.toLocaleString()}
+              sub={`From ${(a.dbscan?.dbscan_input ?? 0).toLocaleString()} clustered records`}
+              accent="var(--rs-fill-info)"
+              definition={DEF.clusterActivity}
+            />
+            <MetricCard
+              label="Classified true stop"
+              value={trueStops.toLocaleString()}
+              sub={queues > 0 ? `${queues} classified as creeping queue` : "By intra-cluster velocity"}
+              accent="var(--rs-fill-normal)"
+              definition={
+                "After clustering, each cluster is post-classified by the velocity of its " +
+                "readings as TRUE_STOP, CREEPING_QUEUE or MOVING. This separates genuine " +
+                "passenger stops from vehicles held in traffic."
+              }
+            />
+            <MetricCard
+              label="Records clustered"
+              value={(a.dbscan?.dbscan_input ?? 0).toLocaleString()}
+              sub={`${(a.dbscan?.moving_excluded ?? 0).toLocaleString()} gated out as moving`}
+              definition={
+                "GPS log records that reached the clustering stage. Poor-accuracy records " +
+                "are excluded from spatial input, and readings taken while the vehicle was " +
+                "moving are gated out before clustering."
+              }
+            />
+            <MetricCard
+              label="Met quality threshold"
+              value={a.thresholdPct == null ? null : `${a.thresholdPct.toFixed(2)}%`}
+              sub="Good plus Acceptable accuracy"
+              accent="var(--rs-fill-normal)"
+              definition={DEF.qualityThreshold}
+              unavailableNote="The analytics response carried no quality summary."
+            />
+          </div>
+
+          <SectionHeader
+            title="Detected clusters"
+            note={
+              a.rankedClusters.length
+                ? "Ranked by recorded activity in this dataset. Rank is not a service recommendation."
+                : undefined
+            }
+          />
+
+          {a.rankedClusters.length === 0 ? (
+            <EmptyState
+              title="No clusters met the detection threshold"
+              body={
+                "DBSCAN found no cluster with at least minPts records in this selection. " +
+                "This happens when too few records remain after Poor-accuracy records and " +
+                "moving readings are excluded from spatial input. Data requires further inspection."
+              }
+            />
+          ) : (
+            <div className="rs-panel rs-panel--flush">
+              <div className="rs-tablewrap">
+                <table className="rs-table">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="rs-rank">#</th>
+                      <th scope="col">Cluster</th>
+                      <th scope="col" className="rs-num">Records</th>
+                      <th scope="col" className="rs-num">Mean occ.</th>
+                      <th scope="col" className="rs-num">Peak occ.</th>
+                      <th scope="col" className="rs-num">Load factor</th>
+                      <th scope="col">Tier</th>
+                      <th scope="col">Busiest period</th>
+                      <th scope="col">Classification</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {a.rankedClusters.map((c, i) => (
+                      <tr key={c.cluster_id}>
+                        <td className="rs-rank">{i + 1}</td>
+                        <td>
+                          <span style={{ color: "var(--rs-text)" }}>Cluster {c.cluster_id}</span>
+                          <br />
+                          <span style={{ fontSize: 10.5, color: "var(--rs-text-3)" }}>
+                            {c.centroid_lat.toFixed(5)}, {c.centroid_lon.toFixed(5)}
+                          </span>
+                        </td>
+                        <td className="rs-num">{c.point_count.toLocaleString()}</td>
+                        <td className="rs-num">{c.avg_occupancy.toFixed(1)}</td>
+                        <td className="rs-num">{c.max_occupancy}</td>
+                        <td className="rs-num"
+                          style={c.load_factor_pct > 100 ? { color: "var(--rs-on-critical)" } : undefined}>
+                          {c.load_factor_pct.toFixed(1)}%
+                        </td>
+                        <td>
+                          <span className="rs-pill" style={{
+                            background: `${DEMAND_COLOR[c.demand_tier] || "#8e9ab0"}26`,
+                            color: DEMAND_COLOR[c.demand_tier] || "#8e9ab0",
+                          }}>{c.demand_tier}</span>
+                        </td>
+                        <td style={{ color: PERIOD_COLOR[c.peak_period] || "var(--rs-text-2)" }}>
+                          {c.peak_period}
+                        </td>
+                        <td>
+                          <span style={{ fontSize: 11, color: "var(--rs-text-2)" }}>
+                            {c.cluster_type === "TRUE_STOP" ? "True stop"
+                              : c.cluster_type === "CREEPING_QUEUE" ? "Creeping queue"
+                                : "Moving"}
+                          </span>
+                          <br />
+                          <span style={{ fontSize: 10.5, color: "var(--rs-text-3)" }}>
+                            {clusterActivityLabel(c.demand_tier)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ padding: "12px 16px", borderTop: "1px solid var(--rs-border)" }}>
+                <div style={{ fontSize: 11.5, lineHeight: 1.6, color: "var(--rs-text-3)" }}>
+                  <b style={{ color: "var(--rs-text-2)" }}>Next steps for review.</b>{" "}
+                  Compare these centroids against ground-truth stops on the Evaluation
+                  page, and review the supporting trips for any cluster whose coverage
+                  across collection days looks thin.
+                </div>
+              </div>
+            </div>
+          )}
+
+          <SectionHeader title="Demand tiers in these clusters" />
+          <div className="rs-panel">
+            <DemandTierLegend capacity={a.capacity} />
+          </div>
+
+          <SectionHeader
+            title="Data quality behind detection"
+            note="Three-way GPS accuracy classification"
+          />
+          <div className="rs-panel">
+            <DataQualitySummary quality={a.quality} dbscan={a.dbscan} />
+          </div>
+
+          <SectionHeader
+            title="Supporting trips"
+            note={`${a.sentTrips.length} trip${a.sentTrips.length === 1 ? "" : "s"}. Trip-level records.`}
+          />
+          <div className="rs-panel rs-panel--flush">
+            <div className="rs-tablewrap">
+              <table className="rs-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Trip</th>
+                    <th scope="col">Date (PHT)</th>
+                    <th scope="col">Start</th>
+                    <th scope="col">Direction</th>
+                    <th scope="col">Jeep</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a.sentTrips.map((t) => (
+                    <tr key={t.trip_id}>
+                      <td style={{ fontSize: 11, color: "var(--rs-text-3)" }}>{t.trip_id}</td>
+                      <td>{phtDateStr(t.start_time)}</td>
+                      <td>{phtTimeStr(t.start_time)}</td>
+                      <td>{dirLabel(t.direction)}</td>
+                      <td>{t.jeep_code || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p style={{
+            margin: "18px 0 8px", fontSize: 11.5, lineHeight: 1.6,
+            color: "var(--rs-text-3)", maxWidth: "85ch",
+          }}>
+            Cluster detection is descriptive. It reports where recorded activity
+            concentrated on this corridor over the selected window. It does not
+            recommend formalising, consolidating or relocating any stop.
+          </p>
+        </>
+      )}
+
+      {showPreview && (
+        <StopZonePublishPreview
+          routeId="MR-001"
+          onClose={() => setShowPreview(false)}
+          onSuccess={() => setPublished("Stop zones published. The public passenger map now reflects the current detection.")}
+        />
+      )}
     </div>
   );
 }

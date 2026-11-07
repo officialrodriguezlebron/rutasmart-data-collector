@@ -82,3 +82,54 @@ export const OFFICIAL_DATASET = {
   logs: 35326,
   days: 13,
 };
+
+/**
+ * Descriptive observation for a detected stop cluster.
+ *
+ * Replaces the prescriptive text the backend returns on
+ * /stop-zones/recommendations ("Consider formalizing this location",
+ * "Stop underutilized - consider consolidating with nearby stop",
+ * "prioritize for formalization review").
+ *
+ * Those strings recommend franchise and route actions. The study is
+ * descriptive: delimitation 1 excludes predictive modelling, delimitation 2
+ * excludes route optimization, and delimitation 11 states the system is not
+ * for binding operational decision-making. So the UI reports what was
+ * observed and what an analyst could inspect next, and leaves the decision
+ * to the person reading it.
+ *
+ * The backend response is left untouched; this only changes what is shown.
+ *
+ * @param tier   mapped demand tier from the API (High / Medium / Low)
+ * @param conf   coverage confidence (High / Medium / Low)
+ * @param days   number of collection days the cluster was observed on
+ */
+export function describeCluster(tier, conf, days) {
+  if (days != null && days < 3) {
+    return "Observed on fewer than 3 collection days. Data requires further inspection.";
+  }
+  if (tier === "High" && conf === "High") {
+    return "High-demand cluster detected, consistent across collection days. " +
+           "Compare against ground-truth stops.";
+  }
+  if (tier === "High" && conf === "Medium") {
+    return "High-demand cluster detected, present on some collection days. " +
+           "Review supporting trips.";
+  }
+  if (tier === "High") {
+    return "High-demand cluster detected, but coverage across collection days " +
+           "is inconsistent. Data requires further inspection.";
+  }
+  if (tier === "Low" && conf === "High") {
+    return "Low recorded activity, consistently observed. " +
+           "Compare against ground-truth stops.";
+  }
+  return "Moderate recorded activity. Review supporting trips.";
+}
+
+/** Short, non-prescriptive label for a cluster's recorded activity. */
+export function clusterActivityLabel(tier) {
+  if (tier === "Critical" || tier === "High") return "High recorded activity";
+  if (tier === "Moderate" || tier === "Medium") return "Moderate recorded activity";
+  return "Lower recorded activity";
+}

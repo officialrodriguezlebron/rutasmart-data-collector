@@ -3,7 +3,35 @@ import { createPortal } from "react-dom";
 import { getAdminTrips, getAggregateDashboard, deleteTrip, exportTrip, importTripCSV } from "../../services/api";
 import { goodColor, statusColor, periodColorCard, phtDateStr, phtTimeStr, dirLabel } from "../../utils/adminFormatters";
 import TripMap from "../TripMap";
+import {
+  AdminPageHeader, SectionHeader, MetricCard,
+  DataProvenanceNotice, DataStatusBadge,
+  useCorridorAnalytics, DEF,
+} from "../../components/admin";
 import "../AdminDashboard.css";
+
+/**
+ * Trips.
+ *
+ * The per-trip rows keep reading /admin/aggregate. That is the right source
+ * here: a trip list is trip-level by nature, and the columns below are
+ * explicitly labelled as trip-level so they are not mistaken for the
+ * per-record research figures.
+ *
+ * The corridor strip at the top is different. Those are headline figures,
+ * so they come from /analytics/merged/run-all, which computes them per GPS
+ * log record across the completed trips.
+ *
+ * Two corrections to the trip rows:
+ *   - the expanded panel read s.avg_load_factor_pct, a field that does not
+ *     exist in the /admin/aggregate response (it is avg_lf_pct), so Load
+ *     Factor always rendered as a dash.
+ *   - the quality column is GOOD-only. /admin/aggregate hardcodes
+ *     acceptable_count to 0 and reports everything that is not GOOD as
+ *     POOR, so it cannot show the manuscript's three-way split. The column
+ *     is now labelled "GOOD share" rather than "Signal Quality", and the
+ *     three-way figure is shown in the corridor strip where it is correct.
+ */
 
 const Icon = ({ name, size = 18 }) => {
   const icons = {
@@ -28,6 +56,10 @@ export default function AdminTrips() {
   const [mapTripId,    setMapTripId]    = useState(null);
   const [importing,    setImporting]    = useState(false);
   const [importMsg,    setImportMsg]    = useState(null);
+
+  // Corridor headline figures, per GPS log record. Separate from the
+  // trip-level rows below.
+  const corridor = useCorridorAnalytics({ direction: "ALL", range: "ALL" });
 
   const [expanded, setExpanded] = useState(null);
   const [search,   setSearch]   = useState("");
@@ -109,15 +141,80 @@ export default function AdminTrips() {
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-        <div className="admin-topbar">
-          <h1>Trips</h1>
-          <button className="admin-refresh" onClick={load} disabled={loading}>↺ Refresh</button>
-        </div>
+        <AdminPageHeader
+          title="Trips"
+          subtitle={
+            "Every recorded trip on the corridor, with CSV import, per-trip export and " +
+            "deletion. Row values are trip-level records; the corridor figures below are " +
+            "computed per GPS log record."
+          }
+          badges={
+            <>
+              <DataStatusBadge tone="info" label="Route MR-001" />
+              <DataStatusBadge
+                tone={corridor.activeCount > 0 ? "ok" : "default"}
+                label={corridor.activeCount > 0
+                  ? `${corridor.activeCount} trip${corridor.activeCount === 1 ? "" : "s"} recording now`
+                  : "No trip recording now"} />
+            </>
+          }
+          actions={
+            <button className="rs-btn" onClick={() => { load(); corridor.reload(); }} disabled={loading}>
+              Refresh
+            </button>
+          }
+        />
 
         {loading ? (
           <div className="admin-loading">Loading trips…</div>
         ) : (
           <>
+            {/* Corridor context, per GPS log record. */}
+            {corridor.data && (
+              <>
+                <DataProvenanceNotice
+                  trips={corridor.sourceTripCount ?? corridor.sentTrips.length}
+                  logs={corridor.totalLogs}
+                  days={corridor.collectionDays}
+                />
+                <div className="rs-metrics" style={{ marginBottom: 20 }}>
+                  <MetricCard
+                    label="Completed trips"
+                    value={(corridor.sourceTripCount ?? 0).toLocaleString()}
+                    sub="Included in the corridor figures"
+                    accent="var(--rs-fill-info)"
+                    definition={DEF.tripsAnalyzed}
+                  />
+                  <MetricCard
+                    label="GPS log records"
+                    value={(corridor.totalLogs ?? 0).toLocaleString()}
+                    sub="One position and occupancy sample each"
+                    definition={DEF.gpsLogs}
+                  />
+                  <MetricCard
+                    label="Met quality threshold"
+                    value={corridor.thresholdPct == null ? null : `${corridor.thresholdPct.toFixed(2)}%`}
+                    sub="Good plus Acceptable accuracy"
+                    accent="var(--rs-fill-normal)"
+                    definition={DEF.qualityThreshold}
+                    unavailableNote="The analytics response carried no quality summary."
+                  />
+                  <MetricCard
+                    label="Over-capacity share"
+                    value={corridor.overCapacityPct == null ? null : `${corridor.overCapacityPct.toFixed(2)}%`}
+                    sub="Records above seated capacity"
+                    accent="var(--rs-fill-high)"
+                    definition={DEF.overCapacity}
+                    unavailableNote="The analytics response carried no demand distribution."
+                  />
+                </div>
+                <SectionHeader
+                  title="All trips"
+                  note="Trip-level records. GOOD share is GOOD accuracy only; the three-way split is in the corridor figures above."
+                />
+              </>
+            )}
+
             {importMsg && (
               <div className={`admin-msg ${importMsg.type}`} style={{ marginBottom: 14 }}>{importMsg.text}</div>
             )}
@@ -178,8 +275,10 @@ export default function AdminTrips() {
                               {gp != null && <div style={{ height: "100%", width: `${gp}%`, background: goodColor(gp), borderRadius: 99 }} />}
                             </div>
                             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", textAlign: "right", fontFamily: "var(--mono)" }}>{(s?.log_count ?? t.log_count)?.toLocaleString() || "—"}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, textAlign: "right", color: gp != null ? goodColor(gp) : "#8e9ab0" }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, textAlign: "right", color: gp != null ? goodColor(gp) : "#8e9ab0" }}
+                              title="Share of this trip's GPS log records classified GOOD (accuracy 20 m or better)">
                               {gp != null ? `${typeof gp === "number" ? gp.toFixed(1) : gp}%` : "—"}
+                              <span className="rs-sr"> GOOD share, trip level</span>
                             </span>
                             <span style={{ color: "rgba(255,255,255,0.40)", display: "flex", justifyContent: "center", transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }}>
                               <Icon name="chevron" size={13} />
@@ -194,9 +293,12 @@ export default function AdminTrips() {
                                   ["Jeep Code",  t.jeep_code || t.recorder_id || "—"],
                                   ["Start (PHT)", phtTimeStr(t.start_time)],
                                   ...(s ? [
-                                    ["GOOD Logs",   s.good_count?.toLocaleString() || "—"],
-                                    ["Total Logs",  s.log_count?.toLocaleString()  || "—"],
-                                    ["Load Factor", s.avg_load_factor_pct != null ? `${s.avg_load_factor_pct.toFixed(0)}%` : "—"],
+                                    ["GOOD logs (trip)",  s.good_count?.toLocaleString() || "—"],
+                                    ["Total logs (trip)", s.log_count?.toLocaleString()  || "—"],
+                                    // Field is avg_lf_pct in the /admin/aggregate response.
+                                    // This read avg_load_factor_pct, which is undefined, so
+                                    // the value always rendered as a dash.
+                                    ["Mean load factor (trip)", s.avg_lf_pct != null ? `${s.avg_lf_pct.toFixed(1)}%` : "—"],
                                   ] : []),
                                 ].map(([lbl, val]) => (
                                   <div key={lbl}>

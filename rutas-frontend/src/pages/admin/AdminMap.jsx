@@ -4,15 +4,51 @@ import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { TILE_URL, TILE_ATTRIBUTION, TILE_MAX_ZOOM } from "../../config/basemap";
-import { getStopZoneRecommendations, getAggregateDashboard } from "../../services/api";
+import { getStopZoneRecommendations } from "../../services/api";
 import { CORRIDOR, RETURN_CORRIDOR } from "../../data/corridor";
+import { DEMAND_COLOR } from "../../utils/adminFormatters";
+import {
+  DataStatusBadge, DataProvenanceNotice,
+  useCorridorAnalytics, describeCluster, DEF,
+} from "../../components/admin";
 import "../AdminDashboard.css";
 import "./AdminMap.css";
+
+/**
+ * Live Map.
+ *
+ * Two corrections here.
+ *
+ * The popup rendered z.recommendation verbatim from
+ * /stop-zones/recommendations. Those strings prescribe franchise and route
+ * actions ("Consider formalizing this location", "Stop underutilized -
+ * consider consolidating with nearby stop"). Delimitation 2 excludes route
+ * optimization and delimitation 11 states the system is not for binding
+ * operational decision-making, so the UI now renders a descriptive
+ * observation built by describeCluster() from the same tier, confidence and
+ * coverage values. The endpoint is untouched.
+ *
+ * The marker colours keyed off the mapped High/Medium/Low tier, which the
+ * backend collapses from the manuscript's four. The response also carries
+ * demand_tier_raw, the original Normal/Moderate/High/Critical value, so the
+ * four-tier classification is shown without changing any backend logic.
+ *
+ * Panel statistics now come from /analytics/merged/run-all rather than
+ * /admin/aggregate, whose "Avg Signal Quality" was a mean of per-trip
+ * GOOD-only percentages with ACCEPTABLE folded into POOR.
+ */
 
 // Suppress default icon URL warning — we use CircleMarkers only
 delete L.Icon.Default.prototype._getIconUrl;
 
-const TIER_COLOR  = { High: "#ff453a", Medium: "#ffd60a", Low: "#30d158" };
+// Mapped tier (what /stop-zones/recommendations returns) kept for the
+// confidence legend; DEMAND_COLOR carries the manuscript's four tiers and
+// is keyed by demand_tier_raw.
+const TIER_COLOR = { High: "#ff453a", Medium: "#ffd60a", Low: "#30d158" };
+
+/** The manuscript tier for a zone, falling back to the mapped one. */
+const rawTier = (z) => z.demand_tier_raw || z.demand_tier;
+const tierColor = (z) => DEMAND_COLOR[rawTier(z)] || TIER_COLOR[z.demand_tier] || "#8e9ab0";
 
 // ── Auto-fit bounds when zones change ─────────────────────────────────────────
 function BoundsFitter({ zones }) {
@@ -37,42 +73,53 @@ function FlyToController({ target }) {
 export default function AdminMap() {
   const [direction,  setDirection]  = useState("MALANDAY-RECTO");
   const [zones,      setZones]      = useState([]);
-  const [aggregate,  setAggregate]  = useState(null);
-  const [loading,    setLoading]    = useState(true);
+  const [zonesFor,   setZonesFor]   = useState(null);
+  const [zonesErr,   setZonesErr]   = useState(null);
   const [flyTarget,  setFlyTarget]  = useState(null);
 
+  // Corridor figures, per GPS log record.
+  const a = useCorridorAnalytics({ direction, range: "ALL" });
+
   useEffect(() => {
-    setLoading(true);
-    setZones([]);
-    Promise.all([
-      getStopZoneRecommendations("MR-001", direction),
-      getAggregateDashboard(),
-    ])
-      .then(([zRes, aRes]) => {
-        setZones(zRes.data.zones || []);
-        setAggregate(aRes.data);
+    let cancelled = false;
+    getStopZoneRecommendations("MR-001", direction)
+      .then(r => {
+        if (cancelled) return;
+        setZones(r.data.zones || []);
+        setZonesErr(null);
+        setZonesFor(direction);
       })
-      .catch(e => console.error(e))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (cancelled) return;
+        setZones([]);
+        setZonesErr("Published stop zones could not be loaded for this direction.");
+        setZonesFor(direction);
+      });
+    return () => { cancelled = true; };
   }, [direction]);
+
+  const loading = zonesFor !== direction;
 
   // Full map-matched corridor polyline (same geometry backend uses for match_to_corridor())
   const corridorPath  = direction === "MALANDAY-RECTO" ? CORRIDOR : RETURN_CORRIDOR;
   const corridorColor = direction === "MALANDAY-RECTO" ? "#42a5f5" : "#00b4d8";
 
-  // Right panel stats
-  const summaries       = aggregate?.trip_summaries || [];
-  const avgSigQuality   = summaries.length
-    ? summaries.reduce((s, t) => s + (t.good_pct || 0), 0) / summaries.length
-    : null;
-  const highDemandCount = zones.filter(z => z.demand_tier === "High").length;
-  const totalTrips      = aggregate?.total_trips ?? summaries.length;
+  // Right panel stats, per GPS log record where the figure is a corridor
+  // statistic. Zone counts are counts of published zones.
+  const highDemandCount = zones.filter(
+    z => rawTier(z) === "High" || rawTier(z) === "Critical"
+  ).length;
 
   const panelCards = [
-    { label: "Published Zones",   value: zones.length,  accent: "#42a5f5" },
-    { label: "Avg Signal Quality", value: avgSigQuality != null ? `${avgSigQuality.toFixed(1)}%` : "—", accent: "#30d158" },
-    { label: "High Demand Zones", value: highDemandCount, accent: "#ff453a" },
-    { label: "Total Trips",       value: totalTrips || "—", accent: "#ffd60a" },
+    { label: "Published zones", value: zones.length, accent: "#42a5f5",
+      hint: "Stop zones currently published for this direction." },
+    { label: "Met quality threshold",
+      value: a.thresholdPct != null ? `${a.thresholdPct.toFixed(1)}%` : "—",
+      accent: "#30d158", hint: DEF.qualityThreshold },
+    { label: "High / Critical zones", value: highDemandCount, accent: "#ff453a",
+      hint: "Published zones whose recorded demand tier is High or Critical." },
+    { label: "Trips analysed", value: a.sourceTripCount ?? "—", accent: "#ffd60a",
+      hint: DEF.tripsAnalyzed },
   ];
 
   return (
@@ -115,7 +162,7 @@ export default function AdminMap() {
                   No stop zones published yet
                 </div>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", textAlign: "center", maxWidth: 320, lineHeight: 1.6, marginBottom: 20 }}>
-                  Go to Stop Detection to publish zones for this corridor.
+                  Open Stop Zones to review detected clusters and publish them for this corridor.
                 </div>
                 <Link to="/admin/stop-zones" style={{
                   padding: "9px 22px",
@@ -126,7 +173,7 @@ export default function AdminMap() {
                   fontSize: 13, fontWeight: 700,
                   textDecoration: "none",
                 }}>
-                  → Go to Stop Detection
+                  Open Stop Zones
                 </Link>
               </div>
             ) : (
@@ -150,30 +197,47 @@ export default function AdminMap() {
                       center={[z.centroid_lat, z.centroid_lon]}
                       radius={10}
                       fillOpacity={0.85}
-                      fillColor={TIER_COLOR[z.demand_tier] || "#8e9ab0"}
+                      fillColor={tierColor(z)}
                       color="rgba(0,0,0,0.35)"
                       weight={1}
                     >
                       <Popup className="admin-map-popup">
                         <div className="admin-map-popup-inner">
                           <div className="admin-map-popup-name">{z.name}</div>
-                          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                          <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                             <span style={{
-                              background: (TIER_COLOR[z.demand_tier] || "#8e9ab0") + "28",
-                              color: TIER_COLOR[z.demand_tier] || "#8e9ab0",
-                              border: `1px solid ${(TIER_COLOR[z.demand_tier] || "#8e9ab0")}50`,
+                              background: tierColor(z) + "28",
+                              color: tierColor(z),
+                              border: `1px solid ${tierColor(z)}50`,
                               padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700,
-                            }}>{z.demand_tier} Demand</span>
+                            }}>{rawTier(z)} demand</span>
                             <span style={{
                               background: "rgba(255,255,255,0.08)",
-                              color: "rgba(255,255,255,0.65)",
+                              color: "rgba(255,255,255,0.72)",
                               border: "1px solid rgba(255,255,255,0.15)",
                               padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700,
-                            }}>{z.confidence} Confidence</span>
+                            }}>{z.confidence} coverage</span>
                           </div>
-                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>
-                            {z.recommendation}
+
+                          {/* Observed evidence, then a descriptive note. The
+                              backend's prescriptive recommendation string is
+                              deliberately not rendered. */}
+                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.72)", lineHeight: 1.6, marginBottom: 6 }}>
+                            Observed on {z.trip_day_coverage ?? 0} of {z.total_trip_days ?? 0} collection
+                            day{(z.total_trip_days ?? 0) === 1 ? "" : "s"}
+                            {z.trip_day_coverage_pct != null && ` (${z.trip_day_coverage_pct}%)`}.
+                            {z.avg_occupancy != null && ` Mean occupancy ${Number(z.avg_occupancy).toFixed(1)}.`}
+                            {z.load_factor_pct != null && ` Load factor ${Number(z.load_factor_pct).toFixed(1)}%.`}
+                            {z.peak_period && z.peak_period !== "—" && ` Busiest period ${z.peak_period}.`}
                           </div>
+                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.58)", lineHeight: 1.5, fontStyle: "italic" }}>
+                            {describeCluster(z.demand_tier, z.confidence, z.trip_day_coverage)}
+                          </div>
+                          {z.nearest_gt_name && (
+                            <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.52)", marginTop: 6 }}>
+                              Nearest ground-truth stop: {z.nearest_gt_name}
+                            </div>
+                          )}
                         </div>
                       </Popup>
                     </CircleMarker>
@@ -182,10 +246,10 @@ export default function AdminMap() {
 
                 {/* ── Legend strip below map ─────────────────────────────── */}
                 <div className="admin-map-legend">
-                  {Object.entries(TIER_COLOR).map(([tier, color]) => (
+                  {["Normal", "Moderate", "High", "Critical"].map(tier => (
                     <span key={tier} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, display: "inline-block" }} />
-                      <span>{tier} Demand</span>
+                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: DEMAND_COLOR[tier], display: "inline-block" }} />
+                      <span>{tier}</span>
                     </span>
                   ))}
                   <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -199,14 +263,27 @@ export default function AdminMap() {
 
           {/* ── Right panel ─────────────────────────────────────────────────── */}
           <div className="admin-map-panel">
+            {zonesErr && (
+              <div style={{ fontSize: 11.5, color: "var(--rs-on-critical)", marginBottom: 10, lineHeight: 1.5 }}>
+                {zonesErr}
+              </div>
+            )}
+            {a.data && (
+              <div style={{ fontSize: 10.5, color: "var(--rs-text-3)", lineHeight: 1.55, marginBottom: 10 }}>
+                Corridor figures from {(a.totalLogs ?? 0).toLocaleString()} GPS log records
+                across {a.sourceTripCount ?? 0} completed trips
+                {a.collectionDays ? `, ${a.collectionDays} collection day${a.collectionDays === 1 ? "" : "s"}` : ""}.
+                Not the published thesis dataset.
+              </div>
+            )}
             <div className="admin-map-panel-cards">
-              {panelCards.map(({ label, value, accent }) => (
-                <div key={label} style={{
+              {panelCards.map(({ label, value, accent, hint }) => (
+                <div key={label} title={hint} style={{
                   background: "rgba(255,255,255,0.06)",
                   border: "1px solid rgba(255,255,255,0.11)",
                   borderRadius: 10, padding: "10px 12px",
                 }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.62)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: accent, letterSpacing: "-0.5px", fontFamily: "var(--mono)" }}>{value}</div>
                 </div>
               ))}
@@ -231,16 +308,16 @@ export default function AdminMap() {
                         fontFamily: "var(--font)",
                       }}
                     >
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: TIER_COLOR[z.demand_tier] || "#8e9ab0", flexShrink: 0 }} />
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: tierColor(z), flexShrink: 0 }} />
                       <span style={{ fontSize: 12, color: "rgba(255,255,255,0.80)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {z.name}
                       </span>
                       <span style={{
                         fontSize: 9, padding: "1px 5px", borderRadius: 3, flexShrink: 0,
-                        background: (TIER_COLOR[z.demand_tier] || "#8e9ab0") + "28",
-                        color: TIER_COLOR[z.demand_tier] || "#8e9ab0",
+                        background: tierColor(z) + "28",
+                        color: tierColor(z),
                         fontWeight: 700,
-                      }}>{z.demand_tier}</span>
+                      }}>{rawTier(z)}</span>
                     </button>
                   ))}
                 </div>
