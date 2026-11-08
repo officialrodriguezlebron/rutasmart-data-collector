@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { authService } from "../services/authService";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 // Analytics engine calls the backend through raw fetch(); protectedFetch adds
 // the API key and the signed Authorization token and handles a 401 centrally.
 import { protectedFetch } from "../services/api";
@@ -408,8 +407,28 @@ function AlgorithmComparison({ comparing, compareData, compareError }) {
   );
 }
 
+/**
+ * Map a ?tab= slug onto an internal tab key.
+ *
+ * "load-factor" is the URL form of the "load factor" key, which carries a
+ * space. Anything unrecognised falls back to Overview rather than leaving
+ * the page on a tab that renders nothing.
+ */
+const TAB_SLUGS = {
+  "overview":    "overview",
+  "dbscan":      "dbscan",
+  "load-factor": "load factor",
+  "load factor": "load factor",
+  "demand":      "demand",
+  "time":        "time",
+  "compare":     "compare",
+};
+
+function tabFromParam(raw) {
+  return TAB_SLUGS[(raw || "").toLowerCase()] || "overview";
+}
+
 export default function AnalyticsEngine() {
-  const navigate    = useNavigate();
   const [searchParams] = useSearchParams();
   const [tripId, setTripId]       = useState(searchParams.get("trip") || "");
   const [showMap, setShowMap]     = useState(false);
@@ -418,15 +437,13 @@ export default function AnalyticsEngine() {
   const [data, setData]           = useState(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
-  // The admin sidebar deep-links here with ?tab=time and ?tab=dbscan, so the
-  // Analytics Engine sections are reachable from navigation rather than only
-  // by landing on Overview and clicking across. Unknown values fall back to
-  // Overview so a stale link cannot render an empty tab.
-  const [activeTab, setActiveTab] = useState(() => {
-    const wanted = searchParams.get("tab");
-    const valid = ["overview", "dbscan", "load factor", "demand", "time", "compare"];
-    return valid.includes(wanted) ? wanted : "overview";
-  });
+  // The admin sidebar deep-links here with ?tab=..., so the Analytics Engine
+  // sections are reachable from navigation rather than only by landing on
+  // Overview and clicking across. The internal key for the load factor tab
+  // contains a space, which is awkward in a URL, so the slug "load-factor"
+  // maps onto it. Unknown values fall back to Overview, so a stale link
+  // cannot render a tab that does not exist.
+  const [activeTab, setActiveTab] = useState(() => tabFromParam(searchParams.get("tab")));
   const [comparing,    setComparing]    = useState(false);
   const [compareData,  setCompareData]  = useState(null);
   const [compareError, setCompareError] = useState(null);
@@ -470,11 +487,10 @@ export default function AnalyticsEngine() {
   // above runs only for the first of the two.
   const tabParam = searchParams.get("tab");
   useEffect(() => {
-    const valid = ["overview", "dbscan", "load factor", "demand", "time", "compare"];
-    if (tabParam && valid.includes(tabParam)) setActiveTab(tabParam);
+    if (tabParam) setActiveTab(tabFromParam(tabParam));
   }, [tabParam]);
 
-  const runAnalysis = useCallback(async () => {
+  const runAnalysis = useCallback(async (landOnTab = "overview") => {
     const id = tripId.trim();
     if (!id) { setError("Enter a trip ID first."); return; }
     setLoading(true); setError(null); setData(null);
@@ -487,13 +503,42 @@ export default function AnalyticsEngine() {
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
       setData(await res.json());
-      setActiveTab("overview");
+      // Land on the requested tab. A manual run defaults to Overview; a
+      // ?tab= deep link passes its own so the sidebar entry opens the
+      // section it names instead of bouncing back to the summary.
+      setActiveTab(typeof landOnTab === "string" ? landOnTab : "overview");
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
   }, [tripId, epsM, minPts]);
+
+  /**
+   * Run once automatically when the page is opened through a sidebar deep
+   * link such as /analytics?tab=time.
+   *
+   * Those entries used to land on "Select a completed trip and run the
+   * algorithms" even though a trip was already selected, which reads as a
+   * dead end: the sidebar promised a Time Period Analysis and delivered an
+   * empty canvas.
+   *
+   * Deliberately narrow. It fires only when a ?tab= deep link is present,
+   * only in single-trip mode, only once per mount, and only when nothing
+   * has been requested yet. A bare visit to /analytics still waits for the
+   * operator, because running the full pipeline is expensive and the page
+   * is also used to pick a specific trip.
+   */
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    if (!tabParam) return;
+    if (mode !== "single") return;
+    if (!tripId || tripsLoading) return;
+    if (data || loading || error) return;
+    autoRanRef.current = true;
+    runAnalysis(tabFromParam(tabParam));
+  }, [tabParam, mode, tripId, tripsLoading, data, loading, error, runAnalysis]);
 
   const rerunDBSCAN = useCallback(async () => {
     if (!data) return;
@@ -651,22 +696,18 @@ export default function AnalyticsEngine() {
       {/* Header */}
       <div className="ae-header">
         <div className="ae-header-left">
-          <button className="ae-back-btn" onClick={() => authService.isAdmin()
-            ? navigate("/admin") : navigate("/login")}>
-            ← {authService.isAdmin() ? "Admin Panel" : "Dashboard"}
-          </button>
+          {/* The "← Admin Panel" button is gone: this page now renders inside
+              AdminShell, so the sidebar is always on screen and is the way
+              back. */}
           <div className="ae-title-block">
             <h1>Analytics Engine</h1>
             <p>DBSCAN · Load Factor · Demand · Time Categorisation</p>
           </div>
         </div>
+        {/* Sign out lives in the sidebar now that this page renders inside
+            AdminShell; a second one here would be two sign-outs on screen. */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span className="ae-corridor-badge">Malanday–Recto</span>
-          <button onClick={() => { authService.clearSession(); navigate("/login"); }}
-            style={{ padding: "5px 12px", background: "white", border: "1px solid #e5e7eb",
-                     borderRadius: 8, fontSize: 12, color: "#888", cursor: "pointer" }}>
-            Sign out
-          </button>
         </div>
       </div>
 
@@ -739,7 +780,7 @@ export default function AnalyticsEngine() {
                   className="ae-input"
                   value={tripId}
                   onChange={e => setTripId(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && runAnalysis()}
+                  onKeyDown={e => e.key === "Enter" && runAnalysis("overview")}
                   placeholder="2026-05-09_JEEP4_MLD-RCT_c49e"
                 />
               </div>
@@ -758,7 +799,7 @@ export default function AnalyticsEngine() {
               })()}
 
               <div className="ae-action-group">
-                <button className="ae-run-btn ae-btn-primary" onClick={runAnalysis} disabled={loading || !tripId.trim()}>
+                <button className="ae-run-btn ae-btn-primary" onClick={() => runAnalysis("overview")} disabled={loading || !tripId.trim()}>
                   {loading
                     ? <><span className="ae-spinner" /> Running…</>
                     : "▶  Analyze Trip"
@@ -968,8 +1009,37 @@ export default function AnalyticsEngine() {
           {mode === "single" && !data && !loading && !error && (
             <div className="ae-empty">
               <span className="ae-empty-icon" aria-hidden="true">🗺</span>
-              <p>Select a completed trip and run the algorithms</p>
-              <small>Trip must have status COMPLETED in the database</small>
+              {tripsLoading ? (
+                <>
+                  <p>Loading completed trips…</p>
+                  <small>The analysis runs once a trip is selected.</small>
+                </>
+              ) : tripList.length === 0 ? (
+                <>
+                  <p>No completed trips to analyse</p>
+                  <small>
+                    Analytics run after a trip is completed. Record and end a
+                    trip, or import one from the Trips page, then return here.
+                  </small>
+                </>
+              ) : tripId ? (
+                <>
+                  <p>Ready to analyse {tripId}</p>
+                  <small>
+                    Press <strong>Analyze Trip</strong> on the left to run DBSCAN,
+                    load factor, demand and time categorisation for this trip.
+                    Pick a different trip from the dropdown first if you need one.
+                  </small>
+                </>
+              ) : (
+                <>
+                  <p>Select a completed trip to begin</p>
+                  <small>
+                    Choose one from the dropdown on the left, then press
+                    Analyze Trip. Trips must have status COMPLETED.
+                  </small>
+                </>
+              )}
             </div>
           )}
 

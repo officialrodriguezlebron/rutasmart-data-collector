@@ -1582,3 +1582,48 @@
   line-height: 1.4;
   margin-bottom: 3px;
 }
+
+/* ── Inside AdminShell ────────────────────────────────────────────────────
+   This page renders in the shell's content pane now, not as a standalone
+   route. On its own it claimed the viewport: min-height 100dvh plus two
+   position:fixed background layers that covered the whole window, so
+   nested they painted over the admin chrome.
+
+   The backdrop is kept rather than removed. .ae-page sets a dark navy base
+   text colour (#1a2744) that only works against this light gradient;
+   dropping the gradient left stray text dark-on-dark. Containing the
+   layers to the page instead preserves the original contrast contract.
+
+   Scoped to .admin-main so the standalone styling is untouched if the page
+   is ever mounted on its own again. */
+.admin-main .ae-page {
+  min-height: 100%;
+  border-radius: 12px;
+  overflow: hidden;          /* clip the contained gradients to the card */
+  padding: 24px 20px 40px;
+}
+
+/* fixed -> absolute: the gradients now cover this page, not the viewport. */
+.admin-main .ae-page::before,
+.admin-main .ae-page::after {
+  position: absolute;
+}
+
+/* The header and layout centred on a 1100px column, which read as
+   misaligned inside the shell's own content width. */
+.admin-main .ae-header,
+.admin-main .ae-layout {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.admin-main .ae-header {
+  margin-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+  .admin-main .ae-page {
+    padding: 18px 14px 28px;
+  }
+}
