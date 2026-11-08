@@ -124,9 +124,17 @@
   letter-spacing: 0.04em;
 }
 
+/* Caption sitting inside .ae-card, whose composited surface measures
+   rgb(217,219,223). The colour here was rgba(255,255,255,0.45) — white,
+   written for a dark surface and never updated when the card became
+   light, which left it at 1.16:1 and effectively invisible.
+
+   #515c75 measures 4.83:1 on that surface: AA for normal text, and still
+   the lightest of the three text levels so the hierarchy below
+   .ae-card-title (#1a2744) and .ae-crossref holds. */
 .ae-tz-note {
   font-size: 11px;
-  color: rgba(255,255,255,0.45);
+  color: #515c75;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -711,9 +719,13 @@
   color: #5a6a85;
 }
 
+/* Body copy inside .ae-card. #8e9ab0 is a mid grey-blue that measured
+   2.05:1 against the card's rgb(217,219,223) surface. #4a5570 measures
+   5.36:1 — AA with margin, and darker than .ae-tz-note so body text
+   still reads as a level above a caption. */
 .ae-crossref {
   font-size: 11px;
-  color: #8e9ab0;
+  color: #4a5570;
 }
 
 /* ── States ──────────────────────────────────────────────────── */
