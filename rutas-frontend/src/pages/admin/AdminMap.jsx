@@ -110,23 +110,30 @@ export default function AdminMap() {
     z => rawTier(z) === "High" || rawTier(z) === "Critical"
   ).length;
 
+  const dirLabelText = direction === "MALANDAY-RECTO"
+    ? "Malanday → Recto" : "Recto → Malanday";
+
+  // Every card is scoped to the selected direction, so each label says so
+  // and each tooltip repeats it. "Met quality threshold" in particular must
+  // not be read as the corridor-wide 96.90% figure.
   const panelCards = [
     { label: "Published zones", value: zones.length, accent: "#42a5f5",
-      hint: "Stop zones currently published for this direction." },
-    { label: "Met quality threshold",
-      value: a.thresholdPct != null ? `${a.thresholdPct.toFixed(1)}%` : "—",
-      accent: "#30d158", hint: DEF.qualityThreshold },
+      hint: `Stop zones currently published for ${dirLabelText}.` },
+    { label: "Quality threshold",
+      value: a.thresholdPct != null ? `${a.thresholdPct.toFixed(2)}%` : "—",
+      accent: "#30d158",
+      hint: `${DEF.qualityThreshold} Scoped to ${dirLabelText} only, so it differs from the corridor-wide figure.` },
     { label: "High / Critical zones", value: highDemandCount, accent: "#ff453a",
-      hint: "Published zones whose recorded demand tier is High or Critical." },
+      hint: `Published zones for ${dirLabelText} whose recorded demand tier is High or Critical.` },
     { label: "Trips analysed", value: a.sourceTripCount ?? "—", accent: "#ffd60a",
-      hint: DEF.tripsAnalyzed },
+      hint: `${DEF.tripsAnalyzed} Scoped to ${dirLabelText}.` },
   ];
 
   return (
     <div className="admin-map-page">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="admin-topbar" style={{ marginBottom: 0, padding: "20px 32px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <h1>Map Dashboard</h1>
+        <h1>Live Map</h1>
         <div style={{ display: "flex", gap: 8 }}>
           {[
             { dir: "MALANDAY-RECTO",  label: "Malanday → Recto" },
@@ -268,12 +275,29 @@ export default function AdminMap() {
                 {zonesErr}
               </div>
             )}
+            {/* Everything in this panel is scoped to the selected direction,
+                not the whole corridor. Saying so matters: the direction
+                subset is roughly half the dataset, so a reader comparing
+                these counts against the corridor totals shown elsewhere
+                would otherwise read the difference as an error rather than
+                a filter. */}
             {a.data && (
-              <div style={{ fontSize: 10.5, color: "var(--rs-text-3)", lineHeight: 1.55, marginBottom: 10 }}>
-                Corridor figures from {(a.totalLogs ?? 0).toLocaleString()} GPS log records
-                across {a.sourceTripCount ?? 0} completed trips
-                {a.collectionDays ? `, ${a.collectionDays} collection day${a.collectionDays === 1 ? "" : "s"}` : ""}.
-                Not the published thesis dataset.
+              <div className="admin-map-scope">
+                <div className="admin-map-scope-dir" style={{ color: corridorColor }}>
+                  {direction === "MALANDAY-RECTO" ? "Malanday → Recto" : "Recto → Malanday"}
+                </div>
+                <div className="admin-map-scope-sub">
+                  Selected direction · {a.sourceTripCount ?? 0} completed
+                  trip{(a.sourceTripCount ?? 0) === 1 ? "" : "s"} ·{" "}
+                  {(a.totalLogs ?? 0).toLocaleString()} GPS log records
+                  {a.collectionDays
+                    ? ` · ${a.collectionDays} collection day${a.collectionDays === 1 ? "" : "s"}`
+                    : ""}
+                </div>
+                <div className="admin-map-scope-note">
+                  Official study dataset · selected-direction view, not the full
+                  corridor total.
+                </div>
               </div>
             )}
             <div className="admin-map-panel-cards">

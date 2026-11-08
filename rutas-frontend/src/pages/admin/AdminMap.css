@@ -79,6 +79,37 @@
   padding: 12px 14px;
 }
 
+/* ── Direction scope banner ───────────────────────────────────────────────
+   The panel's figures cover the selected direction only, which is roughly
+   half the dataset. Without this the counts read as corridor totals and
+   silently contradict the figures on every other admin page. */
+.admin-map-scope {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+.admin-map-scope-dir {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 3px;
+}
+
+.admin-map-scope-sub {
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.admin-map-scope-note {
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+}
+
 /* ── Leaflet popup dark theme override ───────────────────────────────────── */
 .admin-map-wrap .leaflet-popup-content-wrapper {
   background: #0f1a2e !important;
@@ -137,4 +168,102 @@
 
 .admin-map-wrap .leaflet-control-zoom-out {
   border-bottom: none !important;
+}
+
+/* ── Narrow viewports: stack the map above the panel ──────────────────────
+   The page previously had no media query at all. .admin-map-page is
+   absolutely positioned to escape .admin-main's padding so the map can
+   fill the pane, and .admin-map-body is a two-column flex row. Below
+   roughly 900px that row kept both columns side by side, squeezing the map
+   to about 130px wide against a 280px fixed panel — unusable, and the
+   legend collided with the zone list.
+
+   Here the page returns to normal document flow so it scrolls with the
+   rest of the admin area, the body stacks, and the map takes the full
+   width with a usable minimum height. The desktop two-column layout above
+   900px is untouched. */
+@media (max-width: 900px) {
+  .admin-map-page {
+    position: static;
+    inset: auto;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .admin-map-body {
+    flex-direction: column;
+    overflow: visible;
+    flex: none;
+  }
+
+  /* height stays auto so the wrap fits map + legend; only the canvas is
+     pinned. */
+  .admin-map-wrap {
+    flex: none;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* Leaflet needs a real height; flex:1 inside a stacked column gives it
+     none, so set it explicitly. */
+  .admin-map-wrap .leaflet-container {
+    height: 420px;
+    min-height: 420px;
+    flex: none;
+  }
+
+  .admin-map-empty {
+    min-height: 320px;
+    padding: 32px 20px;
+  }
+
+  /* Legend sits under the map, wrapping rather than colliding. */
+  .admin-map-legend {
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .admin-map-panel {
+    width: 100%;
+    flex: none;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: visible;
+  }
+
+  /* The zone list scrolls the page at this width instead of itself, so a
+     short viewport cannot trap it in a tiny scroll area. */
+  .admin-map-zone-list {
+    flex: none;
+    overflow-y: visible;
+    max-height: none;
+  }
+
+  .admin-topbar {
+    padding: 16px 20px 14px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  /* Only the Leaflet canvas gets a fixed height. The wrap must stay auto so
+     it grows to fit the map plus the legend strip underneath it; pinning the
+     wrap to the map's height makes the legend overflow and land on top of
+     the panel below. */
+  .admin-map-wrap {
+    min-height: 0;
+    height: auto;
+  }
+
+  .admin-map-wrap .leaflet-container {
+    height: 340px;
+    min-height: 340px;
+    flex: none;
+  }
+
+  .admin-map-panel-cards {
+    padding: 12px 12px 8px;
+  }
 }
