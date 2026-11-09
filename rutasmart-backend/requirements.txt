@@ -5,18 +5,30 @@ fastapi==0.162.0
 uvicorn[standard]==0.54.0
 
 # ── PostgreSQL driver — keep SQLAlchemy and the DBAPI in step ────────────────
-# SQLAlchemy is held on the 2.0 line deliberately. A bare "postgresql://" URL
-# resolves to a different DBAPI depending on the SQLAlchemy major.minor:
+# A bare "postgresql://" URL resolves to a different DBAPI depending on the
+# SQLAlchemy major.minor:
 #     2.0.x  ->  psycopg2   (PGDialect_psycopg2)
 #     2.1.x  ->  psycopg 3  (PGDialect_psycopg)
-# DATABASE_URL uses the bare "postgresql://" scheme, so pairing 2.1.x with
-# psycopg2-binary alone raises ModuleNotFoundError: No module named 'psycopg'.
-# Keeping 2.0.x makes psycopg2-binary — the driver this project has always
-# declared — the driver actually used, with no DATABASE_URL change.
-# To move to SQLAlchemy 2.1+ later, either declare psycopg[binary] and drop
-# psycopg2-binary, or switch DATABASE_URL to "postgresql+psycopg2://".
+# DATABASE_URL uses the bare "postgresql://" scheme, so the DBAPI that must be
+# importable is decided by the SQLAlchemy version that actually gets installed.
+#
+# This bit us in production: an older requirements.txt left sqlalchemy
+# unpinned, the deploy resolved it to 2.1.x, and with only psycopg2-binary
+# declared the service crashed on startup with
+#     ModuleNotFoundError: No module named 'psycopg'
+#
+# Two defences, both kept on purpose:
+#   1. sqlalchemy is pinned to the 2.0 line, so the dialect is deterministic
+#      and psycopg2 is what runs here and in CI.
+#   2. BOTH DBAPIs are declared. Should the pin ever be raised to 2.1+, or a
+#      deploy build from a ref whose pin differs, the psycopg 3 module is
+#      already present and the bare URL still resolves to a working driver
+#      instead of failing at import time.
+# Declaring the unused driver costs an install and nothing at runtime: with
+# 2.0.x pinned, SQLAlchemy never imports psycopg 3.
 sqlalchemy==2.0.57
 psycopg2-binary==2.9.13
+psycopg[binary]>=3.1,<4
 python-dotenv==1.2.4
 pydantic==2.14.2
 python-multipart==0.0.32
