@@ -18,5 +18,6 @@ export { LoadFactorBar, LoadFactorByPeriod, DemandDistribution, TimeDistribution
 export { useCorridorAnalytics } from "./useCorridorAnalytics";
 export {
   DEF, TIER_DEFS, PERIOD_DEFS, PERIOD_ORDER, TIER_ORDER, OFFICIAL_DATASET,
+  capacityStatus,
   describeCluster, clusterActivityLabel,
 } from "./definitions";

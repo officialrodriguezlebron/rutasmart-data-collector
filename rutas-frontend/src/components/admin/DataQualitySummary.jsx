@@ -14,7 +14,20 @@ import { UnavailableState } from "./EmptyState";
  * actually saw is much smaller than the record count. Showing that keeps the
  * cluster figures interpretable.
  */
-export default function DataQualitySummary({ quality, dbscan }) {
+/**
+ * GPS accuracy is not passenger demand, so on pages where both appear the
+ * green/amber/red tier palette would say the two scales are the same thing.
+ * `palette="neutral"` swaps in a blue-to-grey accuracy ramp. Default keeps
+ * the original colours so pages that have not opted in are unchanged.
+ */
+const NEUTRAL = {
+  Good: "var(--rs-on-info)",
+  Acceptable: "rgba(255, 255, 255, 0.72)",
+  Poor: "var(--rs-text-3)",
+  "Met threshold": "var(--rs-on-info)",
+};
+
+export default function DataQualitySummary({ quality, dbscan, palette }) {
   if (!quality) {
     return (
       <UnavailableState
@@ -55,13 +68,16 @@ export default function DataQualitySummary({ quality, dbscan }) {
     },
   ];
 
+  const cellColor = (c) =>
+    (palette === "neutral" ? NEUTRAL[c.k] ?? c.c : c.c);
+
   return (
     <div>
       <div className="rs-quality-grid">
         {cells.map((c) => (
           <div key={c.k} className="rs-quality-cell">
             <div className="rs-quality-k">{c.k}</div>
-            <div className="rs-quality-v" style={{ color: c.c }}>{c.v}</div>
+            <div className="rs-quality-v" style={{ color: cellColor(c) }}>{c.v}</div>
             <div className="rs-quality-n">{c.n}</div>
           </div>
         ))}

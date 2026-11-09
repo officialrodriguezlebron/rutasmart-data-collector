@@ -103,6 +103,34 @@ export const PERIOD_DEFS = [
 /** Canonical period order, used for every period chart and table. */
 export const PERIOD_ORDER = PERIOD_DEFS.map((p) => p.name);
 
+/**
+ * Capacity status for a load factor. Three bands, and the ONLY colour scale
+ * used for load-factor figures:
+ *     below 90%   within capacity
+ *     90 - 100%   approaching capacity
+ *     above 100%  above seated capacity
+ *
+ * Deliberately distinct from the four demand tiers. A load factor is a ratio
+ * against the seats; a demand tier is a passenger-count band. Different
+ * quantities, so they must not share a palette.
+ */
+export function capacityStatus(pct) {
+  if (pct == null) {
+    return { key: "unknown", fill: "var(--rs-text-3)", on: "var(--rs-text-3)",
+             label: "No data" };
+  }
+  if (pct > 100) {
+    return { key: "over", fill: "var(--rs-fill-critical)", on: "var(--rs-on-critical)",
+             label: "Above seated capacity" };
+  }
+  if (pct >= 90) {
+    return { key: "near", fill: "var(--rs-fill-moderate)", on: "var(--rs-on-moderate)",
+             label: "Approaching capacity" };
+  }
+  return { key: "within", fill: "var(--rs-fill-normal)", on: "var(--rs-on-normal)",
+           label: "Within seated capacity" };
+}
+
 /** Canonical tier order, lowest to highest severity. */
 export const TIER_ORDER = TIER_DEFS.map((t) => t.name);
 

@@ -1247,3 +1247,134 @@
 @media (max-width: 760px) {
   .trips-colhead { display: none; }
 }
+
+/* ── Demand and Load Factor: capacity semantics ─────────────────────────
+   Three colour scales live on this page and must not be confused:
+     demand tiers      green/amber/orange/red, passenger-count bands only
+     capacity status   green <90, amber 90-100, red >100, load factor only
+     collection counts one neutral grey, "when we recorded", never demand
+   The classes below belong to the second and third. */
+
+/* One-sentence verdict under the capacity cards. */
+.rs-status-line {
+  margin: 14px 0 20px;
+  padding: 11px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--rs-text);
+  background: var(--rs-surface);
+  border: 1px solid var(--rs-border);
+  border-left: 4px solid var(--rs-fill-info);
+  border-radius: var(--rs-radius);
+}
+
+.rs-status-line--over   { border-left-color: var(--rs-fill-critical); }
+.rs-status-line--near   { border-left-color: var(--rs-fill-moderate); }
+.rs-status-line--within { border-left-color: var(--rs-fill-normal); }
+
+/* Compact key under the load bars: what 100% means, and the three bands. */
+.rs-caplegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--rs-border);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--rs-text-3);
+}
+
+.rs-caplegend strong { color: var(--rs-text-2); }
+
+.rs-caplegend-ref {
+  width: 2px;
+  height: 13px;
+  background: var(--rs-text-2);
+  flex: 0 0 auto;
+}
+
+.rs-caplegend-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-left: auto;
+}
+
+.rs-caplegend-key {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.rs-caplegend-key i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+/* Short caption under a chart, in place of a paragraph block. */
+.rs-chart-caption {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--rs-text-3);
+  max-width: 86ch;
+}
+
+/* The passenger-count band beside each tier label. */
+.rs-tierband {
+  color: var(--rs-text-2);
+  white-space: nowrap;
+}
+
+/* ── Collapsed supporting evidence ──────────────────────────────────────
+   Everything that explains the figures rather than answering the page's
+   question lives behind this. */
+.rs-details {
+  margin: 26px 0 10px;
+  background: var(--rs-surface);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+}
+
+.rs-details > summary {
+  cursor: pointer;
+  padding: 13px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rs-text-2);
+  list-style: none;
+}
+
+.rs-details > summary::-webkit-details-marker { display: none; }
+.rs-details > summary::after { content: " ▾"; color: var(--rs-text-3); }
+.rs-details[open] > summary::after { content: " ▴"; }
+.rs-details > summary:hover { color: var(--rs-text); }
+
+.rs-details > summary:focus-visible {
+  outline: 2px solid var(--rs-focus);
+  outline-offset: -2px;
+}
+
+.rs-details-body {
+  padding: 4px 16px 16px;
+  border-top: 1px solid var(--rs-border);
+}
+
+.rs-details-foot {
+  margin: 16px 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--rs-text-3);
+  max-width: 86ch;
+}
+
+@media (max-width: 640px) {
+  .rs-caplegend-keys { margin-left: 0; }
+  .rs-status-line { font-size: 13px; padding: 10px 12px; }
+  .rs-details-body { padding: 4px 12px 14px; }
+}

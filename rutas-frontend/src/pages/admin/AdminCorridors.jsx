@@ -7,9 +7,9 @@ import {
   AdminPageHeader, SectionHeader, MetricCard,
   DataStatusBadge, DataProvenanceNotice,
   EmptyState, ErrorState, LoadingState, SkeletonMetrics,
-  DemandTierLegend, DataQualitySummary,
+  DataQualitySummary,
   LoadFactorByPeriod, DemandDistribution, TimeDistribution,
-  useCorridorAnalytics, DEF,
+  useCorridorAnalytics, DEF, capacityStatus,
 } from "../../components/admin";
 import "../AdminDashboard.css";
 
@@ -79,11 +79,7 @@ export default function AdminCorridors() {
     <>
       <AdminPageHeader
         title="Demand and Load Factor"
-        subtitle={
-          "Demand intensity and capacity utilisation on the Malanday to Recto corridor. " +
-          "Every figure is computed per GPS log record across the trips you select, then " +
-          "aggregated. These describe what was recorded; they are not projections."
-        }
+        subtitle="When does passenger load exceed seated capacity?"
         badges={badges}
         actions={
           <>
@@ -166,74 +162,102 @@ export default function AdminCorridors() {
               accent="var(--rs-fill-info)"
               definition={DEF.tripsAnalyzed}
             />
+            {/* Load-factor cards use the capacity-status scale only:
+                green below 90%, amber 90-100%, red above 100%. */}
             <MetricCard
               label="Mean load factor"
               value={a.overall?.avg_lf == null ? null : `${a.overall.avg_lf.toFixed(2)}%`}
-              sub={`Across ${(a.totalLogs ?? 0).toLocaleString()} GPS log records`}
-              accent={a.overall?.avg_lf > 100 ? "var(--rs-fill-critical)" : "var(--rs-fill-normal)"}
+              sub={`Across ${(a.totalLogs ?? 0).toLocaleString()} recorded observations`}
+              accent={capacityStatus(a.overall?.avg_lf).fill}
               definition={DEF.loadFactor}
               unavailableNote="The analytics response carried no load factor."
             />
             <MetricCard
               label="Peak load factor"
               value={a.peak == null ? null : `${a.peak.pct.toFixed(2)}%`}
-              sub={a.peak ? `${a.peak.name} — ${a.peak.pct > 100 ? "over seated capacity" : "within seated capacity"}` : undefined}
-              accent={a.peak && a.peak.pct > 100 ? "var(--rs-fill-critical)" : "var(--rs-fill-moderate)"}
+              sub={a.peak ? `${a.peak.name} · ${capacityStatus(a.peak.pct).label.toLowerCase()}` : undefined}
+              accent={capacityStatus(a.peak?.pct).fill}
               definition={DEF.peakLoadFactor}
-              unavailableNote="No period in this selection carried GPS log records."
+              unavailableNote="No period in this selection carried observations."
             />
             <MetricCard
-              label="Over-capacity share"
+              label="Above-capacity share"
               value={a.overCapacityPct == null ? null : `${a.overCapacityPct.toFixed(2)}%`}
-              sub="Records above seated capacity (Moderate, High, Critical)"
-              accent="var(--rs-fill-high)"
+              sub={`Observations above the ${a.capacity ?? 26}-seat capacity`}
+              accent="var(--rs-fill-moderate)"
               definition={DEF.overCapacity}
               unavailableNote="The analytics response carried no demand distribution."
             />
           </div>
 
+          {/* ── Status statement ────────────────────────────────────────
+              One sentence naming the period that peaks and whether it is
+              over the seats. Derived, never hard-coded. */}
+          {a.peak && (
+            <p className={`rs-status-line rs-status-line--${capacityStatus(a.peak.pct).key}`}
+               role="status">
+              <strong>{a.peak.name}</strong>{" "}
+              {a.peak.pct > 100
+                ? "is above seated capacity"
+                : a.peak.pct >= 90
+                  ? "is approaching seated capacity"
+                  : "stays within seated capacity"}
+              {" — "}
+              <strong>{a.peak.pct.toFixed(2)}%</strong>.
+            </p>
+          )}
+
           <SectionHeader
-            title="Load factor by operating period"
-            note={`Per GPS log record, binned to PHT. The vertical line marks 100% of seated capacity.`}
+            title="Capacity by operating period"
+            note="Mean passenger load against seated capacity, per recorded observation (PHT)."
           />
           <div className="rs-panel">
             <LoadFactorByPeriod byPeriod={a.byPeriod} capacity={a.capacity} />
           </div>
 
-          <div className="rs-grid-2" style={{ marginTop: 12 }}>
-            <div>
+          <SectionHeader
+            title="Passenger demand levels"
+            note="Share of GPS observations by passenger count"
+          />
+          <div className="rs-panel">
+            <DemandDistribution distribution={a.demandDist} totalLogs={a.totalLogs} />
+          </div>
+
+          {/* ── Everything that supports the figures, out of the way ─────
+              GPS quality, the collection schedule, the trip list and the
+              method notes are all evidence for the two sections above
+              rather than answers to the page's question. */}
+          <details className="rs-details">
+            <summary>More data details</summary>
+            <div className="rs-details-body">
               <SectionHeader
-                title="Demand intensity distribution"
-                note={a.totalLogs ? `Four tiers, per GPS log record` : undefined}
+                title="GPS quality"
+                note="Positional accuracy of the observations. Not a demand measure."
               />
               <div className="rs-panel">
-                <DemandDistribution distribution={a.demandDist} totalLogs={a.totalLogs} />
-                <DemandTierLegend capacity={a.capacity} />
+                <DataQualitySummary quality={a.quality} dbscan={a.dbscan} palette="neutral" />
               </div>
-            </div>
 
-            <div>
               <SectionHeader
                 title="Records by operating period"
-                note="Share of GPS log records, not trips"
+                note="When the data was collected — not how busy the corridor was."
               />
               <div className="rs-panel">
                 <TimeDistribution distribution={a.timeDist} />
               </div>
-            </div>
-          </div>
 
-          <SectionHeader
-            title="Data quality for these figures"
-            note="Three-way GPS accuracy classification"
-          />
-          <div className="rs-panel">
-            <DataQualitySummary quality={a.quality} dbscan={a.dbscan} />
-          </div>
+              <SectionHeader title="Method definitions" />
+              <div className="rs-panel">
+                <dl className="rs-deflist">
+                  <div><b>Load factor.</b> {DEF.loadFactor}</div>
+                  <div><b>Demand levels.</b> {DEF.overCapacity}</div>
+                  <div><b>GPS quality.</b> {DEF.qualityThreshold}</div>
+                </dl>
+              </div>
 
-          {/* ── Per-trip table: trip-level by nature, and labelled so ─────── */}
-          <SectionHeader
-            title="Supporting trips"
+              {/* Per-trip table: trip-level by nature, and labelled so. */}
+              <SectionHeader
+                title="Supporting trips"
             note={`${a.sentTrips.length} trip${a.sentTrips.length === 1 ? "" : "s"}. Values below are trip-level records, not the per-record figures above.`}
           />
           <div className="rs-panel rs-panel--flush">
@@ -279,14 +303,12 @@ export default function AdminCorridors() {
             </div>
           </div>
 
-          <p style={{
-            margin: "18px 0 8px", fontSize: 11.5, lineHeight: 1.6,
-            color: "var(--rs-text-3)", maxWidth: "85ch",
-          }}>
-            This page is descriptive. It reports demand and capacity utilisation as
-            recorded over the selected window and does not forecast demand, optimise
-            routes, or recommend operational changes.
-          </p>
+              <p className="rs-details-foot">
+                Descriptive only: these are recorded figures for the selected window, not
+                forecasts or operational recommendations.
+              </p>
+            </div>
+          </details>
         </>
       )}
 
