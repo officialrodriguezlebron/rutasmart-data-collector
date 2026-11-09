@@ -1639,3 +1639,442 @@
     padding: 18px 14px 28px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Dark-shell unification
+   ═══════════════════════════════════════════════════════════════════════
+   Analytics Engine was built as a standalone light-glass page: light
+   cards, dark navy text, a light gradient backdrop. Since it moved inside
+   AdminShell it has sat next to the dark admin chrome looking like a
+   different product.
+
+   This layer re-skins it onto the shared rs- tokens from
+   components/admin/adminUi.css rather than introducing a second palette.
+   It is appended and scoped to .admin-main, so the standalone styling is
+   untouched if the page is ever mounted alone, and it is organised by
+   role (surface, heading, body, control, table) rather than rule by rule.
+
+   Chart marks are deliberately NOT re-skinned. Bar fills, tier dots,
+   donut segments and the demand and period colour scales carry
+   analytical meaning and already match the rs- fill palette; flattening
+   them to chrome colours would cost readability for no consistency gain.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Page
+   ------------------------------------------------------------------- */
+.admin-main .ae-page {
+  background: transparent;
+  color: var(--rs-text-2);
+}
+
+/* The light radial gradients belong to the standalone page. The shell
+   draws its own ground, so they are dropped here. Safe now: every text
+   role below is re-pointed to a light token, so nothing is left
+   dark-on-dark the way it was when this was tried before. */
+.admin-main .ae-page::before,
+.admin-main .ae-page::after {
+  display: none;
+}
+
+/* Surfaces
+   ------------------------------------------------------------------- */
+.admin-main .ae-card,
+.admin-main .ae-sidebar,
+.admin-main .ae-metric,
+.admin-main .ae-eval-card,
+.admin-main .ae-mode-card,
+.admin-main .ae-agg-panel,
+.admin-main .ae-quality-wrap,
+.admin-main .ae-pipe-step,
+.admin-main .ae-lf-period,
+.admin-main .ae-lf-mini,
+.admin-main .ae-sensitivity-grid {
+  background: var(--rs-surface);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* The inner top highlight reads as a seam on a dark surface. */
+.admin-main .ae-card::before {
+  display: none;
+}
+
+.admin-main .ae-mode-bar,
+.admin-main .ae-param,
+.admin-main .ae-day-bar,
+.admin-main .ae-section-header {
+  background: var(--rs-surface-2);
+  border-color: var(--rs-border);
+}
+
+.admin-main .ae-divider {
+  background: var(--rs-border);
+}
+
+/* Headings
+   ------------------------------------------------------------------- */
+.admin-main .ae-title-block h1,
+.admin-main .ae-card-title,
+.admin-main .ae-section-title,
+.admin-main .ae-metric-value,
+.admin-main .ae-eval-val,
+.admin-main .ae-pipe-name,
+.admin-main .ae-lf-period-label,
+.admin-main .ae-tier-name {
+  color: var(--rs-text);
+}
+
+/* A metric value carrying a state modifier is signalling, not just
+   displaying: 107.7% is red because it is over capacity. The rule above is
+   two classes deep, so it outranked the single-class modifiers and flattened
+   every state to plain white. These restore them at matching specificity,
+   on the on- tokens that are legible on a dark card. */
+.admin-main .ae-metric-value.over,
+.admin-main .ae-metric-value.danger   { color: var(--rs-on-critical); }
+.admin-main .ae-metric-value.warn,
+.admin-main .ae-metric-value.warning  { color: var(--rs-on-high); }
+.admin-main .ae-metric-value.good     { color: var(--rs-on-normal); }
+.admin-main .ae-metric-value.info     { color: var(--rs-on-info); }
+
+/* Body text
+   ------------------------------------------------------------------- */
+.admin-main .ae-title-block p,
+.admin-main .ae-crossref,
+.admin-main .ae-metric-sub,
+.admin-main .ae-pipe-desc,
+.admin-main .ae-insight-note,
+.admin-main .ae-helpbox-text,
+.admin-main .ae-merged-text,
+.admin-main .ae-day-bar-info,
+.admin-main .ae-all-trips-count,
+.admin-main .ae-trip-meta,
+.admin-main .ae-sensitivity-note,
+.admin-main .ae-lf-footnote {
+  color: var(--rs-text-2);
+}
+
+/* Captions, labels, legends
+   ------------------------------------------------------------------- */
+.admin-main .ae-label,
+.admin-main .ae-metric-label,
+.admin-main .ae-metric-hint,
+.admin-main .ae-mode-label,
+.admin-main .ae-param-label,
+.admin-main .ae-eval-label,
+.admin-main .ae-tz-note,
+.admin-main .ae-period-name,
+.admin-main .ae-period-hours,
+.admin-main .ae-tier-rule,
+.admin-main .ae-bar-label,
+.admin-main .ae-agg-bar-label,
+.admin-main .ae-lf-mini-name,
+.admin-main .ae-coord,
+.admin-main .ae-day-hint {
+  color: var(--rs-text-3);
+}
+
+/* Emphasis inside body copy stays a step brighter. */
+.admin-main .ae-helpbox-text strong,
+.admin-main .ae-merged-text strong,
+.admin-main .ae-day-bar-info strong,
+.admin-main .ae-all-trips-count strong {
+  color: var(--rs-text);
+}
+
+/* Numeric values beside labels keep full weight. */
+.admin-main .ae-bar-pct,
+.admin-main .ae-bar-count,
+.admin-main .ae-agg-bar-count,
+.admin-main .ae-param-value,
+.admin-main .ae-lf-mini-avg,
+.admin-main .ae-lf-mini-max,
+.admin-main .ae-cluster-id {
+  color: var(--rs-text);
+}
+
+/* Tabs
+   ------------------------------------------------------------------- */
+.admin-main .ae-tabs,
+.admin-main .ae-mode-tabs {
+  background: var(--rs-surface-2);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+}
+
+.admin-main .ae-tabs button,
+.admin-main .ae-mode-tab {
+  background: transparent;
+  color: var(--rs-text-3);
+  border-radius: var(--rs-radius-sm);
+}
+
+.admin-main .ae-tabs button:hover,
+.admin-main .ae-mode-tab:hover {
+  color: var(--rs-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-main .ae-tabs button.active,
+.admin-main .ae-mode-tab.active,
+.admin-main .ae-mode-btn.active {
+  background: var(--rs-surface-hi);
+  color: var(--rs-text);
+  box-shadow: none;
+}
+
+/* Controls
+   ------------------------------------------------------------------- */
+.admin-main .ae-input,
+.admin-main .ae-select,
+.admin-main .ae-field,
+.admin-main .ae-day-bar input[type="date"] {
+  background: var(--rs-surface-hi);
+  border: 1px solid var(--rs-border-strong);
+  border-radius: var(--rs-radius-sm);
+  color: var(--rs-text);
+}
+
+.admin-main .ae-input::placeholder {
+  color: var(--rs-text-3);
+}
+
+.admin-main .ae-btn-secondary,
+.admin-main .ae-rerun-btn,
+.admin-main .ae-mode-btn {
+  background: var(--rs-surface-hi);
+  border: 1px solid var(--rs-border-strong);
+  color: var(--rs-text-2);
+  border-radius: var(--rs-radius-sm);
+}
+
+.admin-main .ae-btn-secondary:hover,
+.admin-main .ae-rerun-btn:hover,
+.admin-main .ae-mode-btn:hover {
+  border-color: var(--rs-text-3);
+  color: var(--rs-text);
+}
+
+/* The primary action keeps a filled treatment, matched to rs-btn--primary. */
+.admin-main .ae-run-btn.ae-btn-primary,
+.admin-main .ae-btn-primary {
+  background: rgba(66, 165, 245, 0.16);
+  border: 1px solid rgba(66, 165, 245, 0.48);
+  color: var(--rs-on-info);
+  border-radius: var(--rs-radius-sm);
+  box-shadow: none;
+}
+
+.admin-main .ae-run-btn.ae-btn-primary:hover,
+.admin-main .ae-btn-primary:hover {
+  background: rgba(66, 165, 245, 0.26);
+}
+
+/* Focus
+   ------------------------------------------------------------------- */
+.admin-main .ae-page button:focus-visible,
+.admin-main .ae-page a:focus-visible,
+.admin-main .ae-page input:focus-visible,
+.admin-main .ae-page select:focus-visible {
+  outline: 2px solid var(--rs-focus);
+  outline-offset: 2px;
+}
+
+/* Tables
+   ------------------------------------------------------------------- */
+.admin-main .ae-table,
+.admin-main .ae-trip-summary-table {
+  color: var(--rs-text-2);
+}
+
+.admin-main .ae-table th,
+.admin-main .ae-trip-summary-table th {
+  background: var(--rs-surface-hi);
+  color: var(--rs-text-3);
+  border-bottom: 1px solid var(--rs-border);
+}
+
+.admin-main .ae-table td,
+.admin-main .ae-trip-summary-table td {
+  color: var(--rs-text-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.admin-main .ae-table tr:hover td,
+.admin-main .ae-trip-summary-table tr:hover td {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Chart scaffolding only; fills keep their analytical meaning.
+   ------------------------------------------------------------------- */
+.admin-main .ae-bar-track,
+.admin-main .ae-lf-track,
+.admin-main .ae-lf-mini-track,
+.admin-main .ae-lf-dual-track {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* The 100% capacity line is an analytical reference mark, not scaffolding:
+   the card's own footnote calls it "the red line". Tinting it to chrome
+   made the caption describe something that was no longer on screen, so it
+   keeps the critical fill. */
+.admin-main .ae-lf-capacity-line {
+  background: var(--rs-fill-critical);
+}
+
+/* Badges and states
+   ------------------------------------------------------------------- */
+.admin-main .ae-corridor-badge,
+.admin-main .ae-section-badge,
+.admin-main .ae-pipe-badge {
+  background: rgba(66, 165, 245, 0.14);
+  border: 1px solid rgba(66, 165, 245, 0.38);
+  color: var(--rs-on-info);
+}
+
+.admin-main .ae-empty,
+.admin-main .ae-no-clusters {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--rs-border-strong);
+  border-radius: var(--rs-radius);
+  color: var(--rs-text-3);
+}
+
+.admin-main .ae-empty p,
+.admin-main .ae-no-clusters p {
+  color: var(--rs-text-2);
+}
+
+.admin-main .ae-empty small {
+  color: var(--rs-text-3);
+}
+
+.admin-main .ae-error {
+  background: rgba(255, 69, 58, 0.08);
+  border: 1px solid rgba(255, 69, 58, 0.40);
+  color: var(--rs-on-critical);
+}
+
+.admin-main .ae-helpbox,
+.admin-main .ae-notice,
+.admin-main .ae-merged-banner {
+  background: rgba(66, 165, 245, 0.08);
+  border: 1px solid rgba(66, 165, 245, 0.30);
+  border-radius: var(--rs-radius-sm);
+}
+
+.admin-main .ae-helpbox-warn {
+  background: rgba(255, 214, 10, 0.08);
+  border-color: rgba(255, 214, 10, 0.34);
+}
+
+/* Inline code on a dark surface. */
+.admin-main .ae-page code {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--rs-on-info);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* Leftover light surfaces
+   -------------------------------------------------------------------
+   Found by scanning computed backgrounds inside .ae-page for anything
+   still above 0.35 luminance after the pass above, rather than by eye. */
+
+/* Tier legend rows were rgba(255,255,255,0.55) chips — the most visible
+   remaining light surface, four per demand view. */
+.admin-main .ae-tier-legend-item {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-sm);
+}
+
+.admin-main .ae-tier-rule {
+  color: var(--rs-text-3);
+}
+
+/* Status pills were light-tinted chips with dark text. Same semantics,
+   inverted for a dark ground: tinted fill, light text. */
+.admin-main .ae-status-pill.completed {
+  background: rgba(48, 209, 88, 0.16);
+  color: var(--rs-on-normal);
+  border: 1px solid rgba(48, 209, 88, 0.34);
+}
+
+.admin-main .ae-status-pill.active {
+  background: rgba(66, 165, 245, 0.16);
+  color: var(--rs-on-info);
+  border: 1px solid rgba(66, 165, 245, 0.34);
+}
+
+/* Helpbox icon badges carried dark glyph colours for a light chip. */
+.admin-main .ae-helpbox-info .ae-helpbox-icon {
+  background: rgba(66, 165, 245, 0.22);
+  color: var(--rs-on-info);
+}
+
+.admin-main .ae-helpbox-warn .ae-helpbox-icon {
+  background: rgba(255, 214, 10, 0.22);
+  color: var(--rs-on-moderate);
+}
+
+.admin-main .ae-helpbox-warn .ae-helpbox-text {
+  color: var(--rs-text-2);
+}
+
+/* Long tail
+   -------------------------------------------------------------------
+   The remaining legacy dark colours, found by parsing every rule in the
+   original stylesheet for mid-grey and navy text values and subtracting
+   the selectors already handled above. Grouped into the same roles. */
+.admin-main .ae-lf-cell,
+.admin-main .ae-lf-dual-avg span,
+.admin-main .ae-lf-dual-max span,
+.admin-main .ae-leg-row,
+.admin-main .ae-tier-chip {
+  color: var(--rs-text-2);
+}
+
+.admin-main .ae-period-legend-item,
+.admin-main .ae-lf-empty-period,
+.admin-main .ae-sensitivity-eps {
+  color: var(--rs-text-3);
+}
+
+/* Replaces a hard-coded inline color:#777 on the cluster table's peak
+   period cell, which measured 3.89:1 on the dark card. Moving it into a
+   class lets the token layer govern it like every other cell. */
+.ae-cell-muted {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.admin-main .ae-cell-muted {
+  color: var(--rs-text-3);
+}
+
+/* Heatmap / Compare secondary actions.
+   These two carried hard-coded inline backgrounds (#0288d1, #6200ea) in the
+   JSX, so no stylesheet could reach them and they stayed bright next to the
+   unified chrome. The colours move here unchanged for the standalone page,
+   and the .admin-main layer below re-points them at rs- tokens. */
+.ae-btn-heatmap { background: #0288d1; }
+.ae-btn-compare { background: #6200ea; }
+
+/* Inside the shell both are peers of the other secondary actions, tinted
+   just enough to stay distinguishable from one another. */
+.admin-main .ae-btn-heatmap,
+.admin-main .ae-btn-compare {
+  background: var(--rs-surface-hi);
+  border: 1px solid var(--rs-border-strong);
+  border-radius: var(--rs-radius-sm);
+  color: var(--rs-text-2);
+}
+
+.admin-main .ae-btn-heatmap:hover,
+.admin-main .ae-btn-compare:hover {
+  border-color: var(--rs-text-3);
+  color: var(--rs-text);
+}

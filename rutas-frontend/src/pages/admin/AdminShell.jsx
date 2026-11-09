@@ -26,7 +26,7 @@ import "../../components/admin/adminUi.css";
 
 const NAV_OPERATIONS = [
   { to: "/admin/overview",   label: "Overview"   },
-  { to: "/admin/map",        label: "Live Map"   },
+  { to: "/admin/map",        label: "Demand Hotspots" },
   { to: "/admin/trips",      label: "Trips"      },
   { to: "/admin/stop-zones", label: "Stop Zones" },
 ];

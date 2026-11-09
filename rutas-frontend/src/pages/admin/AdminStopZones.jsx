@@ -72,7 +72,7 @@ export default function AdminStopZones() {
         }
         actions={
           <>
-            <Link className="rs-btn" to="/admin/map">Live Map</Link>
+            <Link className="rs-btn" to="/admin/map">Demand Hotspots</Link>
             <button
               type="button"
               className="rs-btn rs-btn--primary"

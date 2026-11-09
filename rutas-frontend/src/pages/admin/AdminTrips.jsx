@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getAdminTrips, getAggregateDashboard, deleteTrip, exportTrip, importTripCSV } from "../../services/api";
-import { goodColor, statusColor, periodColorCard, phtDateStr, phtTimeStr, dirLabel } from "../../utils/adminFormatters";
+import { statusColor, periodColorCard, phtDateStr, phtTimeStr, dirLabel } from "../../utils/adminFormatters";
 import TripMap from "../TripMap";
 import {
   AdminPageHeader, SectionHeader, MetricCard,
@@ -59,6 +59,7 @@ export default function AdminTrips() {
 
   // Corridor headline figures, per GPS log record. Separate from the
   // trip-level rows below.
+  const [dragging, setDragging] = useState(false);
   const corridor = useCorridorAnalytics({ direction: "ALL", range: "ALL" });
 
   const [expanded, setExpanded] = useState(null);
@@ -106,9 +107,21 @@ export default function AdminTrips() {
     } finally { setExportingId(null); }
   };
 
-  const handleImportFile = async (e) => {
-    const file = e.target.files?.[0];
+  /**
+   * Whole-page CSV drop.
+   *
+   * The visible "Import Trip CSV" card is gone; the capability is not. A
+   * depth counter is used because dragenter/dragleave also fire for every
+   * child element the pointer crosses, so a boolean flickers.
+   */
+  const dragDepth = useRef(0);
+
+  const importFile = async (file) => {
     if (!file) return;
+    if (!/\.csv$/i.test(file.name)) {
+      setImportMsg({ type: "error", text: "Only .csv files can be imported." });
+      return;
+    }
     setImporting(true); setImportMsg(null);
     try {
       const res = await importTripCSV(file);
@@ -116,7 +129,50 @@ export default function AdminTrips() {
       load();
     } catch (err) {
       setImportMsg({ type: "error", text: err.response?.data?.detail || "Import failed." });
-    } finally { setImporting(false); e.target.value = ""; }
+    } finally { setImporting(false); }
+  };
+
+  // Attached to the page root. preventDefault on dragover/drop is what stops
+  // the browser from navigating away to the dropped file.
+  const onDragEnter = (e) => {
+    if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragging(true);
+  };
+  const onDragOver = (e) => {
+    if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+    e.preventDefault();
+  };
+  const onDragLeave = (e) => {
+    if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+    e.preventDefault();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragging(false);
+  };
+  const onDrop = (e) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    importFile(e.dataTransfer?.files?.[0]);
+  };
+
+  const handleImportFile = async (e) => {
+    await importFile(e.target.files?.[0]);
+    e.target.value = "";
+  };
+
+  /**
+   * Colour for a MEAN LOAD FACTOR. Keyed to capacity status, which is what
+   * the bar now shows. It previously used goodColor(), a GPS-accuracy
+   * scale, on a bar whose width was also GPS accuracy — so a trip with
+   * patchy GPS looked like a crowding problem.
+   */
+  const loadColor = (pct) => {
+    if (pct == null) return "#8e9ab0";
+    if (pct > 100) return "#ff453a";   // above seated capacity
+    if (pct >= 90) return "#ffd60a";   // near capacity
+    return "#30d158";                  // within seated capacity
   };
 
   const summaryMap = {};
@@ -140,13 +196,18 @@ export default function AdminTrips() {
 
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      <div
+        className={`trips-page${dragging ? " is-dragging" : ""}`}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
         <AdminPageHeader
           title="Trips"
           subtitle={
-            "Every recorded trip on the corridor, with CSV import, per-trip export and " +
-            "deletion. Row values are trip-level records; the corridor figures below are " +
-            "computed per GPS log record."
+            "Every completed trip on the corridor. Row values are trip-level records; " +
+            "the corridor figures below are computed per recorded observation."
           }
           badges={
             <>
@@ -241,6 +302,26 @@ export default function AdminTrips() {
                 <span className="trips-count">{filtered.length} trip{filtered.length !== 1 ? "s" : ""}</span>
               </div>
 
+              {/* What the columns are, and what the bar is not. Stated once
+                  above the list rather than repeated per row. */}
+              <div className="trips-legend">
+                <div className="trips-colhead" aria-hidden="true">
+                  <span>Status</span>
+                  <span>Start period</span>
+                  <span>Mean passenger load</span>
+                  <span className="trips-colhead-num">Observations</span>
+                  <span className="trips-colhead-num">Mean load</span>
+                  <span />
+                </div>
+                <p className="trips-legend-note">
+                  Bars show mean passenger occupancy compared with the official
+                  {" "}{aggregate?.trip_summaries?.[0]?.capacity ?? 26}-seat capacity. 100% means all
+                  seats are filled; values above 100% mean the recorded occupancy exceeded seated
+                  capacity. Colors indicate capacity status, not GPS quality — GPS figures are in
+                  each trip&rsquo;s details.
+                </p>
+              </div>
+
               <div style={{ padding: "0 16px 8px" }}>
                 {Object.entries(grouped).map(([date, dayTrips]) => (
                   <div key={date}>
@@ -250,7 +331,7 @@ export default function AdminTrips() {
                     </div>
                     {dayTrips.map(t => {
                       const s    = summaryMap[t.trip_id];
-                      const gp   = s?.good_pct;
+                      const lf   = s?.avg_lf_pct;            // what the bar shows
                       const per  = s?.dominant_period || s?.time_period;
                       const pc   = periodColorCard(per);
                       const sc   = statusColor(t.status);
@@ -268,17 +349,35 @@ export default function AdminTrips() {
                             }}
                           >
                             <span className="admin-status-badge" style={{ background: sc + "18", color: sc, fontSize: 10, padding: "3px 8px", textAlign: "center" }}>{t.status}</span>
-                            <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: pc.bg, color: pc.text, fontWeight: 700, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {/* The period is the operating period of the
+                                trip's START hour in PHT (backend: _period of
+                                start_time + 8h). It is not a highest-load
+                                period, so it is labelled "Start period". */}
+                            <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: pc.bg, color: pc.text, fontWeight: 700, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                              title={per ? `Start period: this trip began during ${per} (Philippine Standard Time).` : undefined}>
                               {per || dirLabel(t.direction)}
                             </span>
-                            <div style={{ height: 5, background: "rgba(255,255,255,0.12)", borderRadius: 99, overflow: "hidden" }}>
-                              {gp != null && <div style={{ height: "100%", width: `${gp}%`, background: goodColor(gp), borderRadius: 99 }} />}
+                            {/* Mean load factor, with a 100% capacity mark. */}
+                            <div className="trips-load-track" title={lf != null
+                              ? `Mean passenger load ${lf.toFixed(1)}% of the ${s?.capacity ?? 26}-seat capacity`
+                              : undefined}>
+                              {lf != null && (
+                                <div className="trips-load-fill"
+                                  style={{ width: `${Math.min(lf, 130) / 130 * 100}%`,
+                                           background: loadColor(lf) }} />
+                              )}
+                              <span className="trips-load-ref" aria-hidden="true" />
                             </div>
-                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", textAlign: "right", fontFamily: "var(--mono)" }}>{(s?.log_count ?? t.log_count)?.toLocaleString() || "—"}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, textAlign: "right", color: gp != null ? goodColor(gp) : "#8e9ab0" }}
-                              title="Share of this trip's GPS log records classified GOOD (accuracy 20 m or better)">
-                              {gp != null ? `${typeof gp === "number" ? gp.toFixed(1) : gp}%` : "—"}
-                              <span className="rs-sr"> GOOD share, trip level</span>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", textAlign: "right", fontFamily: "var(--mono)" }}
+                              title="Recorded observations in this trip">
+                              {(s?.log_count ?? t.log_count)?.toLocaleString() || "—"}
+                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 700, textAlign: "right", color: loadColor(lf) }}
+                              title={lf != null
+                                ? `Mean passenger load: recorded occupancy divided by the ${s?.capacity ?? 26}-seat capacity. Not a GPS-quality figure.`
+                                : undefined}>
+                              {lf != null ? `${lf.toFixed(1)}%` : "—"}
+                              <span className="rs-sr"> mean passenger load, trip level</span>
                             </span>
                             <span style={{ color: "rgba(255,255,255,0.40)", display: "flex", justifyContent: "center", transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }}>
                               <Icon name="chevron" size={13} />
@@ -290,15 +389,27 @@ export default function AdminTrips() {
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 10 }}>
                                 {[
                                   ["Trip ID",    t.trip_id],
-                                  ["Jeep Code",  t.jeep_code || t.recorder_id || "—"],
-                                  ["Start (PHT)", phtTimeStr(t.start_time)],
+                                  ["Jeep code",  t.jeep_code || t.recorder_id || "—"],
+                                  ["Direction",  dirLabel(t.direction)],
+                                  ["Started (PHT)", phtTimeStr(t.start_time)],
+                                  ["Ended (PHT)", t.end_time ? phtTimeStr(t.end_time) : "—"],
+                                  ["Start period", per || "—"],
                                   ...(s ? [
-                                    ["GOOD logs (trip)",  s.good_count?.toLocaleString() || "—"],
-                                    ["Total logs (trip)", s.log_count?.toLocaleString()  || "—"],
-                                    // Field is avg_lf_pct in the /admin/aggregate response.
-                                    // This read avg_load_factor_pct, which is undefined, so
-                                    // the value always rendered as a dash.
-                                    ["Mean load factor (trip)", s.avg_lf_pct != null ? `${s.avg_lf_pct.toFixed(1)}%` : "—"],
+                                    ["Observations", s.log_count?.toLocaleString() || "—"],
+                                    ["Mean passenger load",
+                                     s.avg_lf_pct != null ? `${s.avg_lf_pct.toFixed(1)}%` : "—"],
+                                    ["Peak occupancy",
+                                     s.max_occupancy != null
+                                       ? `${s.max_occupancy} of ${s.capacity ?? 26} seats`
+                                       : "—"],
+                                    // /admin/aggregate returns acceptable_count = 0 for every
+                                    // trip and folds ACCEPTABLE into poor_count, so the
+                                    // three-way split is not available per trip here. Only
+                                    // what the endpoint actually measures is labelled.
+                                    ["GPS GOOD share",
+                                     s.good_pct != null ? `${s.good_pct.toFixed(1)}%` : "—"],
+                                    ["GPS GOOD observations", s.good_count?.toLocaleString() || "—"],
+                                    ["Not GOOD (> 20 m)", s.poor_count?.toLocaleString() || "—"],
                                   ] : []),
                                 ].map(([lbl, val]) => (
                                   <div key={lbl}>
@@ -342,18 +453,16 @@ export default function AdminTrips() {
                 </div>
               )}
             </div>
-
-            <div className="admin-card">
-              <div className="admin-card-title">Import Trip CSV</div>
-              <p className="admin-card-desc">Drag a CSV file onto the page or click below to import a previously exported trip.</p>
-              <label className="admin-import-btn" style={{ opacity: importing ? 0.6 : 1, cursor: importing ? "not-allowed" : "pointer" }}>
-                {importing ? "Importing…" : "📂 Choose CSV"}
-                <input type="file" accept=".csv" style={{ display: "none" }} onChange={handleImportFile} disabled={importing} />
-              </label>
-            </div>
           </>
         )}
       </div>
+
+      {/* A hidden, keyboard-reachable input keeps the import usable without
+          a drag: the visible card is gone, the capability is not. */}
+      <label className="rs-sr-focusable">
+        Import trip CSV
+        <input type="file" accept=".csv" onChange={handleImportFile} disabled={importing} />
+      </label>
 
       {mapTripId && createPortal(
         <TripMap tripId={mapTripId} onClose={() => setMapTripId(null)} />,

@@ -1,0 +1,273 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Corridor Overview — Phase 1
+   ═══════════════════════════════════════════════════════════════════════
+   Scoped to this page on purpose. The shared admin tokens live in
+   components/admin/adminUi.css and the shared primitives in
+   AdminDashboard.css; everything here is specific to the briefing layout
+   and is prefixed .ov- so it cannot reach another page.
+
+   The page reads top to bottom as a briefing: question, status, evidence,
+   review prompts, supporting charts, method. Only the status band carries a
+   coloured left border, so it is the one thing the eye lands on first.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Selection scope ──────────────────────────────────────────────────── */
+/* Deliberately quiet and tight to the cards: it is a caption for the
+   figures, not a banner competing with the status band. */
+.ov-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--rs-text-3);
+}
+
+.ov-scope-label {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--rs-text-2);
+}
+
+.ov-scope-sep { color: var(--rs-text-3); }
+
+.ov-scope-counts { color: var(--rs-text-2); }
+
+/* A filtered view is still official data, so it is marked, not warned
+   about. Amber keyline only. */
+.ov-scope--filtered {
+  padding: 7px 11px;
+  border-left: 3px solid var(--rs-fill-moderate);
+  background: rgba(255, 214, 10, 0.06);
+  border-radius: var(--rs-radius-sm);
+}
+
+.ov-scope--filtered .ov-scope-label { color: var(--rs-on-moderate); }
+
+/* ── Related pages ────────────────────────────────────────────────────── */
+.ov-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rs-3);
+  margin: var(--rs-5) 0 var(--rs-8);
+}
+
+/* ── Corridor status band ─────────────────────────────────────────────── */
+.ov-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rs-4);
+  margin: 0 0 var(--rs-6);
+  padding: 16px 18px;
+  background: var(--rs-surface);
+  border: 1px solid var(--rs-border);
+  border-left: 4px solid var(--rs-fill-info);
+  border-radius: var(--rs-radius);
+}
+
+.ov-status--attention { border-left-color: var(--rs-fill-critical); }
+.ov-status--watch     { border-left-color: var(--rs-fill-moderate); }
+.ov-status--ok        { border-left-color: var(--rs-fill-normal); }
+
+.ov-status-text { min-width: 0; flex: 1 1 320px; }
+
+.ov-status-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--rs-text);
+}
+
+/* Colour is never the only signal: the status word is in the heading and
+   repeated for assistive technology. */
+.ov-status-word { color: var(--rs-on-critical); }
+.ov-status--watch .ov-status-word { color: var(--rs-on-moderate); }
+.ov-status--ok    .ov-status-word { color: var(--rs-on-normal); }
+
+.ov-status-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--rs-text-2);
+}
+
+/* ── Where demand is concentrated ─────────────────────────────────────── */
+/* One row: two counts and a link. The mark shape carries the distinction
+   between a measured hotspot and a reviewed zone even in greyscale. */
+.ov-where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--rs-4);
+}
+
+.ov-where-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 240px;
+  padding: 12px 15px;
+  background: var(--rs-surface-2);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+}
+
+.ov-where-tile--detected { border-style: dashed; border-color: rgba(255, 159, 10, 0.45); }
+.ov-where-tile--reviewed { border-style: solid;  border-color: rgba(66, 165, 245, 0.45); }
+
+.ov-where-mark { width: 11px; height: 11px; flex: 0 0 auto; }
+
+.ov-where-mark--detected {
+  background: var(--rs-fill-high);
+  border-radius: 50%;
+}
+
+.ov-where-mark--reviewed {
+  background: transparent;
+  border: 2px solid var(--rs-fill-info);
+  border-radius: 2px;
+}
+
+.ov-where-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--rs-text);
+}
+
+.ov-where-label {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--rs-text-2);
+}
+
+.ov-where-link { align-self: center; }
+
+.ov-where-explain {
+  margin: 9px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--rs-text-3);
+}
+
+/* ── How this was calculated ──────────────────────────────────────────── */
+.ov-how {
+  margin: var(--rs-6) 0 var(--rs-4);
+  background: var(--rs-surface);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+}
+
+.ov-how > summary {
+  cursor: pointer;
+  padding: 13px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rs-text-2);
+  list-style: none;
+}
+
+.ov-how > summary::-webkit-details-marker { display: none; }
+
+.ov-how > summary::after {
+  content: " ▾";
+  color: var(--rs-text-3);
+}
+
+.ov-how[open] > summary::after { content: " ▴"; }
+
+.ov-how > summary:hover { color: var(--rs-text); }
+
+.ov-how > summary:focus-visible {
+  outline: 2px solid var(--rs-focus);
+  outline-offset: -2px;
+}
+
+.ov-how-body {
+  padding: 0 16px 15px;
+  border-top: 1px solid var(--rs-border);
+}
+
+.ov-how-body dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) 1fr;
+  gap: 9px var(--rs-4);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.ov-how-body dt {
+  padding-top: 11px;
+  font-weight: 600;
+  color: var(--rs-text);
+}
+
+.ov-how-body dd {
+  margin: 0;
+  padding-top: 11px;
+  color: var(--rs-text-2);
+}
+
+.ov-how-foot {
+  margin: 13px 0 0;
+  font-size: 12px;
+  color: var(--rs-text-3);
+}
+
+/* ── Vertical rhythm ──────────────────────────────────────────────────── */
+/* A briefing needs room between blocks, not more words inside them. The
+   gap between sections is larger than the gap inside any of them, so the
+   page reads as five things rather than one long column. */
+.ov-status { margin-top: var(--rs-6); }
+
+.ov-metrics { margin-bottom: 0; }
+
+/* Group by question: the chart and the hotspot row each get clear air. */
+.ov-links + .rs-sectionhead,
+.rs-panel + .rs-sectionhead { margin-top: var(--rs-8); }
+
+.ov-where-explain + .ov-how { margin-top: var(--rs-8); }
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .ov-how-body dl { grid-template-columns: 1fr; gap: 2px; }
+  .ov-how-body dt { padding-top: 11px; }
+  .ov-how-body dd { padding-top: 2px; }
+}
+
+@media (max-width: 640px) {
+  .ov-status { gap: var(--rs-3); padding: 14px; }
+  .ov-status-title { font-size: 17px; }
+
+  /* The action must stay a full-width, thumb-sized target. */
+  .ov-status .rs-btn {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  /* One card per row at phone width. The shared .rs-metrics grid would
+     otherwise hold a 2 x 2, which keeps the briefing shorter but puts two
+     32px numbers side by side on a 414px screen. Scoped to this page so
+     other admin pages keep their own grid. */
+  .ov-metrics { grid-template-columns: 1fr; }
+
+  /* Every action on the page is a thumb target, not just the status one. */
+  .ov-links,
+  .ov-where { flex-direction: column; align-items: stretch; }
+
+  .ov-links .rs-btn,
+  .ov-where-link {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+}

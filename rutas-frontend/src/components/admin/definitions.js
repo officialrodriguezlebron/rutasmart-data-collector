@@ -44,6 +44,40 @@ export const DEF = {
     "Stop clusters found by DBSCAN, ranked by how many GPS log records fall " +
     "inside each one. Rank reflects recorded activity in this dataset only; " +
     "it is not a service recommendation.",
+
+  afternoonPeakLoad:
+    "The mean load factor of the Afternoon Peak period, 16:00 to 18:59 PHT. " +
+    "Computed per recorded observation, then averaged within the period. " +
+    "Above 100% means the average vehicle carried more passengers than it " +
+    "has seats.",
+
+  aboveSeatedCapacity:
+    "The share of recorded observations with more than 26 passengers aboard, " +
+    "i.e. above the official seated capacity. This combines the Moderate, " +
+    "High and Critical tiers. It is a wider measure than Critical demand " +
+    "alone and the two should not be quoted interchangeably.",
+
+  highCritical:
+    "The share of recorded observations with 32 or more passengers aboard: " +
+    "the High tier (32 to 36) plus the Critical tier (37 and above). These " +
+    "are the readings furthest beyond seated capacity.",
+
+  dataReliability:
+    "The share of recorded observations that met the data reliability " +
+    "threshold, counting Good (<= 20 m) and Acceptable (<= 50 m) positional " +
+    "accuracy together. Less accurate readings are excluded from spatial " +
+    "detection, but their passenger counts still count towards demand.",
+
+  detectedHotspots:
+    "Places where vehicles repeatedly paused with passengers aboard, found " +
+    "from the recorded positions in this selection by the spatial detection " +
+    "method. A count of observed activity, not a list of approved stops.",
+
+  reviewedZones:
+    "Passenger-service areas that have been separately assessed and published " +
+    "for this corridor. These are a reviewed list, not a product of the " +
+    "detection run, so this count is not expected to equal the detected " +
+    "hotspot count.",
 };
 
 /** The four demand intensity tiers. Boundaries are relative to capacity C. */

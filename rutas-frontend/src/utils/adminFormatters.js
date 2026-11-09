@@ -21,9 +21,25 @@ export const phtDateStr = (utcStr) => {
   return d.toISOString().slice(0, 10);
 };
 
+/**
+ * Clock time of an instant in Philippine Standard Time.
+ *
+ * The previous implementation did `d.setHours(d.getHours() + 8)` and then
+ * formatted with toLocaleTimeString(). getHours/setHours work in the
+ * BROWSER's zone, so that moved the instant forward by eight hours, and
+ * toLocaleTimeString then rendered the moved instant in the browser's zone
+ * as well — a second +8 on a UTC+8 machine. A trip stored at 08:47 UTC
+ * (4:47 PM PHT) rendered as 12:47 AM, which is how a trip could appear to
+ * start just after midnight while its operating period said Afternoon Peak.
+ * The stored data was correct throughout; only this formatter was wrong,
+ * and only on a machine that is not already on UTC.
+ *
+ * Asking Intl for Asia/Manila directly is correct in every browser zone.
+ */
 export const phtTimeStr = (utcStr) => {
   if (!utcStr) return "—";
   const d = new Date(utcStr + (utcStr.endsWith("Z") ? "" : "Z"));
-  d.setHours(d.getHours() + 8);
-  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("en-US", {
+    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Manila",
+  });
 };

@@ -14,18 +14,29 @@ if (!API && typeof window !== "undefined") {
   );
 }
 
+// Analytical mark colours. These are the same values the admin pages use
+// through the rs- fill tokens (components/admin/adminUi.css), so a demand
+// tier reads identically on /admin/demand and here. They are applied as
+// inline styles from JS, which is why they live as literals rather than
+// var() references: a CSS custom property cannot be resolved here.
+//
+// The darker Material scale these replaced (#2e7d32 / #ef6c00 / #d84315 /
+// #c62828) was built for the old light-glass page. It still cleared 3:1 on
+// the dark shell, but only just (3.03-5.65 against the card), and it did
+// not match the admin palette, so the same tier appeared in two colours
+// depending on which page you were on.
 const COLORS = {
-  good:        "#2e7d32",
-  acceptable:  "#ef6c00",
-  poor:        "#c62828",
-  normal:      "#2e7d32",
-  moderate:    "#ef6c00",
-  high:        "#d84315",
-  critical:    "#c62828",
-  morning:     "#1565c0",
-  midday:      "#2e7d32",
-  afternoon:   "#ef6c00",
-  offpeak:     "#888780",
+  good:        "#30d158",
+  acceptable:  "#ffd60a",
+  poor:        "#ff453a",
+  normal:      "#30d158",
+  moderate:    "#ffd60a",
+  high:        "#ff9f0a",
+  critical:    "#ff453a",
+  morning:     "#42a5f5",
+  midday:      "#30d158",
+  afternoon:   "#ff9f0a",
+  offpeak:     "#9aa3b2",
 };
 
 const DEMAND_COLOR = {
@@ -806,11 +817,11 @@ export default function AnalyticsEngine() {
                   }
                 </button>
                 <div className="ae-action-row">
-                  <button className="ae-run-btn ae-btn-secondary" style={{ background: "#0288d1" }}
+                  <button className="ae-run-btn ae-btn-secondary ae-btn-heatmap"
                     onClick={() => setShowMap(true)} disabled={!tripId.trim()}>
                     🗺 Heatmap
                   </button>
-                  <button className="ae-run-btn ae-btn-secondary" style={{ background: "#6200ea" }}
+                  <button className="ae-run-btn ae-btn-secondary ae-btn-compare"
                     onClick={runComparison} disabled={comparing || !tripId.trim()}>
                     {comparing ? <><span className="ae-spinner" /> …</> : "📊 Compare"}
                   </button>
@@ -1226,7 +1237,7 @@ export default function AnalyticsEngine() {
                                     </div>
                                   </td>
                                   <td><span className={`ae-badge ${c.demand_tier}`}>{c.demand_tier}</span></td>
-                                  <td style={{ fontSize: 12, color: "#777" }}>{c.peak_period}</td>
+                                  <td className="ae-cell-muted">{c.peak_period}</td>
                                 </tr>
                               );
                             })}

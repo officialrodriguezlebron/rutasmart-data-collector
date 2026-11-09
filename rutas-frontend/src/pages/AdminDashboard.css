@@ -1149,3 +1149,101 @@
 }
 .trips-action-btn:hover:not(:disabled) { opacity: 0.8; transform: translateY(-1px); }
 .trips-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Trips: load bar, column header, page-level CSV drop ─────────────────
+   The bar used to be driven by good_pct and coloured by a GPS-accuracy
+   scale, so a trip with patchy GPS looked like a crowding problem. It now
+   shows the mean load factor against seated capacity, and the colours are
+   a capacity scale. The 100% mark is drawn so "above capacity" is visible
+   rather than inferred. */
+.trips-load-track {
+  position: relative;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.trips-load-fill {
+  height: 100%;
+  border-radius: 99px;
+}
+
+/* Track spans 0-130%, so 100% sits at 76.9%. */
+.trips-load-ref {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 76.9%;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.trips-legend {
+  padding: 10px 16px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Matches the row grid so each caption sits over its column. */
+.trips-colhead {
+  display: grid;
+  grid-template-columns: 88px 120px 1fr 78px 86px 32px;
+  gap: 10px;
+  padding: 0 12px 7px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.trips-colhead-num { text-align: right; }
+
+.trips-legend-note {
+  margin: 0 0 4px;
+  padding: 0 12px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.52);
+  max-width: 96ch;
+}
+
+/* Subtle, page-wide state while a file is over the page. No permanent
+   instruction text anywhere. */
+.trips-page { display: flex; flex-direction: column; gap: 0; }
+
+.trips-page.is-dragging {
+  outline: 2px dashed rgba(124, 196, 250, 0.65);
+  outline-offset: -6px;
+  background: rgba(124, 196, 250, 0.04);
+}
+
+/* Keyboard-reachable but visually hidden until focused. */
+.rs-sr-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.rs-sr-focusable:focus-within {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  clip: auto;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(124, 196, 250, 0.10);
+  border: 1px solid rgba(124, 196, 250, 0.40);
+  border-radius: 8px;
+}
+
+@media (max-width: 760px) {
+  .trips-colhead { display: none; }
+}
