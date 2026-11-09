@@ -139,8 +139,40 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-Base.metadata.create_all(bind=engine)
-logger.info("RutaSmart backend starting up — tables verified")
+# ── Schema creation, gated ───────────────────────────────────────────────────
+# This used to be a bare Base.metadata.create_all(bind=engine) that ran on
+# every import, including every production boot. Against a fully provisioned
+# database that is only a catalog inspection, but it is still DDL issued
+# automatically against whatever DATABASE_URL happens to point at, with no
+# opt-in and no way to stop it short of editing this file.
+#
+# The rules now:
+#   * ENV=production  -> never, regardless of anything else.
+#   * otherwise       -> only when ALLOW_SCHEMA_CREATE is explicitly truthy.
+#
+# Default is OFF, so a misconfigured or forgotten variable means no DDL
+# rather than silent schema creation. This creates tables only; it is not a
+# migration tool and does not alter or drop anything that already exists.
+_ENV = os.getenv("ENV", "development").lower()
+_ALLOW_SCHEMA_CREATE = os.getenv("ALLOW_SCHEMA_CREATE", "").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
+if _ENV == "production":
+    logger.info(
+        "RutaSmart backend starting up — schema creation skipped (ENV=production)"
+    )
+elif _ALLOW_SCHEMA_CREATE:
+    Base.metadata.create_all(bind=engine)
+    logger.info(
+        "RutaSmart backend starting up — tables verified "
+        "(ALLOW_SCHEMA_CREATE enabled, ENV=%s)", _ENV
+    )
+else:
+    logger.info(
+        "RutaSmart backend starting up — schema creation skipped "
+        "(ALLOW_SCHEMA_CREATE not set, ENV=%s)", _ENV
+    )
 
 app.include_router(auth_router)
 app.include_router(trip_router)
