@@ -95,8 +95,18 @@ export function clearCorridorCache() {
   }
 }
 
-function fetchMerged(ids) {
-  const key = ids;
+/**
+ * Cache-aware merged-corridor fetch.
+ *
+ * Exported as fetchMergedCorridor so the Analytics Engine can share this
+ * exact cache rather than keeping a second copy of the same expensive
+ * result. The engine lets a researcher change eps/minPts, so those are
+ * part of the key: a run at eps 30 must never be served a cached eps 50
+ * result. Callers that omit them get the same defaults runMergedAll uses,
+ * which is what every operations page sends.
+ */
+function fetchMerged(ids, epsM = 50, minSamples = 5) {
+  const key = `${ids}|${epsM}|${minSamples}`;
 
   const hit = resultCache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
@@ -112,7 +122,7 @@ function fetchMerged(ids) {
   const pending = inFlight.get(key);
   if (pending) return pending;
 
-  const p = runMergedAll(ids.split(","))
+  const p = runMergedAll(ids.split(","), epsM, minSamples)
     .then((r) => {
       const entry = { at: Date.now(), data: r.data };
       resultCache.set(key, entry);
@@ -124,6 +134,8 @@ function fetchMerged(ids) {
   inFlight.set(key, p);
   return p;
 }
+
+export { fetchMerged as fetchMergedCorridor };
 
 export function useCorridorAnalytics({ direction = "ALL", range = "ALL" } = {}) {
   const [trips, setTrips] = useState([]);

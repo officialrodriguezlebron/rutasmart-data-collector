@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { TILE_URL, TILE_ATTRIBUTION, TILE_MAX_ZOOM } from "../../config/basemap";
 import { getStopZoneRecommendations } from "../../services/api";
 import { CORRIDOR, RETURN_CORRIDOR } from "../../data/corridor";
-import { DEMAND_COLOR } from "../../utils/adminFormatters";
+import { DEMAND_COLOR, fieldStopLabel, FIELD_STOP_TONE } from "../../utils/adminFormatters";
 import {
   DataStatusBadge, DataProvenanceNotice,
   useCorridorAnalytics, DEF,
@@ -129,7 +129,21 @@ export default function AdminMap() {
   // Corridor figures, per GPS log record.
   const a = useCorridorAnalytics({ direction, range: "ALL" });
 
+  /**
+   * Reviewed zones load on demand, not on mount.
+   *
+   * /stop-zones/recommendations is the most expensive call this page can
+   * make, and since the redesign its data is only used by the "Reviewed
+   * zones" tab — the map itself draws detected hotspots. Firing it during
+   * the initial load made every visitor pay for a panel most never open.
+   *
+   * It now runs the first time that tab is selected, and again if the
+   * direction changes while it is open. Loading, empty and error states
+   * are unchanged; they simply start when the request does.
+   */
   useEffect(() => {
+    if (listTab !== "zones") return;
+    if (zonesFor === direction) return;          // already have this direction
     let cancelled = false;
     getStopZoneRecommendations("MR-001", direction)
       .then(r => {
@@ -145,9 +159,27 @@ export default function AdminMap() {
         setZonesFor(direction);
       });
     return () => { cancelled = true; };
-  }, [direction]);
+  }, [listTab, direction, zonesFor]);
 
-  const loading = zonesFor !== direction;
+  /** True until the hotspots the map draws are available. */
+  const loading = a.loading && !a.data;
+
+  /**
+   * Zones belong to the direction they were fetched for. Rather than reset
+   * state when the direction changes, treat anything fetched for another
+   * direction as not yet loaded — same result, no state written from an
+   * effect.
+   */
+  const zonesLoaded = zonesFor === direction;
+  const zonesForDirection = zonesLoaded ? zones : [];
+  const zonesErrForDirection = zonesLoaded ? zonesErr : null;
+
+  /**
+   * In flight whenever the tab is open and nothing has resolved for this
+   * direction yet. Both the success and failure paths set zonesFor, so
+   * this clears either way without writing state from the effect body.
+   */
+  const zonesLoading = listTab === "zones" && !zonesLoaded;
 
   // Full map-matched corridor polyline (same geometry backend uses for match_to_corridor())
   const corridorPath  = direction === "MALANDAY-RECTO" ? CORRIDOR : RETURN_CORRIDOR;
@@ -180,7 +212,7 @@ export default function AdminMap() {
   ).length;
 
   const PREVIEW_ROWS = 5;
-  const activeRows = listTab === "hotspots" ? rankedHotspots : zones;
+  const activeRows = listTab === "hotspots" ? rankedHotspots : zonesForDirection;
   const shownRows = expanded ? activeRows : activeRows.slice(0, PREVIEW_ROWS);
   const hiddenCount = activeRows.length - shownRows.length;
 
@@ -193,7 +225,7 @@ export default function AdminMap() {
   const panelCards = [
     { label: "Detected hotspots", value: hotspots.length, accent: "#ff9f0a",
       hint: `Hotspots found from recorded observations for ${dirLabelText}. A detection result, not a reviewed list.` },
-    { label: "Reviewed passenger zones", value: zones.length, accent: ZONE_COLOR,
+    { label: "Reviewed passenger zones", value: zonesLoaded ? zonesForDirection.length : "—", accent: ZONE_COLOR,
       hint: `Separately assessed passenger-service areas published for ${dirLabelText}.` },
     { label: "High / Critical demand hotspots", value: highDemandHotspots, accent: "#ff453a",
       hint: `Detected hotspots for ${dirLabelText} whose peak occupancy falls in the High or Critical band.` },
@@ -244,7 +276,7 @@ export default function AdminMap() {
         <div className="admin-map-body">
           {/* ── Leaflet Map ─────────────────────────────────────────────────── */}
           <div className="admin-map-wrap">
-            {hotspots.length === 0 && zones.length === 0 ? (
+            {hotspots.length === 0 && a.data ? (
               <div className="admin-map-empty">
                 <div style={{ fontSize: 17, fontWeight: 700, color: "rgba(255,255,255,0.80)", marginBottom: 8 }}>
                   No stop zones published yet
@@ -313,6 +345,31 @@ export default function AdminMap() {
                             {c.peak_period && ` Busiest period ${c.peak_period}.`}
                             {c.point_count != null && ` ${c.point_count.toLocaleString()} recorded observations.`}
                           </div>
+                          {/* Nearest field-reported stop, when the backend
+                              supplies one. Field findings are a separate
+                              dataset from the published zones and from the
+                              evaluation ground truth; an unmatched hotspot
+                              says so rather than borrowing a nearby name. */}
+                          {(() => {
+                            const fs = fieldStopLabel(c.field_stop_match);
+                            return (
+                              <div style={{
+                                marginTop: 8, paddingTop: 8,
+                                borderTop: "1px solid rgba(255,255,255,0.12)",
+                                fontSize: 11, lineHeight: 1.5,
+                                color: FIELD_STOP_TONE[fs.tone],
+                              }}>
+                                {fs.text}
+                                {c.field_stop_match?.ambiguous
+                                  && c.field_stop_match?.alternative_stop_name
+                                  && ` Also close to ${c.field_stop_match.alternative_stop_name}.`}
+                                {/* Two hotspots cannot both BE one stop, so
+                                    only the nearest asserts it. */}
+                                {c.field_stop_match?.contested
+                                  && " Another detected hotspot sits closer to this stop."}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </Popup>
                     </CircleMarker>
@@ -357,9 +414,9 @@ export default function AdminMap() {
 
           {/* ── Right panel ─────────────────────────────────────────────────── */}
           <div className="admin-map-panel">
-            {zonesErr && (
+            {zonesErrForDirection && (
               <div style={{ fontSize: 11.5, color: "var(--rs-on-critical)", marginBottom: 10, lineHeight: 1.5 }}>
-                {zonesErr}
+                {zonesErrForDirection}
               </div>
             )}
             {/* Everything in this panel is scoped to the selected direction,
@@ -421,12 +478,19 @@ export default function AdminMap() {
                 className={`admin-map-tab${listTab === "zones" ? " is-active" : ""}`}
                 onClick={() => { setListTab("zones"); setExpanded(false); }}
               >
-                Reviewed zones · {zones.length}
+                Reviewed zones{zonesLoaded ? ` · ${zonesForDirection.length}` : ""}
               </button>
             </div>
 
             <div className="admin-map-zone-list">
-              {activeRows.length === 0 ? (
+              {/* The zones tab now owns its own loading and error states,
+                  because its request starts when the tab is opened rather
+                  than during the page load. */}
+              {listTab === "zones" && zonesLoading ? (
+                <p className="admin-map-list-empty">Loading reviewed passenger zones…</p>
+              ) : listTab === "zones" && zonesErrForDirection ? (
+                <p className="admin-map-list-empty">{zonesErrForDirection}</p>
+              ) : activeRows.length === 0 ? (
                 <p className="admin-map-list-empty">
                   {listTab === "hotspots"
                     ? "No hotspots were detected for this direction."
@@ -438,21 +502,28 @@ export default function AdminMap() {
                     {listTab === "hotspots"
                       ? shownRows.map(c => {
                           const col = DEMAND_COLOR[c.demand_tier] || "#8e9ab0";
+                          /* The cluster id is an internal label from the
+                             detection run and means nothing to an inspector,
+                             so it is not shown. Where the backend supplies a
+                             nearest field-reported stop the row names it, and
+                             says plainly when the match is unconfirmed or
+                             absent — inventing a name would be worse than
+                             none. */
+                          const fs = fieldStopLabel(c.field_stop_match);
                           return (
                             <button
                               key={`hsrow-${c.cluster_id}`}
                               onClick={() => setFlyTarget({ lat: c.centroid_lat, lon: c.centroid_lon, tick: Date.now() })}
                               className="admin-map-row"
-                              aria-label={`Detected hotspot, peak ${c.max_occupancy} passengers, ${c.demand_tier} demand`}
+                              title={`${fs.text} — peak ${c.max_occupancy} passengers, ${c.demand_tier} demand`}
+                              aria-label={`${fs.text}, peak ${c.max_occupancy} passengers, ${c.demand_tier} demand`}
                             >
                               <span className="admin-map-row-dot" style={{ background: col }} />
-                              {/* The cluster id is an internal label from the
-                                  detection run and means nothing to an
-                                  inspector, so it is not shown. The backend
-                                  supplies no verified name for a hotspot, and
-                                  inventing one would be worse than none. */}
                               <span className="admin-map-row-name">
-                                <span className="admin-map-row-kind">Detected hotspot</span>
+                                <span className="admin-map-row-kind admin-map-row-fieldstop"
+                                      style={{ color: FIELD_STOP_TONE[fs.tone] }}>
+                                  {fs.text}
+                                </span>
                                 <span className="admin-map-row-peak">
                                   Peak {c.max_occupancy} passengers
                                 </span>

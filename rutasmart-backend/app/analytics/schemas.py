@@ -7,6 +7,25 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 
 
+class FieldStopMatchOut(BaseModel):
+    """Nearest field-reported stop for a cluster. Purely additive.
+
+    Separate from the 70-stop evaluation ground truth and from the published
+    passenger zones; it never affects recall, precision, F1 or any cluster
+    metric. Built offline from Google Places results — no runtime API call.
+    """
+    status:                str            # matched | needs_review | unmatched
+    stop_id:               Optional[str]   = None
+    stop_name:             Optional[str]   = None
+    distance_m:            Optional[float] = None
+    direction:             Optional[str]   = None
+    confidence:            Optional[str]   = None
+    ambiguous:             bool            = False
+    alternative_stop_name: Optional[str]   = None
+    contested:             bool            = False
+    reason:                str             = ""
+
+
 class StopClusterOut(BaseModel):
     cluster_id:      int
     centroid_lat:    float
@@ -21,6 +40,11 @@ class StopClusterOut(BaseModel):
     avg_velocity_ms: float = 0.0
     cluster_type:    str   = "TRUE_STOP"
     # TRUE_STOP | CREEPING_QUEUE | MOVING
+
+    # Optional nearest-field-stop label. Defaults to None, so every existing
+    # consumer and every existing response stays byte-identical when it is
+    # not supplied.
+    field_stop_match: Optional[FieldStopMatchOut] = None
 
 
 class DBSCANResult(BaseModel):

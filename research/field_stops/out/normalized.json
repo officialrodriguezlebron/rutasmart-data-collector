@@ -1,0 +1,2296 @@
+{
+ "raw_counts": {
+  "MALANDAY-RECTO": 79,
+  "RECTO-MALANDAY": 71,
+  "total": 150
+ },
+ "normalised_counts": {
+  "MALANDAY-RECTO": 77,
+  "RECTO-MALANDAY": 70,
+  "distinct_overall": 90
+ },
+ "rows": [
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 1,
+   "source_name": "C.P. Enerton Fuel Station, MacArthur Highway, Valenzuela City, Philippines",
+   "landmark": "C.P. Enerton Fuel Station",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "c p enerton fuel station",
+   "query": "C.P. Enerton Fuel Station, MacArthur Highway, Valenzuela City, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 2,
+   "source_name": "MacArthur Highway / E. Pantaleon Intersection, Valenzuela City",
+   "landmark": "MacArthur Highway / E. Pantaleon Intersection",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "e pantaleon / macarthur highway",
+   "query": "MacArthur Highway / E. Pantaleon Intersection, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 3,
+   "source_name": "MacArthur / Del Pilar Intersection, Malanday, Valenzuela City",
+   "landmark": "MacArthur / Del Pilar Intersection",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": null,
+   "key": "del pilar / macarthur",
+   "query": "MacArthur / Del Pilar Intersection, Malanday, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 4,
+   "source_name": "Malanday Tricycle and Pedicab Terminal, MacArthur Highway, Malanday, Valenzuela City",
+   "landmark": "Malanday Tricycle and Pedicab Terminal",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": "MacArthur Highway",
+   "key": "malanday tricycle and pedicab terminal",
+   "query": "Malanday Tricycle and Pedicab Terminal, MacArthur Highway, Malanday, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 5,
+   "source_name": "Mercury Drug Store, MacArthur Highway, Malanday, Valenzuela City",
+   "landmark": "Mercury Drug Store",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": "MacArthur Highway",
+   "key": "mercury drug store",
+   "query": "Mercury Drug Store, MacArthur Highway, Malanday, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 6,
+   "source_name": "Marisyl School, MacArthur Highway, Malanday Valenzuela City",
+   "landmark": "Marisyl School",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": "MacArthur Highway",
+   "key": "marisyl school",
+   "query": "Marisyl School, MacArthur Highway, Malanday Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 7,
+   "source_name": "MacArthur Highway / Santiago Road Interchange, Dalandanan, Valenzuela City",
+   "landmark": "MacArthur Highway / Santiago Road Interchange",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / santiago road",
+   "query": "MacArthur Highway / Santiago Road Interchange, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 8,
+   "source_name": "Ign Pharmacy, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Ign Pharmacy",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "ign pharmacy",
+   "query": "Ign Pharmacy, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 9,
+   "source_name": "Dalandanan, Fire sub station, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Dalandanan",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "dalandanan",
+   "query": "Dalandanan, Fire sub station, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 10,
+   "source_name": "Dalandanan Health Centre, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Dalandanan Health Centre",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "dalandanan health center",
+   "query": "Dalandanan Health Centre, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 11,
+   "source_name": "Santos Encamacion Elementary School, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Santos Encamacion Elementary School",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "santos encarnacion elementary school",
+   "query": "Santos Encamacion Elementary School, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 12,
+   "source_name": "Iglesia Ni Cristo, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Iglesia Ni Cristo",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "iglesia ni cristo",
+   "query": "Iglesia Ni Cristo, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 13,
+   "source_name": "Galdrine Industrial Corp., MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Galdrine Industrial Corp.",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "galdrine industrial corp",
+   "query": "Galdrine Industrial Corp., MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 14,
+   "source_name": "MacArthur Highway / San Miguel Interchange, Dalandanan, Valenzuela City",
+   "landmark": "MacArthur Highway / San Miguel Interchange",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / san miguel",
+   "query": "MacArthur Highway / San Miguel Interchange, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 15,
+   "source_name": "Parish Church or Isidro Labrador, MacArthur Highway, Malinta, Valenzuela City",
+   "landmark": "Parish Church or Isidro Labrador",
+   "city": "Valenzuela City",
+   "barangay": "Malinta",
+   "road_hint": "MacArthur Highway",
+   "key": "parish church or isidro labrador",
+   "query": "Parish Church or Isidro Labrador, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 16,
+   "source_name": "Jollibee, MacArthur Highway, Malinta, Valenzuela City",
+   "landmark": "Jollibee",
+   "city": "Valenzuela City",
+   "barangay": "Malinta",
+   "road_hint": "MacArthur Highway",
+   "key": "jollibee",
+   "query": "Jollibee, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 17,
+   "source_name": "Malinta Elementary School, MacArthur Highway, Malinta, Valenzuela City",
+   "landmark": "Malinta Elementary School",
+   "city": "Valenzuela City",
+   "barangay": "Malinta",
+   "road_hint": "MacArthur Highway",
+   "key": "malinta elementary school",
+   "query": "Malinta Elementary School, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 18,
+   "source_name": "MacArthur Highway / Maysan Road Intersection, Malinta, Valenzuela City",
+   "landmark": "MacArthur Highway / Maysan Road Intersection",
+   "city": "Valenzuela City",
+   "barangay": "Malinta",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / maysan road",
+   "query": "MacArthur Highway / Maysan Road Intersection, Malinta, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 19,
+   "source_name": "Valenzuela City People's Park (near City Hall), MacArthur Highway, Valenzuela City",
+   "landmark": "Valenzuela City People's Park (near City Hall)",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "valenzuela city people s park",
+   "query": "Valenzuela City People's Park, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 20,
+   "source_name": "Bureau of Telecom Training Institute, MacArthur Highway, Valenzuela City",
+   "landmark": "Bureau of Telecom Training Institute",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bureau of telecom training institute",
+   "query": "Bureau of Telecom Training Institute, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 21,
+   "source_name": "Karuhatan Public Market, MacArthur Highway, Valenzuela City",
+   "landmark": "Karuhatan Public Market",
+   "city": "Valenzuela City",
+   "barangay": "Karuhatan",
+   "road_hint": "MacArthur Highway",
+   "key": "karuhatan public market",
+   "query": "Karuhatan Public Market, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 22,
+   "source_name": "Macro LPG, MacArthur Highway, Valenzuela City",
+   "landmark": "Macro LPG",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "macro lpg",
+   "query": "Macro LPG, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 23,
+   "source_name": "MacArthur Highway / San Francisco, MacArthur Highway, Karuhatan, Valenzuela City",
+   "landmark": "MacArthur Highway / San Francisco",
+   "city": "Valenzuela City",
+   "barangay": "Karuhatan",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / san francisco",
+   "query": "MacArthur Highway / San Francisco, MacArthur Highway, Karuhatan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 24,
+   "source_name": "SM Center Valenzuela, MacArthur Highway, Valenzuela City",
+   "landmark": "SM Center Valenzuela",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "sm center valenzuela",
+   "query": "SM Center Valenzuela, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 25,
+   "source_name": "MacArthur Highway / Cayetano Intersection, Valenzuela City",
+   "landmark": "MacArthur Highway / Cayetano Intersection",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "cayetano / macarthur highway",
+   "query": "MacArthur Highway / Cayetano Intersection, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 26,
+   "source_name": "Novo Dep. Store, MacArthur Highway, Valenzuela City",
+   "landmark": "Novo Dep. Store",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "novo department store",
+   "query": "Novo Dep. Store, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 27,
+   "source_name": "Bread of Life, MacArthur Highway, Valenzuela City",
+   "landmark": "Bread of Life",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bread of life",
+   "query": "Bread of Life, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 28,
+   "source_name": "Our Lady of Fatima University College of Medicine, MacArthur Highway, Valenzuela City",
+   "landmark": "Our Lady of Fatima University College of Medicine",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "our lady of fatima university college of medicine",
+   "query": "Our Lady of Fatima University College of Medicine, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 29,
+   "source_name": "Bearsea Auto Supply, MacArthur Highway, Valenzuela City",
+   "landmark": "Bearsea Auto Supply",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bearsea auto supply",
+   "query": "Bearsea Auto Supply, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 30,
+   "source_name": "Calalang General Hospital, MacArthur Highway, Malabon City",
+   "landmark": "Calalang General Hospital",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "calalang general hospital",
+   "query": "Calalang General Hospital, MacArthur Highway, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 31,
+   "source_name": "CDC Manufacturing, MacArthur Highway, Malabon City",
+   "landmark": "CDC Manufacturing",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "cdc manufacturing",
+   "query": "CDC Manufacturing, MacArthur Highway, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 32,
+   "source_name": "MacArthur Highway / Del Monte Intersection, Malabon City",
+   "landmark": "MacArthur Highway / Del Monte Intersection",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "del monte / macarthur highway",
+   "query": "MacArthur Highway / Del Monte Intersection, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 33,
+   "source_name": "Malabon City / Victoneta Avenue Intersection, Malabon City",
+   "landmark": "Malabon City / Victoneta Avenue Intersection",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "malabon city / victoneta avenue",
+   "query": "Malabon City / Victoneta Avenue Intersection, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 34,
+   "source_name": "Potrero Heights Elementary School, MacArthur Highway, Malabon City",
+   "landmark": "Potrero Heights Elementary School",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "potrero heights elementary school",
+   "query": "Potrero Heights Elementary School, MacArthur Highway, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 35,
+   "source_name": "MacArthur Highway / Lanzones Intersection, Malabon City",
+   "landmark": "MacArthur Highway / Lanzones Intersection",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "lanzones / macarthur highway",
+   "query": "MacArthur Highway / Lanzones Intersection, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 36,
+   "source_name": "Floresco North Mortuary, MacArthur Highway, Caloocan City",
+   "landmark": "Floresco North Mortuary",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "floresco north mortuary",
+   "query": "Floresco North Mortuary, MacArthur Highway, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 37,
+   "source_name": "General Rosendo Simon / Calle Uno, Caloocan City",
+   "landmark": "General Rosendo Simon / Calle Uno",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "calle uno / general rosendo simon",
+   "query": "General Rosendo Simon / Calle Uno, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 38,
+   "source_name": "Bonifacio Market, MacArthur Highway, Caloocan City",
+   "landmark": "Bonifacio Market",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bonifacio market",
+   "query": "Bonifacio Market, MacArthur Highway, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 39,
+   "source_name": "Hypermarket Monumento",
+   "landmark": "Hypermarket Monumento",
+   "city": null,
+   "barangay": null,
+   "road_hint": null,
+   "key": "hypermarket monumento",
+   "query": "Hypermarket Monumento, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 40,
+   "source_name": "Araneta Square",
+   "landmark": "Araneta Square",
+   "city": null,
+   "barangay": null,
+   "road_hint": null,
+   "key": "araneta square",
+   "query": "Araneta Square, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 41,
+   "source_name": "Araneta Square Mall, Samson Road, Caloocan City",
+   "landmark": "Araneta Square Mall",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Samson Road",
+   "key": "araneta square mall",
+   "query": "Araneta Square Mall, Samson Road, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 42,
+   "source_name": "Araneta Square Mall, Samson Road, Caloocan City",
+   "landmark": "Araneta Square Mall",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Samson Road",
+   "key": "araneta square mall",
+   "query": "Araneta Square Mall, Samson Road, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 43,
+   "source_name": "Ever Gotesco Grand Central, Rizal Avenue, Caloocan City",
+   "landmark": "Ever Gotesco Grand Central",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "ever gotesco grand central",
+   "query": "Ever Gotesco Grand Central, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 44,
+   "source_name": "MacDonalds, Rizal Avenue, Caloocan City",
+   "landmark": "MacDonalds",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "mcdonalds",
+   "query": "MacDonalds, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 45,
+   "source_name": "Rizal Avenue / Asistio Intersection, Caloocan City",
+   "landmark": "Rizal Avenue / Asistio Intersection",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "asistio / rizal avenue",
+   "query": "Rizal Avenue / Asistio Intersection, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 46,
+   "source_name": "Rizal Ave. / 8th Ave. West, Caloocan City",
+   "landmark": "Rizal Ave. / 8th Ave. West",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Ave.",
+   "key": "8th ave west / rizal ave",
+   "query": "Rizal Ave. / 8th Ave. West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 47,
+   "source_name": "Rizal Ave. / 7th Ave. West, Caloocan City",
+   "landmark": "Rizal Ave. / 7th Ave. West",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Ave.",
+   "key": "7th ave west / rizal ave",
+   "query": "Rizal Ave. / 7th Ave. West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 48,
+   "source_name": "Asia Trust Bank, Rizal Avenue, Caloocan City",
+   "landmark": "Asia Trust Bank",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "asia trust bank",
+   "query": "Asia Trust Bank, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 49,
+   "source_name": "JCSGO Caloocan, Rizal Ave. / 6th Ave. West, Caloocan City",
+   "landmark": "JCSGO Caloocan",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Ave.",
+   "key": "jcsgo caloocan",
+   "query": "JCSGO Caloocan, Rizal Ave. / 6th Ave. West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 50,
+   "source_name": "J. Teodoro / 5th Ave. West, Caloocan City",
+   "landmark": "J. Teodoro / 5th Ave. West",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "5th ave west / j teodoro",
+   "query": "J. Teodoro / 5th Ave. West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 51,
+   "source_name": "Circumferential Road 3 / M.H. Del Pilar St, Caloocan City",
+   "landmark": "Circumferential Road 3 / M.H. Del Pilar St",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "circumferential road 3 / m h del pilar st",
+   "query": "Circumferential Road 3 / M.H. Del Pilar St, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 52,
+   "source_name": "3th Avenue West, Caloocan City",
+   "landmark": "3th Avenue West",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "3rd avenue west",
+   "query": "3rd Avenue West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 53,
+   "source_name": "Banco De Oro, Rizal Avenue, Caloocan City",
+   "landmark": "Banco De Oro",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "banco de oro",
+   "query": "Banco De Oro, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 54,
+   "source_name": "Baliwag Transit Bus Station, Rizal Avenue, Caloocan City",
+   "landmark": "Baliwag Transit Bus Station",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "baliwag transit bus station",
+   "query": "Baliwag Transit Bus Station, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 55,
+   "source_name": "Rizal Avenue / Road 1 Intersection, Caloocan City",
+   "landmark": "Rizal Avenue / Road 1 Intersection",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "rizal avenue / road 1",
+   "query": "Rizal Avenue / Road 1 Intersection, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 56,
+   "source_name": "LRT Papa Station, Rizal Avenue, Caloocan City",
+   "landmark": "LRT Papa Station",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "lrt papa station",
+   "query": "LRT Papa Station, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 57,
+   "source_name": "P. Sevilla Street / 2th Avenue West Intersection, Caloocan City",
+   "landmark": "P. Sevilla Street / 2th Avenue West Intersection",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "2nd avenue west / p sevilla st",
+   "query": "P. Sevilla Street / 2nd Avenue West Intersection, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 58,
+   "source_name": "Rizal Avenue / Jose Abad Santos Avenue Interchange, Caloocan City",
+   "landmark": "Rizal Avenue / Jose Abad Santos Avenue Interchange",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "jose abad santos avenue / rizal avenue",
+   "query": "Rizal Avenue / Jose Abad Santos Avenue Interchange, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 59,
+   "source_name": "Jose Abad Santos Avenue / Morong Intersection, Quezon City",
+   "landmark": "Jose Abad Santos Avenue / Morong Intersection",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "Jose Abad Santos Avenue",
+   "key": "jose abad santos avenue / morong",
+   "query": "Jose Abad Santos Avenue / Morong Intersection, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 60,
+   "source_name": "Jose Abad Santos Avenue / Corregidor Intersection, Quezon City",
+   "landmark": "Jose Abad Santos Avenue / Corregidor Intersection",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "Jose Abad Santos Avenue",
+   "key": "corregidor / jose abad santos avenue",
+   "query": "Jose Abad Santos Avenue / Corregidor Intersection, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 61,
+   "source_name": "Jose Abad Santos Avenue, Quezon City",
+   "landmark": "Jose Abad Santos Avenue",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "Jose Abad Santos Avenue",
+   "key": "jose abad santos avenue",
+   "query": "Jose Abad Santos Avenue, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 62,
+   "source_name": "Jose Abad Santos Avenue / T Bugallon Street, Quezon City",
+   "landmark": "Jose Abad Santos Avenue / T Bugallon Street",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "Jose Abad Santos Avenue",
+   "key": "jose abad santos avenue / t bugallon st",
+   "query": "Jose Abad Santos Avenue / T Bugallon Street, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 63,
+   "source_name": "T Bugallon Street, Quezon City",
+   "landmark": "T Bugallon Street",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "T Bugallon",
+   "key": "t bugallon st",
+   "query": "T Bugallon Street, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 64,
+   "source_name": "T Bugallon Street / Cavite Intersection, Quezon City",
+   "landmark": "T Bugallon Street / Cavite Intersection",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "T Bugallon",
+   "key": "cavite / t bugallon st",
+   "query": "T Bugallon Street / Cavite Intersection, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 65,
+   "source_name": "T. Mapua / Laguna Intersection, Quezon City",
+   "landmark": "T. Mapua / Laguna Intersection",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "T. Mapua",
+   "key": "laguna / t mapua",
+   "query": "T. Mapua / Laguna Intersection, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 66,
+   "source_name": "Tomas Mapua / Batangas Intersection, City of Manila",
+   "landmark": "Tomas Mapua / Batangas Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Tomas Mapua",
+   "key": "batangas / tomas mapua",
+   "query": "Tomas Mapua / Batangas Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 67,
+   "source_name": "Tomas Mapua / Camarines Intersection, City of Manila",
+   "landmark": "Tomas Mapua / Camarines Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Tomas Mapua",
+   "key": "camarines / tomas mapua",
+   "query": "Tomas Mapua / Camarines Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 68,
+   "source_name": "Camarines, City of Manila",
+   "landmark": "Camarines",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": null,
+   "key": "camarines",
+   "query": "Camarines, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 69,
+   "source_name": "Felix Huertas, City of Manila",
+   "landmark": "Felix Huertas",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Felix Huertas",
+   "key": "felix huertas",
+   "query": "Felix Huertas, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 70,
+   "source_name": "San Lazaro / Oroquieta Intersection, City of Manila",
+   "landmark": "San Lazaro / Oroquieta Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "oroquieta / san lazaro",
+   "query": "San Lazaro / Oroquieta Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 71,
+   "source_name": "Quiricada / Felix Huertas Intersection, City of Manila",
+   "landmark": "Quiricada / Felix Huertas Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Felix Huertas",
+   "key": "felix huertas / quiricada",
+   "query": "Quiricada / Felix Huertas Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 72,
+   "source_name": "Oroquieta / Alvarez Intersection, City of Manila",
+   "landmark": "Oroquieta / Alvarez Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "alvarez / oroquieta",
+   "query": "Oroquieta / Alvarez Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 73,
+   "source_name": "Oroquieta / Bambang Intersection, City of Manila",
+   "landmark": "Oroquieta / Bambang Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "bambang / oroquieta",
+   "query": "Oroquieta / Bambang Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 74,
+   "source_name": "Felix Huertas, City of Manila",
+   "landmark": "Felix Huertas",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Felix Huertas",
+   "key": "felix huertas",
+   "query": "Felix Huertas, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 75,
+   "source_name": "Oroquieta / Mayhaligue Intersection, City of Manila",
+   "landmark": "Oroquieta / Mayhaligue Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "mayhaligue / oroquieta",
+   "query": "Oroquieta / Mayhaligue Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 76,
+   "source_name": "Sulu, City of Manila",
+   "landmark": "Sulu",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": null,
+   "key": "sulu",
+   "query": "Sulu, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 77,
+   "source_name": "Quezon Blvd. / P. Paredes Intersection, City of Manila",
+   "landmark": "Quezon Blvd. / P. Paredes Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Quezon Blvd.",
+   "key": "p paredes / quezon blvd",
+   "query": "Quezon Blvd. / P. Paredes Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 78,
+   "source_name": "Isetann",
+   "landmark": "Isetann",
+   "city": null,
+   "barangay": null,
+   "road_hint": null,
+   "key": "isetann",
+   "query": "Isetann, Metro Manila, Philippines"
+  },
+  {
+   "direction": "MALANDAY-RECTO",
+   "sequence": 79,
+   "source_name": "Recto LRT",
+   "landmark": "Recto LRT",
+   "city": null,
+   "barangay": null,
+   "road_hint": null,
+   "key": "recto lrt",
+   "query": "Recto LRT, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 1,
+   "source_name": "Recto LRT",
+   "landmark": "Recto LRT",
+   "city": null,
+   "barangay": null,
+   "road_hint": null,
+   "key": "recto lrt",
+   "query": "Recto LRT, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 2,
+   "source_name": "Oroquieta, City of Manila",
+   "landmark": "Oroquieta",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "oroquieta",
+   "query": "Oroquieta, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 3,
+   "source_name": "Lope De Vega / Oroquieta Intersection, City of Manila",
+   "landmark": "Lope De Vega / Oroquieta Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "lope de vega / oroquieta",
+   "query": "Lope De Vega / Oroquieta Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 4,
+   "source_name": "Oroquieta / Mayhaligue Intersection, City of Manila",
+   "landmark": "Oroquieta / Mayhaligue Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "mayhaligue / oroquieta",
+   "query": "Oroquieta / Mayhaligue Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 5,
+   "source_name": "Oroquieta / Bambang Intersection, City of Manila",
+   "landmark": "Oroquieta / Bambang Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "bambang / oroquieta",
+   "query": "Oroquieta / Bambang Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 6,
+   "source_name": "Oroquieta / Alvarez Intersection, City of Manila",
+   "landmark": "Oroquieta / Alvarez Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "alvarez / oroquieta",
+   "query": "Oroquieta / Alvarez Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 7,
+   "source_name": "San Lazaro / Oroquieta Intersection, City of Manila",
+   "landmark": "San Lazaro / Oroquieta Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "oroquieta / san lazaro",
+   "query": "San Lazaro / Oroquieta Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 8,
+   "source_name": "Oroquieta, City of Manila",
+   "landmark": "Oroquieta",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "oroquieta",
+   "query": "Oroquieta, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 9,
+   "source_name": "Camarines, City of Manila",
+   "landmark": "Camarines",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": null,
+   "key": "camarines",
+   "query": "Camarines, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 10,
+   "source_name": "Oroquieta / Batangas Intersection, City of Manila",
+   "landmark": "Oroquieta / Batangas Intersection",
+   "city": "City of Manila",
+   "barangay": null,
+   "road_hint": "Oroquieta",
+   "key": "batangas / oroquieta",
+   "query": "Oroquieta / Batangas Intersection, City of Manila, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 11,
+   "source_name": "Cavite, Quezon City",
+   "landmark": "Cavite",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "cavite",
+   "query": "Cavite, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 12,
+   "source_name": "Light Rail Transit Line / Bulacan Intersection, Quezon City",
+   "landmark": "Light Rail Transit Line / Bulacan Intersection",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "bulacan / light rail transit line",
+   "query": "Light Rail Transit Line / Bulacan Intersection, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 13,
+   "source_name": "Rizal Avenue near Aurora Blvd Intersection, Quezon City",
+   "landmark": "Rizal Avenue near Aurora Blvd Intersection",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "rizal avenue near aurora blvd",
+   "query": "Rizal Avenue near Aurora Blvd Intersection, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 14,
+   "source_name": "Rizal Avenue, Quezon City",
+   "landmark": "Rizal Avenue",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "rizal avenue",
+   "query": "Rizal Avenue, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 15,
+   "source_name": "Rizal Avenue / Mt. Samat Intersection, Quezon City",
+   "landmark": "Rizal Avenue / Mt. Samat Intersection",
+   "city": "Quezon City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "mt samat / rizal avenue",
+   "query": "Rizal Avenue / Mt. Samat Intersection, Quezon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 16,
+   "source_name": "Rizal Avenue / Jose Abad Santos Avenue Interchange, Caloocan City",
+   "landmark": "Rizal Avenue / Jose Abad Santos Avenue Interchange",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "jose abad santos avenue / rizal avenue",
+   "query": "Rizal Avenue / Jose Abad Santos Avenue Interchange, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 17,
+   "source_name": "P. Sevilla Street / 2th Avenue West Intersection, Caloocan City",
+   "landmark": "P. Sevilla Street / 2th Avenue West Intersection",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "2nd avenue west / p sevilla st",
+   "query": "P. Sevilla Street / 2nd Avenue West Intersection, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 18,
+   "source_name": "LRT Papa Station, Rizal Avenue, Caloocan City",
+   "landmark": "LRT Papa Station",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "lrt papa station",
+   "query": "LRT Papa Station, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 19,
+   "source_name": "Rizal Avenue / Road 1 Intersection, Caloocan City",
+   "landmark": "Rizal Avenue / Road 1 Intersection",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "rizal avenue / road 1",
+   "query": "Rizal Avenue / Road 1 Intersection, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 20,
+   "source_name": "Baliwag Transit Bus Station, Rizal Avenue, Caloocan City",
+   "landmark": "Baliwag Transit Bus Station",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "baliwag transit bus station",
+   "query": "Baliwag Transit Bus Station, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 21,
+   "source_name": "Banco De Oro, Rizal Avenue, Caloocan City",
+   "landmark": "Banco De Oro",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "banco de oro",
+   "query": "Banco De Oro, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 22,
+   "source_name": "3th Avenue West, Caloocan City",
+   "landmark": "3th Avenue West",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "3rd avenue west",
+   "query": "3rd Avenue West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 23,
+   "source_name": "4th Ave. East / M.H. Del Pilar St, Caloocan City",
+   "landmark": "4th Ave. East / M.H. Del Pilar St",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "4th ave east / m h del pilar st",
+   "query": "4th Ave. East / M.H. Del Pilar St, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 24,
+   "source_name": "5th Ave. West / Maria Clara St, Caloocan City",
+   "landmark": "5th Ave. West / Maria Clara St",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "5th ave west / maria clara st",
+   "query": "5th Ave. West / Maria Clara St, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 25,
+   "source_name": "Circumferential Road 3 / M.H. Del Pilar St, Caloocan City",
+   "landmark": "Circumferential Road 3 / M.H. Del Pilar St",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "circumferential road 3 / m h del pilar st",
+   "query": "Circumferential Road 3 / M.H. Del Pilar St, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 26,
+   "source_name": "Asia Trust Bank, Rizal Avenue, Caloocan City",
+   "landmark": "Asia Trust Bank",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "asia trust bank",
+   "query": "Asia Trust Bank, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 27,
+   "source_name": "Rizal Ave. / 7th Ave. West, Caloocan City",
+   "landmark": "Rizal Ave. / 7th Ave. West",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Ave.",
+   "key": "7th ave west / rizal ave",
+   "query": "Rizal Ave. / 7th Ave. West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 28,
+   "source_name": "Rizal Ave. / 8th Ave. West, Caloocan City",
+   "landmark": "Rizal Ave. / 8th Ave. West",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Ave.",
+   "key": "8th ave west / rizal ave",
+   "query": "Rizal Ave. / 8th Ave. West, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 29,
+   "source_name": "Rizal Avenue / Asistio Intersection, Caloocan City",
+   "landmark": "Rizal Avenue / Asistio Intersection",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "asistio / rizal avenue",
+   "query": "Rizal Avenue / Asistio Intersection, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 30,
+   "source_name": "MacDonalds, Rizal Avenue, Caloocan City",
+   "landmark": "MacDonalds",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "mcdonalds",
+   "query": "MacDonalds, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 31,
+   "source_name": "Ever Gotesco Grand Central, Rizal Avenue, Caloocan City",
+   "landmark": "Ever Gotesco Grand Central",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "ever gotesco grand central",
+   "query": "Ever Gotesco Grand Central, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 32,
+   "source_name": "Monumento, Rizal Avenue, Caloocan City",
+   "landmark": "Monumento",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Rizal Avenue",
+   "key": "monumento",
+   "query": "Monumento, Rizal Avenue, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 33,
+   "source_name": "Araneta Square Mall, Samson Road, Caloocan City",
+   "landmark": "Araneta Square Mall",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "Samson Road",
+   "key": "araneta square mall",
+   "query": "Araneta Square Mall, Samson Road, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 34,
+   "source_name": "Bonifacio Market, MacArthur Highway, Caloocan City",
+   "landmark": "Bonifacio Market",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bonifacio market",
+   "query": "Bonifacio Market, MacArthur Highway, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 35,
+   "source_name": "General Rosendo Simon / Calle Uno, Caloocan City",
+   "landmark": "General Rosendo Simon / Calle Uno",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "calle uno / general rosendo simon",
+   "query": "General Rosendo Simon / Calle Uno, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 36,
+   "source_name": "Floresco North Mortuary, MacArthur Highway, Caloocan City",
+   "landmark": "Floresco North Mortuary",
+   "city": "Caloocan City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "floresco north mortuary",
+   "query": "Floresco North Mortuary, MacArthur Highway, Caloocan City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 37,
+   "source_name": "MacArthur Highway / Lanzones Intersection, Malabon City",
+   "landmark": "MacArthur Highway / Lanzones Intersection",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "lanzones / macarthur highway",
+   "query": "MacArthur Highway / Lanzones Intersection, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 38,
+   "source_name": "Potrero Heights Elementary School, MacArthur Highway, Malabon City",
+   "landmark": "Potrero Heights Elementary School",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "potrero heights elementary school",
+   "query": "Potrero Heights Elementary School, MacArthur Highway, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 39,
+   "source_name": "Malabon City / Victoneta Avenue Intersection, Malabon City",
+   "landmark": "Malabon City / Victoneta Avenue Intersection",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": null,
+   "key": "malabon city / victoneta avenue",
+   "query": "Malabon City / Victoneta Avenue Intersection, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 40,
+   "source_name": "MacArthur Highway / Del Monte Intersection, Malabon City",
+   "landmark": "MacArthur Highway / Del Monte Intersection",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "del monte / macarthur highway",
+   "query": "MacArthur Highway / Del Monte Intersection, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 41,
+   "source_name": "CDC Manufacturing, MacArthur Highway, Malabon City",
+   "landmark": "CDC Manufacturing",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "cdc manufacturing",
+   "query": "CDC Manufacturing, MacArthur Highway, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 42,
+   "source_name": "Calalang General Hospital, MacArthur Highway, Malabon City",
+   "landmark": "Calalang General Hospital",
+   "city": "Malabon City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "calalang general hospital",
+   "query": "Calalang General Hospital, MacArthur Highway, Malabon City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 43,
+   "source_name": "Bearsea Auto Supply, MacArthur Highway, Valenzuela City",
+   "landmark": "Bearsea Auto Supply",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bearsea auto supply",
+   "query": "Bearsea Auto Supply, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 44,
+   "source_name": "Our Lady of Fatima University College of Medicine, MacArthur Highway, Valenzuela City",
+   "landmark": "Our Lady of Fatima University College of Medicine",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "our lady of fatima university college of medicine",
+   "query": "Our Lady of Fatima University College of Medicine, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 45,
+   "source_name": "Bread of Life, MacArthur Highway, Valenzuela City",
+   "landmark": "Bread of Life",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bread of life",
+   "query": "Bread of Life, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 46,
+   "source_name": "Novo Dep. Store, MacArthur Highway, Valenzuela City",
+   "landmark": "Novo Dep. Store",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "novo department store",
+   "query": "Novo Dep. Store, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 47,
+   "source_name": "MacArthur Highway / Cayetano Intersection, Valenzuela City",
+   "landmark": "MacArthur Highway / Cayetano Intersection",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "cayetano / macarthur highway",
+   "query": "MacArthur Highway / Cayetano Intersection, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 48,
+   "source_name": "SM Center Valenzuela, MacArthur Highway, Valenzuela City",
+   "landmark": "SM Center Valenzuela",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "sm center valenzuela",
+   "query": "SM Center Valenzuela, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 49,
+   "source_name": "MacArthur Highway / San Francisco, MacArthur Highway, Karuhatan, Valenzuela City",
+   "landmark": "MacArthur Highway / San Francisco",
+   "city": "Valenzuela City",
+   "barangay": "Karuhatan",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / san francisco",
+   "query": "MacArthur Highway / San Francisco, MacArthur Highway, Karuhatan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 50,
+   "source_name": "Macro LPG, MacArthur Highway, Valenzuela City",
+   "landmark": "Macro LPG",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "macro lpg",
+   "query": "Macro LPG, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 51,
+   "source_name": "Karuhatan Public Market, MacArthur Highway, Valenzuela City",
+   "landmark": "Karuhatan Public Market",
+   "city": "Valenzuela City",
+   "barangay": "Karuhatan",
+   "road_hint": "MacArthur Highway",
+   "key": "karuhatan public market",
+   "query": "Karuhatan Public Market, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 52,
+   "source_name": "Bureau of Telecom Training Institute, MacArthur Highway, Valenzuela City",
+   "landmark": "Bureau of Telecom Training Institute",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "bureau of telecom training institute",
+   "query": "Bureau of Telecom Training Institute, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 53,
+   "source_name": "South Supermarket (near City Hall), MacArthur Highway, Valenzuela City",
+   "landmark": "South Supermarket (near City Hall)",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "south supermarket",
+   "query": "South Supermarket, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 54,
+   "source_name": "Flying V Gas (near City Hall), MacArthur Highway, Valenzuela City",
+   "landmark": "Flying V Gas (near City Hall)",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "flying v gas",
+   "query": "Flying V Gas, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 55,
+   "source_name": "MacArthur Highway / Maysan Road Intersection, Malinta, Valenzuela City",
+   "landmark": "MacArthur Highway / Maysan Road Intersection",
+   "city": "Valenzuela City",
+   "barangay": "Malinta",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / maysan road",
+   "query": "MacArthur Highway / Maysan Road Intersection, Malinta, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 56,
+   "source_name": "Jollibee (near Governor Santiago Road), MacArthur Highway, Malinta, Valenzuela City",
+   "landmark": "Jollibee (near Governor Santiago Road)",
+   "city": "Valenzuela City",
+   "barangay": "Malinta",
+   "road_hint": "MacArthur Highway",
+   "key": "jollibee",
+   "query": "Jollibee, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 57,
+   "source_name": "Parish Church or Isidro Labrador, MacArthur Highway, Malinta, Valenzuela City",
+   "landmark": "Parish Church or Isidro Labrador",
+   "city": "Valenzuela City",
+   "barangay": "Malinta",
+   "road_hint": "MacArthur Highway",
+   "key": "parish church or isidro labrador",
+   "query": "Parish Church or Isidro Labrador, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 58,
+   "source_name": "MacArthur Highway / San Miguel Interchange, Dalandanan, Valenzuela City",
+   "landmark": "MacArthur Highway / San Miguel Interchange",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / san miguel",
+   "query": "MacArthur Highway / San Miguel Interchange, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 59,
+   "source_name": "Galdrine Industrial Corp., MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Galdrine Industrial Corp.",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "galdrine industrial corp",
+   "query": "Galdrine Industrial Corp., MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 60,
+   "source_name": "Iglesia Ni Cristo, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Iglesia Ni Cristo",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "iglesia ni cristo",
+   "query": "Iglesia Ni Cristo, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 61,
+   "source_name": "Santos Encamacion Elementary School, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Santos Encamacion Elementary School",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "santos encarnacion elementary school",
+   "query": "Santos Encamacion Elementary School, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 62,
+   "source_name": "Dalandanan Health Centre, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Dalandanan Health Centre",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "dalandanan health center",
+   "query": "Dalandanan Health Centre, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 63,
+   "source_name": "Dalandanan, Fire sub station, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Dalandanan",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "dalandanan",
+   "query": "Dalandanan, Fire sub station, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 64,
+   "source_name": "Ign Pharmacy, MacArthur Highway, Dalandanan, Valenzuela City",
+   "landmark": "Ign Pharmacy",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "ign pharmacy",
+   "query": "Ign Pharmacy, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 65,
+   "source_name": "MacArthur Highway / Santiago Road Interchange, Dalandanan, Valenzuela City",
+   "landmark": "MacArthur Highway / Santiago Road Interchange",
+   "city": "Valenzuela City",
+   "barangay": "Dalandanan",
+   "road_hint": "MacArthur Highway",
+   "key": "macarthur highway / santiago road",
+   "query": "MacArthur Highway / Santiago Road Interchange, Dalandanan, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 66,
+   "source_name": "Marisyl School, MacArthur Highway, Malanday Valenzuela City",
+   "landmark": "Marisyl School",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": "MacArthur Highway",
+   "key": "marisyl school",
+   "query": "Marisyl School, MacArthur Highway, Malanday Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 67,
+   "source_name": "Mercury Drug Store, MacArthur Highway, Malanday, Valenzuela City",
+   "landmark": "Mercury Drug Store",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": "MacArthur Highway",
+   "key": "mercury drug store",
+   "query": "Mercury Drug Store, MacArthur Highway, Malanday, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 68,
+   "source_name": "Malanday Tricycle and Pedicab Terminal, MacArthur Highway, Malanday, Valenzuela City",
+   "landmark": "Malanday Tricycle and Pedicab Terminal",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": "MacArthur Highway",
+   "key": "malanday tricycle and pedicab terminal",
+   "query": "Malanday Tricycle and Pedicab Terminal, MacArthur Highway, Malanday, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 69,
+   "source_name": "MacArthur / Del Pilar Intersection, Malanday, Valenzuela City",
+   "landmark": "MacArthur / Del Pilar Intersection",
+   "city": "Valenzuela City",
+   "barangay": "Malanday",
+   "road_hint": null,
+   "key": "del pilar / macarthur",
+   "query": "MacArthur / Del Pilar Intersection, Malanday, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 70,
+   "source_name": "MacArthur Highway / E. Pantaleon Intersection, Valenzuela City",
+   "landmark": "MacArthur Highway / E. Pantaleon Intersection",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "e pantaleon / macarthur highway",
+   "query": "MacArthur Highway / E. Pantaleon Intersection, Valenzuela City, Metro Manila, Philippines"
+  },
+  {
+   "direction": "RECTO-MALANDAY",
+   "sequence": 71,
+   "source_name": "C.P. Enerton Fuel Station, MacArthur Highway, Valenzuela City",
+   "landmark": "C.P. Enerton Fuel Station",
+   "city": "Valenzuela City",
+   "barangay": null,
+   "road_hint": "MacArthur Highway",
+   "key": "c p enerton fuel station",
+   "query": "C.P. Enerton Fuel Station, MacArthur Highway, Valenzuela City, Metro Manila, Philippines"
+  }
+ ],
+ "unique_queries": [
+  {
+   "key": "2nd avenue west / p sevilla st",
+   "query": "P. Sevilla Street / 2nd Avenue West Intersection, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": null,
+   "example_source": "P. Sevilla Street / 2th Avenue West Intersection, Caloocan City"
+  },
+  {
+   "key": "3rd avenue west",
+   "query": "3rd Avenue West, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": null,
+   "example_source": "3th Avenue West, Caloocan City"
+  },
+  {
+   "key": "4th ave east / m h del pilar st",
+   "query": "4th Ave. East / M.H. Del Pilar St, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": null,
+   "example_source": "4th Ave. East / M.H. Del Pilar St, Caloocan City"
+  },
+  {
+   "key": "5th ave west / j teodoro",
+   "query": "J. Teodoro / 5th Ave. West, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": null,
+   "example_source": "J. Teodoro / 5th Ave. West, Caloocan City"
+  },
+  {
+   "key": "5th ave west / maria clara st",
+   "query": "5th Ave. West / Maria Clara St, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": null,
+   "example_source": "5th Ave. West / Maria Clara St, Caloocan City"
+  },
+  {
+   "key": "7th ave west / rizal ave",
+   "query": "Rizal Ave. / 7th Ave. West, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Ave.",
+   "example_source": "Rizal Ave. / 7th Ave. West, Caloocan City"
+  },
+  {
+   "key": "8th ave west / rizal ave",
+   "query": "Rizal Ave. / 8th Ave. West, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Ave.",
+   "example_source": "Rizal Ave. / 8th Ave. West, Caloocan City"
+  },
+  {
+   "key": "alvarez / oroquieta",
+   "query": "Oroquieta / Alvarez Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Oroquieta",
+   "example_source": "Oroquieta / Alvarez Intersection, City of Manila"
+  },
+  {
+   "key": "araneta square",
+   "query": "Araneta Square, Metro Manila, Philippines",
+   "city": null,
+   "road_hint": null,
+   "example_source": "Araneta Square"
+  },
+  {
+   "key": "araneta square mall",
+   "query": "Araneta Square Mall, Samson Road, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Samson Road",
+   "example_source": "Araneta Square Mall, Samson Road, Caloocan City"
+  },
+  {
+   "key": "asia trust bank",
+   "query": "Asia Trust Bank, Rizal Avenue, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Asia Trust Bank, Rizal Avenue, Caloocan City"
+  },
+  {
+   "key": "asistio / rizal avenue",
+   "query": "Rizal Avenue / Asistio Intersection, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Rizal Avenue / Asistio Intersection, Caloocan City"
+  },
+  {
+   "key": "baliwag transit bus station",
+   "query": "Baliwag Transit Bus Station, Rizal Avenue, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Baliwag Transit Bus Station, Rizal Avenue, Caloocan City"
+  },
+  {
+   "key": "bambang / oroquieta",
+   "query": "Oroquieta / Bambang Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Oroquieta",
+   "example_source": "Oroquieta / Bambang Intersection, City of Manila"
+  },
+  {
+   "key": "banco de oro",
+   "query": "Banco De Oro, Rizal Avenue, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Banco De Oro, Rizal Avenue, Caloocan City"
+  },
+  {
+   "key": "batangas / oroquieta",
+   "query": "Oroquieta / Batangas Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Oroquieta",
+   "example_source": "Oroquieta / Batangas Intersection, City of Manila"
+  },
+  {
+   "key": "batangas / tomas mapua",
+   "query": "Tomas Mapua / Batangas Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Tomas Mapua",
+   "example_source": "Tomas Mapua / Batangas Intersection, City of Manila"
+  },
+  {
+   "key": "bearsea auto supply",
+   "query": "Bearsea Auto Supply, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Bearsea Auto Supply, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "bonifacio market",
+   "query": "Bonifacio Market, MacArthur Highway, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Bonifacio Market, MacArthur Highway, Caloocan City"
+  },
+  {
+   "key": "bread of life",
+   "query": "Bread of Life, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Bread of Life, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "bulacan / light rail transit line",
+   "query": "Light Rail Transit Line / Bulacan Intersection, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": null,
+   "example_source": "Light Rail Transit Line / Bulacan Intersection, Quezon City"
+  },
+  {
+   "key": "bureau of telecom training institute",
+   "query": "Bureau of Telecom Training Institute, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Bureau of Telecom Training Institute, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "c p enerton fuel station",
+   "query": "C.P. Enerton Fuel Station, MacArthur Highway, Valenzuela City, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "C.P. Enerton Fuel Station, MacArthur Highway, Valenzuela City, Philippines"
+  },
+  {
+   "key": "calalang general hospital",
+   "query": "Calalang General Hospital, MacArthur Highway, Malabon City, Metro Manila, Philippines",
+   "city": "Malabon City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Calalang General Hospital, MacArthur Highway, Malabon City"
+  },
+  {
+   "key": "calle uno / general rosendo simon",
+   "query": "General Rosendo Simon / Calle Uno, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": null,
+   "example_source": "General Rosendo Simon / Calle Uno, Caloocan City"
+  },
+  {
+   "key": "camarines",
+   "query": "Camarines, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": null,
+   "example_source": "Camarines, City of Manila"
+  },
+  {
+   "key": "camarines / tomas mapua",
+   "query": "Tomas Mapua / Camarines Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Tomas Mapua",
+   "example_source": "Tomas Mapua / Camarines Intersection, City of Manila"
+  },
+  {
+   "key": "cavite",
+   "query": "Cavite, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": null,
+   "example_source": "Cavite, Quezon City"
+  },
+  {
+   "key": "cavite / t bugallon st",
+   "query": "T Bugallon Street / Cavite Intersection, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "T Bugallon",
+   "example_source": "T Bugallon Street / Cavite Intersection, Quezon City"
+  },
+  {
+   "key": "cayetano / macarthur highway",
+   "query": "MacArthur Highway / Cayetano Intersection, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / Cayetano Intersection, Valenzuela City"
+  },
+  {
+   "key": "cdc manufacturing",
+   "query": "CDC Manufacturing, MacArthur Highway, Malabon City, Metro Manila, Philippines",
+   "city": "Malabon City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "CDC Manufacturing, MacArthur Highway, Malabon City"
+  },
+  {
+   "key": "circumferential road 3 / m h del pilar st",
+   "query": "Circumferential Road 3 / M.H. Del Pilar St, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": null,
+   "example_source": "Circumferential Road 3 / M.H. Del Pilar St, Caloocan City"
+  },
+  {
+   "key": "corregidor / jose abad santos avenue",
+   "query": "Jose Abad Santos Avenue / Corregidor Intersection, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "Jose Abad Santos Avenue",
+   "example_source": "Jose Abad Santos Avenue / Corregidor Intersection, Quezon City"
+  },
+  {
+   "key": "dalandanan",
+   "query": "Dalandanan, Fire sub station, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Dalandanan, Fire sub station, MacArthur Highway, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "dalandanan health center",
+   "query": "Dalandanan Health Centre, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Dalandanan Health Centre, MacArthur Highway, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "del monte / macarthur highway",
+   "query": "MacArthur Highway / Del Monte Intersection, Malabon City, Metro Manila, Philippines",
+   "city": "Malabon City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / Del Monte Intersection, Malabon City"
+  },
+  {
+   "key": "del pilar / macarthur",
+   "query": "MacArthur / Del Pilar Intersection, Malanday, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": null,
+   "example_source": "MacArthur / Del Pilar Intersection, Malanday, Valenzuela City"
+  },
+  {
+   "key": "e pantaleon / macarthur highway",
+   "query": "MacArthur Highway / E. Pantaleon Intersection, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / E. Pantaleon Intersection, Valenzuela City"
+  },
+  {
+   "key": "ever gotesco grand central",
+   "query": "Ever Gotesco Grand Central, Rizal Avenue, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Ever Gotesco Grand Central, Rizal Avenue, Caloocan City"
+  },
+  {
+   "key": "felix huertas",
+   "query": "Felix Huertas, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Felix Huertas",
+   "example_source": "Felix Huertas, City of Manila"
+  },
+  {
+   "key": "felix huertas / quiricada",
+   "query": "Quiricada / Felix Huertas Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Felix Huertas",
+   "example_source": "Quiricada / Felix Huertas Intersection, City of Manila"
+  },
+  {
+   "key": "floresco north mortuary",
+   "query": "Floresco North Mortuary, MacArthur Highway, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Floresco North Mortuary, MacArthur Highway, Caloocan City"
+  },
+  {
+   "key": "flying v gas",
+   "query": "Flying V Gas, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Flying V Gas (near City Hall), MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "galdrine industrial corp",
+   "query": "Galdrine Industrial Corp., MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Galdrine Industrial Corp., MacArthur Highway, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "hypermarket monumento",
+   "query": "Hypermarket Monumento, Metro Manila, Philippines",
+   "city": null,
+   "road_hint": null,
+   "example_source": "Hypermarket Monumento"
+  },
+  {
+   "key": "iglesia ni cristo",
+   "query": "Iglesia Ni Cristo, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Iglesia Ni Cristo, MacArthur Highway, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "ign pharmacy",
+   "query": "Ign Pharmacy, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Ign Pharmacy, MacArthur Highway, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "isetann",
+   "query": "Isetann, Metro Manila, Philippines",
+   "city": null,
+   "road_hint": null,
+   "example_source": "Isetann"
+  },
+  {
+   "key": "jcsgo caloocan",
+   "query": "JCSGO Caloocan, Rizal Ave. / 6th Ave. West, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Ave.",
+   "example_source": "JCSGO Caloocan, Rizal Ave. / 6th Ave. West, Caloocan City"
+  },
+  {
+   "key": "jollibee",
+   "query": "Jollibee, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Jollibee, MacArthur Highway, Malinta, Valenzuela City"
+  },
+  {
+   "key": "jose abad santos avenue",
+   "query": "Jose Abad Santos Avenue, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "Jose Abad Santos Avenue",
+   "example_source": "Jose Abad Santos Avenue, Quezon City"
+  },
+  {
+   "key": "jose abad santos avenue / morong",
+   "query": "Jose Abad Santos Avenue / Morong Intersection, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "Jose Abad Santos Avenue",
+   "example_source": "Jose Abad Santos Avenue / Morong Intersection, Quezon City"
+  },
+  {
+   "key": "jose abad santos avenue / rizal avenue",
+   "query": "Rizal Avenue / Jose Abad Santos Avenue Interchange, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Rizal Avenue / Jose Abad Santos Avenue Interchange, Caloocan City"
+  },
+  {
+   "key": "jose abad santos avenue / t bugallon st",
+   "query": "Jose Abad Santos Avenue / T Bugallon Street, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "Jose Abad Santos Avenue",
+   "example_source": "Jose Abad Santos Avenue / T Bugallon Street, Quezon City"
+  },
+  {
+   "key": "karuhatan public market",
+   "query": "Karuhatan Public Market, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Karuhatan Public Market, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "laguna / t mapua",
+   "query": "T. Mapua / Laguna Intersection, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "T. Mapua",
+   "example_source": "T. Mapua / Laguna Intersection, Quezon City"
+  },
+  {
+   "key": "lanzones / macarthur highway",
+   "query": "MacArthur Highway / Lanzones Intersection, Malabon City, Metro Manila, Philippines",
+   "city": "Malabon City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / Lanzones Intersection, Malabon City"
+  },
+  {
+   "key": "lope de vega / oroquieta",
+   "query": "Lope De Vega / Oroquieta Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Oroquieta",
+   "example_source": "Lope De Vega / Oroquieta Intersection, City of Manila"
+  },
+  {
+   "key": "lrt papa station",
+   "query": "LRT Papa Station, Rizal Avenue, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "LRT Papa Station, Rizal Avenue, Caloocan City"
+  },
+  {
+   "key": "macarthur highway / maysan road",
+   "query": "MacArthur Highway / Maysan Road Intersection, Malinta, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / Maysan Road Intersection, Malinta, Valenzuela City"
+  },
+  {
+   "key": "macarthur highway / san francisco",
+   "query": "MacArthur Highway / San Francisco, MacArthur Highway, Karuhatan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / San Francisco, MacArthur Highway, Karuhatan, Valenzuela City"
+  },
+  {
+   "key": "macarthur highway / san miguel",
+   "query": "MacArthur Highway / San Miguel Interchange, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / San Miguel Interchange, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "macarthur highway / santiago road",
+   "query": "MacArthur Highway / Santiago Road Interchange, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "MacArthur Highway / Santiago Road Interchange, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "macro lpg",
+   "query": "Macro LPG, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Macro LPG, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "malabon city / victoneta avenue",
+   "query": "Malabon City / Victoneta Avenue Intersection, Malabon City, Metro Manila, Philippines",
+   "city": "Malabon City",
+   "road_hint": null,
+   "example_source": "Malabon City / Victoneta Avenue Intersection, Malabon City"
+  },
+  {
+   "key": "malanday tricycle and pedicab terminal",
+   "query": "Malanday Tricycle and Pedicab Terminal, MacArthur Highway, Malanday, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Malanday Tricycle and Pedicab Terminal, MacArthur Highway, Malanday, Valenzuela City"
+  },
+  {
+   "key": "malinta elementary school",
+   "query": "Malinta Elementary School, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Malinta Elementary School, MacArthur Highway, Malinta, Valenzuela City"
+  },
+  {
+   "key": "marisyl school",
+   "query": "Marisyl School, MacArthur Highway, Malanday Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Marisyl School, MacArthur Highway, Malanday Valenzuela City"
+  },
+  {
+   "key": "mayhaligue / oroquieta",
+   "query": "Oroquieta / Mayhaligue Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Oroquieta",
+   "example_source": "Oroquieta / Mayhaligue Intersection, City of Manila"
+  },
+  {
+   "key": "mcdonalds",
+   "query": "MacDonalds, Rizal Avenue, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "MacDonalds, Rizal Avenue, Caloocan City"
+  },
+  {
+   "key": "mercury drug store",
+   "query": "Mercury Drug Store, MacArthur Highway, Malanday, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Mercury Drug Store, MacArthur Highway, Malanday, Valenzuela City"
+  },
+  {
+   "key": "monumento",
+   "query": "Monumento, Rizal Avenue, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Monumento, Rizal Avenue, Caloocan City"
+  },
+  {
+   "key": "mt samat / rizal avenue",
+   "query": "Rizal Avenue / Mt. Samat Intersection, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Rizal Avenue / Mt. Samat Intersection, Quezon City"
+  },
+  {
+   "key": "novo department store",
+   "query": "Novo Dep. Store, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Novo Dep. Store, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "oroquieta",
+   "query": "Oroquieta, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Oroquieta",
+   "example_source": "Oroquieta, City of Manila"
+  },
+  {
+   "key": "oroquieta / san lazaro",
+   "query": "San Lazaro / Oroquieta Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Oroquieta",
+   "example_source": "San Lazaro / Oroquieta Intersection, City of Manila"
+  },
+  {
+   "key": "our lady of fatima university college of medicine",
+   "query": "Our Lady of Fatima University College of Medicine, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Our Lady of Fatima University College of Medicine, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "p paredes / quezon blvd",
+   "query": "Quezon Blvd. / P. Paredes Intersection, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": "Quezon Blvd.",
+   "example_source": "Quezon Blvd. / P. Paredes Intersection, City of Manila"
+  },
+  {
+   "key": "parish church or isidro labrador",
+   "query": "Parish Church or Isidro Labrador, MacArthur Highway, Malinta, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Parish Church or Isidro Labrador, MacArthur Highway, Malinta, Valenzuela City"
+  },
+  {
+   "key": "potrero heights elementary school",
+   "query": "Potrero Heights Elementary School, MacArthur Highway, Malabon City, Metro Manila, Philippines",
+   "city": "Malabon City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Potrero Heights Elementary School, MacArthur Highway, Malabon City"
+  },
+  {
+   "key": "recto lrt",
+   "query": "Recto LRT, Metro Manila, Philippines",
+   "city": null,
+   "road_hint": null,
+   "example_source": "Recto LRT"
+  },
+  {
+   "key": "rizal avenue",
+   "query": "Rizal Avenue, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Rizal Avenue, Quezon City"
+  },
+  {
+   "key": "rizal avenue / road 1",
+   "query": "Rizal Avenue / Road 1 Intersection, Caloocan City, Metro Manila, Philippines",
+   "city": "Caloocan City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Rizal Avenue / Road 1 Intersection, Caloocan City"
+  },
+  {
+   "key": "rizal avenue near aurora blvd",
+   "query": "Rizal Avenue near Aurora Blvd Intersection, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "Rizal Avenue",
+   "example_source": "Rizal Avenue near Aurora Blvd Intersection, Quezon City"
+  },
+  {
+   "key": "santos encarnacion elementary school",
+   "query": "Santos Encamacion Elementary School, MacArthur Highway, Dalandanan, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Santos Encamacion Elementary School, MacArthur Highway, Dalandanan, Valenzuela City"
+  },
+  {
+   "key": "sm center valenzuela",
+   "query": "SM Center Valenzuela, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "SM Center Valenzuela, MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "south supermarket",
+   "query": "South Supermarket, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "South Supermarket (near City Hall), MacArthur Highway, Valenzuela City"
+  },
+  {
+   "key": "sulu",
+   "query": "Sulu, City of Manila, Metro Manila, Philippines",
+   "city": "City of Manila",
+   "road_hint": null,
+   "example_source": "Sulu, City of Manila"
+  },
+  {
+   "key": "t bugallon st",
+   "query": "T Bugallon Street, Quezon City, Metro Manila, Philippines",
+   "city": "Quezon City",
+   "road_hint": "T Bugallon",
+   "example_source": "T Bugallon Street, Quezon City"
+  },
+  {
+   "key": "valenzuela city people s park",
+   "query": "Valenzuela City People's Park, MacArthur Highway, Valenzuela City, Metro Manila, Philippines",
+   "city": "Valenzuela City",
+   "road_hint": "MacArthur Highway",
+   "example_source": "Valenzuela City People's Park (near City Hall), MacArthur Highway, Valenzuela City"
+  }
+ ]
+}

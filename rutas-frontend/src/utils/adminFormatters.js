@@ -43,3 +43,59 @@ export const phtTimeStr = (utcStr) => {
     hour: "2-digit", minute: "2-digit", timeZone: "Asia/Manila",
   });
 };
+
+/* ── Nearest field-reported stop ─────────────────────────────────────────────
+ * The backend may attach an optional `field_stop_match` to a detected
+ * hotspot. It is a label drawn from passenger and conductor field findings,
+ * NOT from the manuscript's evaluation ground truth and NOT from the
+ * published passenger zones. It never changes a cluster metric.
+ *
+ * Three states, and the wording stays honest about which one it is:
+ *   matched       the name is asserted
+ *   needs_review  the name is shown but flagged as unconfirmed
+ *   unmatched     no name at all, rather than a guess
+ *
+ * Any missing or unrecognised payload falls back to the unmatched wording,
+ * so an older backend that sends no label renders exactly as before.
+ */
+export const FIELD_STOP_STATUS = {
+  MATCHED: "matched",
+  NEEDS_REVIEW: "needs_review",
+  UNMATCHED: "unmatched",
+};
+
+export function fieldStopLabel(match) {
+  const status = match?.status;
+  const name = match?.stop_name;
+  const d = match?.distance_m;
+  const metres = Number.isFinite(d) ? Math.round(d) : null;
+
+  if (status === FIELD_STOP_STATUS.MATCHED && name && metres != null) {
+    return {
+      status,
+      text: `Near ${name} · ${metres} m from field stop`,
+      tone: "matched",
+    };
+  }
+  if (status === FIELD_STOP_STATUS.NEEDS_REVIEW && name && metres != null) {
+    return {
+      status,
+      text: `Near ${name} · Match needs review · ${metres} m away`,
+      tone: "review",
+    };
+  }
+  return {
+    status: FIELD_STOP_STATUS.UNMATCHED,
+    text: "Detected hotspot · No nearby field stop identified",
+    tone: "none",
+  };
+}
+
+/* Colour for the three states. Deliberately NOT the demand-tier palette:
+ * these say how trustworthy a name is, not how busy a stop is, and reusing
+ * the tier colours is exactly the confusion the earlier legend work removed. */
+export const FIELD_STOP_TONE = {
+  matched: "var(--rs-text-2)",
+  review:  "var(--rs-text-3)",
+  none:    "var(--rs-text-3)",
+};

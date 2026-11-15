@@ -63,6 +63,12 @@ from app.analytics.schemas import (
     SilhouetteResultOut,
     DaviesBouldinResultOut,
     GroundTruthMatchOut,
+    FieldStopMatchOut,
+)
+from app.analytics.field_stop_match import (
+    match_cluster as _match_field_stop,
+    resolve_direction as _resolve_direction,
+    resolve_contested as _resolve_contested,
 )
 
 # Every route on this router is ADMIN-only. The dependency is attached to the
@@ -88,6 +94,23 @@ def _get_completed_trip(trip_id: str, db: Session) -> Trip:
     return trip
 
 
+def _to_point(log) -> GPSPoint:
+    """One GPSLog row as a GPSPoint. Single definition, so the per-trip and
+    bulk loaders cannot drift apart."""
+    return GPSPoint(
+        log_id=log.log_id,
+        latitude=log.latitude,
+        longitude=log.longitude,
+        accuracy=log.accuracy,
+        gps_quality_flag=str(log.gps_quality_flag.value
+                              if hasattr(log.gps_quality_flag, "value")
+                              else log.gps_quality_flag),
+        occupancy_count=log.occupancy_count,
+        timestamp=log.timestamp,
+        trip_id=log.trip_id,
+    )
+
+
 def _fetch_points(trip_id: str, db: Session) -> list[GPSPoint]:
     """Load all GPS logs for a trip and convert to GPSPoint dataclasses."""
     logs = (
@@ -96,21 +119,56 @@ def _fetch_points(trip_id: str, db: Session) -> list[GPSPoint]:
         .order_by(GPSLog.timestamp.asc())
         .all()
     )
-    return [
-        GPSPoint(
-            log_id=log.log_id,
-            latitude=log.latitude,
-            longitude=log.longitude,
-            accuracy=log.accuracy,
-            gps_quality_flag=str(log.gps_quality_flag.value
-                                  if hasattr(log.gps_quality_flag, "value")
-                                  else log.gps_quality_flag),
-            occupancy_count=log.occupancy_count,
-            timestamp=log.timestamp,
-            trip_id=log.trip_id,
-        )
-        for log in logs
-    ]
+    return [_to_point(log) for log in logs]
+
+
+def _fetch_points_bulk(trip_ids: list[str], db: Session) -> dict[str, list[GPSPoint]]:
+    """Load GPS logs for several trips in ONE query, grouped by trip.
+
+    The merged endpoints used to call _fetch_points once per trip, so a
+    20-trip corridor cost 20 round trips for the logs plus 20 more for the
+    Trip rows. On a deployment where each round trip costs a fifth of a
+    second that dominates the response.
+
+    Ordering is preserved exactly: rows come back ordered by trip then
+    timestamp, which yields the same per-trip timestamp-ascending sequence
+    the per-trip query produced, and callers then walk their own id list in
+    their own order.
+    """
+    if not trip_ids:
+        return {}
+    grouped: dict[str, list[GPSPoint]] = {tid: [] for tid in trip_ids}
+    logs = (
+        db.query(GPSLog)
+        .filter(GPSLog.trip_id.in_(trip_ids))
+        .order_by(GPSLog.trip_id.asc(), GPSLog.timestamp.asc())
+        .all()
+    )
+    for log in logs:
+        bucket = grouped.get(log.trip_id)
+        if bucket is not None:
+            bucket.append(_to_point(log))
+    return grouped
+
+
+def _attach_field_stops(clusters_out, raw_clusters, direction):
+    """Attach the optional nearest-field-stop label to serialized clusters.
+
+    Additive only: every original cluster field is left exactly as it was and
+    only `field_stop_match` is set. `direction` must be a single concrete
+    direction — a mixed selection yields an `unmatched` label rather than a
+    comparison against the opposite direction's stops.
+
+    This has nothing to do with GROUND_TRUTH_STOPS, the 70-stop evaluation,
+    recall/precision/F1, or the published passenger zones.
+    """
+    matches = _resolve_contested([
+        _match_field_stop(raw.centroid_lat, raw.centroid_lon, direction)
+        for raw in raw_clusters
+    ])
+    for out, m in zip(clusters_out, matches):
+        out.field_stop_match = FieldStopMatchOut(**m.to_dict())
+    return clusters_out
 
 
 def _cluster_to_dict(c) -> dict:
@@ -155,22 +213,38 @@ def run_merged_analytics(
     if len(ids) > 50:
         raise HTTPException(status_code=400, detail="Maximum 50 trips per merged call.")
 
+    # Two queries for the whole call: the Trip rows, then every GPS log for
+    # those trips. The loop below keeps iterating `ids` in the caller's
+    # order, so trip ordering and the resulting point sequence are the same
+    # as when each trip was fetched on its own.
+    trips_by_id = {
+        t.trip_id: t
+        for t in db.query(Trip).filter(Trip.trip_id.in_(ids)).all()
+    }
+    points_by_trip = _fetch_points_bulk(ids, db)
+
     all_points = []
     capacities = []
     found_ids  = []
+    directions = []
 
     for tid in ids:
-        trip = db.query(Trip).filter(Trip.trip_id == tid).first()
+        trip = trips_by_id.get(tid)
         if not trip:
             continue
-        pts = _fetch_points(tid, db)
+        pts = points_by_trip.get(tid, [])
         if pts:
             all_points.extend(pts)
             capacities.append(trip.official_capacity or 26)
             found_ids.append(tid)
+            directions.append(trip.direction)
 
     if not all_points:
         raise HTTPException(status_code=404, detail="No GPS logs found for any of the specified trips.")
+
+    # One direction only if the whole selection agrees; a mixed selection
+    # cannot be attributed to one side of the corridor.
+    direction = _resolve_direction(directions)
 
     from collections import Counter
     cap   = Counter(capacities).most_common(1)[0][0]
@@ -192,6 +266,7 @@ def run_merged_analytics(
         "load_factor_pct": c.load_factor_pct,
         "noise_ratio_pct": c.noise_ratio_pct,
     }) for c in dbscan_raw["clusters"]]
+    _attach_field_stops(clusters_out, dbscan_raw["clusters"], direction)
 
     dbscan = DBSCANResult(
         trip_id=label, clusters=clusters_out,
@@ -263,17 +338,30 @@ def run_merged_compare(
     if not ids:
         raise HTTPException(status_code=400, detail="No trip IDs provided.")
 
+    # Two queries for the whole call: the Trip rows, then every GPS log for
+    # those trips. The loop below keeps iterating `ids` in the caller's
+    # order, so trip ordering and the resulting point sequence are the same
+    # as when each trip was fetched on its own.
+    trips_by_id = {
+        t.trip_id: t
+        for t in db.query(Trip).filter(Trip.trip_id.in_(ids)).all()
+    }
+    points_by_trip = _fetch_points_bulk(ids, db)
+
     all_points = []
     capacities = []
 
+    directions = []
+
     for tid in ids:
-        trip = db.query(Trip).filter(Trip.trip_id == tid).first()
+        trip = trips_by_id.get(tid)
         if not trip:
             continue
-        pts = _fetch_points(tid, db)
+        pts = points_by_trip.get(tid, [])
         if pts:
             all_points.extend(pts)
             capacities.append(trip.official_capacity or 26)
+            directions.append(trip.direction)
 
     if not all_points:
         raise HTTPException(status_code=404, detail="No GPS logs found.")
@@ -281,6 +369,7 @@ def run_merged_compare(
     from collections import Counter
     cap   = Counter(capacities).most_common(1)[0][0]
     label = f"MERGED({len(ids)})"
+    direction = _resolve_direction(directions)
 
     # ① Vanilla DBSCAN
     vanilla_raw  = run_dbscan(all_points, cap, eps_m, min_samples, apply_kalman=False)
@@ -291,6 +380,7 @@ def run_merged_compare(
         "demand_tier": c.demand_tier, "peak_period": c.peak_period,
         "load_factor_pct": c.load_factor_pct, "noise_ratio_pct": c.noise_ratio_pct,
     }) for c in vanilla_raw["clusters"]]
+    _attach_field_stops(vanilla_clusters, vanilla_raw["clusters"], direction)
     vanilla = DBSCANResult(
         trip_id=label, clusters=vanilla_clusters,
         noise_ratio=vanilla_raw["noise_ratio"], eps_m=vanilla_raw["eps_m"],
@@ -307,6 +397,7 @@ def run_merged_compare(
         "demand_tier": c.demand_tier, "peak_period": c.peak_period,
         "load_factor_pct": c.load_factor_pct, "noise_ratio_pct": c.noise_ratio_pct,
     }) for c in kalman_raw["clusters"]]
+    _attach_field_stops(kalman_clusters, kalman_raw["clusters"], direction)
     kalman = DBSCANResult(
         trip_id=label, clusters=kalman_clusters,
         noise_ratio=kalman_raw["noise_ratio"], eps_m=kalman_raw["eps_m"],
@@ -323,6 +414,7 @@ def run_merged_compare(
         "demand_tier": c.demand_tier, "peak_period": c.peak_period,
         "load_factor_pct": c.load_factor_pct, "noise_ratio_pct": c.noise_ratio_pct,
     }) for c in wraw["clusters"]]
+    _attach_field_stops(wclusters, wraw["clusters"], direction)
     weighted = DBSCANResult(
         trip_id=label, clusters=wclusters,
         noise_ratio=wraw["noise_ratio"], eps_m=wraw["eps_m"],
@@ -1116,6 +1208,7 @@ def run_all_analytics(
         "load_factor_pct": c.load_factor_pct,
         "noise_ratio_pct": c.noise_ratio_pct,
     }) for c in dbscan_raw["clusters"]]
+    _attach_field_stops(clusters_out, dbscan_raw["clusters"], trip.direction)
 
     dbscan = DBSCANResult(
         trip_id=trip_id,

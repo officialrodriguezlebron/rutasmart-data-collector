@@ -15,7 +15,7 @@ export { default as LoadingState, SkeletonMetrics } from "./LoadingState";
 export { default as DemandTierLegend, PeriodLegend } from "./DemandTierLegend";
 export { default as DataQualitySummary } from "./DataQualitySummary";
 export { LoadFactorBar, LoadFactorByPeriod, DemandDistribution, TimeDistribution } from "./Charts";
-export { useCorridorAnalytics } from "./useCorridorAnalytics";
+export { useCorridorAnalytics, fetchMergedCorridor } from "./useCorridorAnalytics";
 export {
   DEF, TIER_DEFS, PERIOD_DEFS, PERIOD_ORDER, TIER_ORDER, OFFICIAL_DATASET,
   capacityStatus,

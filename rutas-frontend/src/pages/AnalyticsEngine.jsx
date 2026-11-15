@@ -1,10 +1,31 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-// Analytics engine calls the backend through raw fetch(); protectedFetch adds
-// the API key and the signed Authorization token and handles a 401 centrally.
-import { protectedFetch } from "../services/api";
+// This page used to call the backend through raw protectedFetch, which gave
+// it a second data layer: its own URL building, its own error unwrapping and
+// no share in the merged-corridor cache the five operations pages use. It now
+// goes through the same wrappers as everything else, and its merged runs go
+// through fetchMergedCorridor so a corridor already computed elsewhere is not
+// recomputed here.
+import {
+  getAdminTrips, runAllAnalytics, runMergedCompare,
+  runTripDBSCAN, runTripDBSCANKalman, runTripWDBSCAN, getTripEvaluate,
+} from "../services/api";
+import { fetchMergedCorridor } from "../components/admin";
+import { fieldStopLabel } from "../utils/adminFormatters";
 import TripMap from "./TripMap";
 import "./AnalyticsEngine.css";
+
+/**
+ * The old call sites read `detail` off the parsed body and fell back to
+ * "HTTP <status>". Axios throws instead, so the same two sources are
+ * unwrapped here and every message a user can see stays identical.
+ */
+function apiError(e, fallback) {
+  return e?.response?.data?.detail
+      || (e?.response?.status ? `HTTP ${e.response.status}` : null)
+      || e?.message
+      || fallback;
+}
 
 const API = import.meta.env.VITE_API_URL;
 if (!API && typeof window !== "undefined") {
@@ -473,8 +494,8 @@ export default function AnalyticsEngine() {
   const [tripsLoading, setTripsLoading] = useState(true);
 
   useEffect(() => {
-    protectedFetch(`${API}/admin/trips`)
-      .then(r => r.json())
+    getAdminTrips()
+      .then(r => r.data)
       .then(d => {
         const completed = (d || []).filter(t => t.status === "COMPLETED");
         setTripList(completed);
@@ -506,20 +527,14 @@ export default function AnalyticsEngine() {
     if (!id) { setError("Enter a trip ID first."); return; }
     setLoading(true); setError(null); setData(null);
     try {
-      const res = await protectedFetch(
-        `${API}/analytics/${encodeURIComponent(id)}/run-all?eps_m=${epsM}&min_samples=${minPts}`
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      setData(await res.json());
+      const res = await runAllAnalytics(id, epsM, minPts);
+      setData(res.data);
       // Land on the requested tab. A manual run defaults to Overview; a
       // ?tab= deep link passes its own so the sidebar entry opens the
       // section it names instead of bouncing back to the summary.
       setActiveTab(typeof landOnTab === "string" ? landOnTab : "overview");
     } catch (e) {
-      setError(e.message);
+      setError(apiError(e, "Analysis failed."));
     } finally {
       setLoading(false);
     }
@@ -555,13 +570,10 @@ export default function AnalyticsEngine() {
     if (!data) return;
     setLoading(true); setError(null);
     try {
-      const res = await protectedFetch(
-        `${API}/analytics/${encodeURIComponent(data.trip_id)}/dbscan?eps_m=${epsM}&min_samples=${minPts}`
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const dbscan = await res.json();
+      const res = await runTripDBSCAN(data.trip_id, epsM, minPts);
+      const dbscan = res.data;
       setData(prev => ({ ...prev, dbscan }));
-    } catch (e) { setError(e.message); }
+    } catch (e) { setError(apiError(e, "Re-run failed.")); }
     finally { setLoading(false); }
   }, [data, epsM, minPts]);
 
@@ -582,10 +594,8 @@ export default function AnalyticsEngine() {
 
       // Merged mode — use the /merged/compare endpoint
       if ((mode === "day" || mode === "all") && aggData?.source_trips?.length) {
-        const ids = aggData.source_trips.join(",");
-        const url = `${API}/analytics/merged/compare?trip_ids=${encodeURIComponent(ids)}&eps_m=${epsM}&min_samples=${minPts}`;
-        const res = await protectedFetch(url);
-        const json = await res.json();
+        const res = await runMergedCompare(aggData.source_trips, epsM, minPts);
+        const json = res.data;
         if (json.detail) throw new Error(json.detail);
 
         setCompareData({
@@ -604,14 +614,14 @@ export default function AnalyticsEngine() {
       if (!id) return;
       const eps = epsM; const mp = minPts;
       const [vanillaRes, kalmanRes, wRes, evalRes] = await Promise.all([
-        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan?eps_m=${eps}&min_samples=${mp}`),
-        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/dbscan-kalman?eps_m=${eps}&min_samples=${mp}`),
-        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/wdbscan?eps_m=${eps}&min_samples=${mp}`),
-        protectedFetch(`${API}/analytics/${encodeURIComponent(id)}/evaluate?eps_m=${eps}&min_samples=${mp}`),
+        runTripDBSCAN(id, eps, mp),
+        runTripDBSCANKalman(id, eps, mp),
+        runTripWDBSCAN(id, eps, mp),
+        getTripEvaluate(id, eps, mp),
       ]);
-      const [vanilla, kalman, weighted, evalData] = await Promise.all([
-        vanillaRes.json(), kalmanRes.json(), wRes.json(), evalRes.json(),
-      ]);
+      const [vanilla, kalman, weighted, evalData] = [
+        vanillaRes.data, kalmanRes.data, wRes.data, evalRes.data,
+      ];
       if (vanilla.detail) throw new Error(vanilla.detail);
 
       setCompareData({
@@ -620,7 +630,7 @@ export default function AnalyticsEngine() {
         shiftWeighted: matchCentroidShifts(vanilla.clusters, weighted.clusters),
       });
     } catch (e) {
-      setCompareError(e.message || "Comparison failed.");
+      setCompareError(apiError(e, "Comparison failed."));
     } finally {
       setComparing(false);
     }
@@ -660,14 +670,11 @@ export default function AnalyticsEngine() {
         return;
       }
 
-      // Step 2 — call merged run-all endpoint
-      const url = `${API}/analytics/merged/run-all?trip_ids=${encodeURIComponent(tripIds.join(","))}&eps_m=${epsM}&min_samples=${minPts}`;
-      const res = await protectedFetch(url);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      const json = await res.json();
+      // Step 2 — merged run-all, through the cache the operations pages
+      // share. Same trip set and parameters as, say, Demand and Load Factor
+      // means this is served from memory instead of re-running DBSCAN over
+      // every merged point.
+      const json = await fetchMergedCorridor(tripIds.join(","), epsM, minPts);
 
       // Step 3 — feed into setData so all 6 existing tabs render automatically
       setData(json);
@@ -681,7 +688,7 @@ export default function AnalyticsEngine() {
       });
 
     } catch (e) {
-      setAggError(e.message || "Failed to load aggregate data.");
+      setAggError(apiError(e, "Failed to load aggregate data."));
     } finally {
       setAggLoading(false);
     }
@@ -1161,6 +1168,19 @@ export default function AnalyticsEngine() {
                                   <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:1 }}>
                                     {TYPE_LABEL[c.cluster_type] || c.cluster_type} · {c.point_count} pts ·{" "}
                                     <span style={{ color:tier.txt, fontWeight:600 }}>{c.demand_tier}</span>
+                                  </div>
+                                  {/* Nearest field-reported stop, when the
+                                      backend supplies one. A separate dataset
+                                      from the evaluation ground truth and from
+                                      the published zones; it changes no metric
+                                      shown on this card. */}
+                                  <div style={{
+                                    fontSize:10.5, marginTop:2,
+                                    color:"var(--color-text-tertiary)",
+                                    overflow:"hidden", textOverflow:"ellipsis",
+                                    whiteSpace:"nowrap",
+                                  }} title={fieldStopLabel(c.field_stop_match).text}>
+                                    {fieldStopLabel(c.field_stop_match).text}
                                   </div>
                                 </div>
                                 {/* Load factor */}

@@ -137,7 +137,7 @@ export const logGPS = (data) => API.post("/log/", data);
 
 // ── Analytics ──────────────────────────────────────────────────────────────
 export const runAllAnalytics  = (tripId, eps = 50, minPts = 5) =>
-  API.get(`/analytics/${tripId}/run-all?eps_m=${eps}&min_samples=${minPts}`);
+  API.get(`/analytics/${encodeURIComponent(tripId)}/run-all?eps_m=${eps}&min_samples=${minPts}`);
 export const runSensitivity   = (tripId) =>
   API.get(`/analytics/${tripId}/sensitivity`);
 export const runOverlap       = (tripAId, tripBId, eps = 75, minPts = 20) =>
@@ -205,6 +205,18 @@ export const runMergedAll = (tripIds, epsM = 50, minSamples = 5) =>
 // ── Per-trip research endpoints ──────────────────────────────────────────────
 export const getTripPipeline    = (tripId)                        => API.get(`/analytics/${encodeURIComponent(tripId)}/pipeline`);
 export const getTripSensitivity = (tripId)                        => API.get(`/analytics/${encodeURIComponent(tripId)}/sensitivity`);
+/* The three clustering variants the Analytics Engine compares. They were
+   the only analytics endpoints without a wrapper, so that page reached for
+   raw fetch and ended up with its own data layer. */
+export const runTripDBSCAN = (tripId, epsM = 50, minSamples = 5) =>
+  API.get(`/analytics/${encodeURIComponent(tripId)}/dbscan?eps_m=${epsM}&min_samples=${minSamples}`);
+
+export const runTripDBSCANKalman = (tripId, epsM = 50, minSamples = 5) =>
+  API.get(`/analytics/${encodeURIComponent(tripId)}/dbscan-kalman?eps_m=${epsM}&min_samples=${minSamples}`);
+
+export const runTripWDBSCAN = (tripId, epsM = 50, minSamples = 5) =>
+  API.get(`/analytics/${encodeURIComponent(tripId)}/wdbscan?eps_m=${epsM}&min_samples=${minSamples}`);
+
 export const getTripEvaluate    = (tripId, epsM = 50, minSamples = 5) =>
   API.get(`/analytics/${encodeURIComponent(tripId)}/evaluate?eps_m=${epsM}&min_samples=${minSamples}`);
 

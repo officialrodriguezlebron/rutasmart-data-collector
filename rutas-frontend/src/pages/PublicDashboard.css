@@ -449,3 +449,153 @@
 .pd-dir-btn.active .pd-dir-count {
   background: rgba(255,255,255,0.30);
 }
+
+/* ── Map-first layout ───────────────────────────────────────────────────
+   The live map leads the page; the vehicle list repeats the same facts in
+   text beneath it. Colour in this block means capacity status only. */
+
+.pd-feed-live    .pd-live-ring { background: #30d158; }
+.pd-feed-updating .pd-live-ring { background: #42a5f5; }
+.pd-feed-idle    .pd-live-ring { background: rgba(255, 255, 255, 0.45); }
+.pd-feed-error   .pd-live-ring { background: #ff453a; }
+.pd-feed-loading .pd-live-ring { background: rgba(255, 255, 255, 0.45); }
+
+.pd-awaiting,
+.pd-stale-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.pd-stale-note {
+  color: #ffd60a;
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.30);
+}
+
+.pd-awaiting {
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* ── Compact vehicle list ───────────────────────────────────────────── */
+.pd-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.pd-row {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-left: 4px solid var(--status);
+}
+
+.pd-row.is-stale { opacity: 0.72; border-left-style: dashed; }
+
+.pd-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pd-row-code {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.pd-row-status {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pd-row-dir {
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.pd-occbar {
+  margin: 8px 0 6px;
+  height: 7px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pd-occbar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .5s ease;
+}
+
+.pd-row-counts {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.82);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
+.pd-row-counts strong { font-size: 14px; color: #fff; }
+
+.pd-row-pct { color: rgba(255, 255, 255, 0.58); }
+
+.pd-row-over {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff8a80;
+}
+
+.pd-row-meta {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.50);
+}
+
+.pd-row-flag {
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-weight: 700;
+  color: #ffd60a;
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.28);
+}
+
+/* ── Boarding stops, secondary to the live map ──────────────────────── */
+.pd-stops {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pd-stops-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+@media (max-width: 760px) {
+  /* One column, so a row is never squeezed below readable width. */
+  .pd-rows { grid-template-columns: 1fr; }
+
+  /* Filters stay thumb-sized. */
+  .pd-dir-btn { min-height: 44px; }
+}

@@ -15,3 +15,56 @@ Thumbs.db
 # Environment files
 .env
 .env.local
+
+# ── Archival hardening ──────────────────────────────────────────────────────
+# Python caches (the backend ignores these locally; this covers every other
+# directory, e.g. research/ tooling)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments, anywhere
+.venv/
+venv/
+env/
+ENV/
+
+# Dependencies and build output, anywhere
+node_modules/
+dist/
+build/
+dist-ssr/
+
+# Every environment file except the committed templates
+.env
+.env.*
+!.env.example
+
+# Databases, dumps and backups — never archive these
+*.sql
+*.dump
+*.dmp
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.backup
+pgdata/
+
+# Test and coverage artefacts
+.coverage
+.coverage.*
+.pytest_cache/
+htmlcov/
+.ruff_cache/
+
+# Scratch and temporary working files
+adasd
+*.tmp
+*.temp
+scratch/
+tmp/
+
+# Local screenshots and captures from UI verification runs
+screenshots/
+*.playwright-mcp/

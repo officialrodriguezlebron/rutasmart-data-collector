@@ -546,33 +546,52 @@ def get_stop_zone_recommendations(
             return "Stop underutilized — consider consolidating with nearby stop"
         return "Continue monitoring — moderate demand, not yet a formalization candidate"
 
+    # ── Candidate points, fetched once ───────────────────────────────────
+    # This loop used to issue the bounding-box query per (zone, day, trip),
+    # which on the official dataset meant ~146 round trips for one request.
+    # Every one of those queries read the same table with the same quality
+    # filter; only the bounding box differed, and the box is cheap to apply
+    # in Python. So the rows are fetched once for the trips in scope and the
+    # box plus Haversine are evaluated in memory.
+    #
+    # The per-query LIMIT 50 is deliberately not reproduced. It was a guard
+    # on how many candidates one bounding box could return, and because the
+    # loop only asks "is ANY point within COVER_M", the limit could only
+    # ever hide a qualifying point, never add one. Dropping it can therefore
+    # only make coverage more accurate, and the equivalence check against
+    # the pre-change responses confirms it changes nothing on this dataset.
+    scoped_trip_ids = sorted({tid for tids in trip_day_map.values() for tid in tids})
+    points_by_trip: dict = {tid: [] for tid in scoped_trip_ids}
+    if scoped_trip_ids:
+        for row_tid, row_lat, row_lon in (
+            db.query(GPSLog.trip_id, GPSLog.latitude, GPSLog.longitude)
+            .filter(
+                GPSLog.trip_id.in_(scoped_trip_ids),
+                GPSLog.gps_quality_flag.in_([GPSQualityEnum.GOOD, GPSQualityEnum.ACCEPTABLE]),
+            )
+            .all()
+        ):
+            points_by_trip[row_tid].append((float(row_lat), float(row_lon)))
+
     result_zones = []
     for zone in zones:
         z_lat = float(zone.lat)
         z_lon = float(zone.lon)
 
-        # Trip-day coverage — SQL bounding box pre-filter + exact Haversine
+        # Trip-day coverage — bounding box pre-filter + exact Haversine,
+        # same two tests in the same order as before, now in Python.
+        lat_lo, lat_hi = z_lat - LAT_TOL, z_lat + LAT_TOL
+        lon_lo, lon_hi = z_lon - LON_TOL, z_lon + LON_TOL
         days_covered = 0
         for _day, trip_ids in trip_day_map.items():
             hit = False
             for tid in trip_ids:
                 if hit:
                     break
-                candidates = (
-                    db.query(GPSLog.latitude, GPSLog.longitude)
-                    .filter(
-                        GPSLog.trip_id == tid,
-                        GPSLog.gps_quality_flag.in_([GPSQualityEnum.GOOD, GPSQualityEnum.ACCEPTABLE]),
-                        GPSLog.latitude  >= z_lat - LAT_TOL,
-                        GPSLog.latitude  <= z_lat + LAT_TOL,
-                        GPSLog.longitude >= z_lon - LON_TOL,
-                        GPSLog.longitude <= z_lon + LON_TOL,
-                    )
-                    .limit(50)
-                    .all()
-                )
-                for cand_lat, cand_lon in candidates:
-                    if haversine_m(z_lat, z_lon, float(cand_lat), float(cand_lon)) <= COVER_M:
+                for cand_lat, cand_lon in points_by_trip.get(tid, ()):
+                    if not (lat_lo <= cand_lat <= lat_hi and lon_lo <= cand_lon <= lon_hi):
+                        continue
+                    if haversine_m(z_lat, z_lon, cand_lat, cand_lon) <= COVER_M:
                         hit = True
                         break
             if hit:

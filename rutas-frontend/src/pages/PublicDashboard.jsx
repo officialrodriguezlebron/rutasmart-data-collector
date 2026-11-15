@@ -1,66 +1,57 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import "./PublicDashboard.css";
 import StopZoneMap from "./StopZoneMap";
+import LiveRouteMap from "./LiveRouteMap";
+import {
+  DIR_LABEL, statusFor, isStale, hasPosition, timeAgo,
+} from "./publicStatus";
 
 const API     = import.meta.env.VITE_API_URL;
 const POLL_MS = 5000;
 
-const TIER_CONFIG = {
-  AVAILABLE: { label:"Available",   emoji:"🟢", bg:"#e8f5e9", border:"#2e7d32", text:"#1b5e20", bar:"#2e7d32" },
-  MODERATE:  { label:"Filling Up",  emoji:"🟡", bg:"#fffde7", border:"#f9a825", text:"#e65100", bar:"#f9a825" },
-  FULL:      { label:"Almost Full", emoji:"🟠", bg:"#fff3e0", border:"#ef6c00", text:"#bf360c", bar:"#ef6c00" },
-  OVERCAP:   { label:"OVERCROWDED", emoji:"🔴", bg:"#ffebee", border:"#c62828", text:"#b71c1c", bar:"#c62828" },
-};
-
-const DIR_LABEL = {
-  "MALANDAY-RECTO": "Malanday → Recto",
-  "RECTO-MALANDAY": "Recto → Malanday",
-};
-
-function timeAgo(isoStr) {
-  if (!isoStr) return "—";
-  const diff = Math.floor((Date.now() - new Date(isoStr.endsWith("Z") ? isoStr : isoStr + "Z")) / 1000);
-  if (diff < 5)    return "just now";
-  if (diff < 60)   return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
-}
-
 function OccBar({ pct, color }) {
   return (
-    <div style={{ background:"rgba(0,0,0,0.08)", borderRadius:99, height:7, overflow:"hidden", margin:"6px 0" }}>
-      <div style={{ width:`${Math.min(100, pct)}%`, height:"100%", background:color, borderRadius:99, transition:"width .5s ease" }}/>
+    <div className="pd-occbar">
+      <div className="pd-occbar-fill"
+        style={{ width: `${Math.min(100, pct)}%`, background: color }} />
     </div>
   );
 }
 
-function JeepCard({ j }) {
-  const cfg = TIER_CONFIG[j.tier] || TIER_CONFIG.AVAILABLE;
+/**
+ * One vehicle, as a compact row beside the map.
+ *
+ * The cards this replaces showed "{gps_quality} GPS", which told a
+ * passenger nothing they could act on and leaked an internal accuracy
+ * flag. A rider wants the code, the direction, how full it is and how
+ * fresh that is. trip_id stays out of the markup entirely; it is only a
+ * React key.
+ */
+function JeepRow({ j }) {
+  const st = statusFor(j);
+  const stale = isStale(j);
+  const located = hasPosition(j);
+  const over = j.occupancy > j.capacity;
   return (
-    <div className="pd-jeep-card" style={{ borderLeft:`5px solid ${cfg.border}`, background:cfg.bg }}>
-      <div className="pd-jeep-header">
-        <div className="pd-jeep-code">{j.jeep_code}</div>
-        <div className="pd-tier-badge" style={{ background:cfg.border, color:"#fff" }}>
-          {cfg.emoji} {cfg.label}
-        </div>
+    <li className={`pd-row${stale ? " is-stale" : ""}`} style={{ "--status": st.color }}>
+      <div className="pd-row-head">
+        <span className="pd-row-code">{j.jeep_code}</span>
+        <span className="pd-row-status" style={{ color: st.color }}>{st.label}</span>
       </div>
-      <div className="pd-jeep-direction">{DIR_LABEL[j.direction] || j.direction}</div>
-      <div style={{ padding:"0 16px" }}>
-        <OccBar pct={j.occupancy_pct} color={cfg.bar} />
+      <div className="pd-row-dir">{DIR_LABEL[j.direction] || j.direction}</div>
+      <OccBar pct={j.occupancy_pct} color={st.color} />
+      <div className="pd-row-counts">
+        <strong>{j.occupancy} / {j.capacity}</strong> passengers
+        <span className="pd-row-pct">{Math.round(j.occupancy_pct)}% full</span>
+        {over && <span className="pd-row-over">{j.occupancy - j.capacity} over</span>}
       </div>
-      <div className="pd-jeep-counts">
-        <strong style={{ color:cfg.text }}>{j.occupancy}</strong>
-        <span>/ {j.capacity} passengers
-          {j.occupancy > j.capacity &&
-            <span style={{ color:"#c62828", fontWeight:700 }}> (+{j.occupancy - j.capacity} over)</span>}
-        </span>
+      <div className="pd-row-meta">
+        <span>Updated {timeAgo(j.last_updated)}</span>
+        {!located && <span className="pd-row-flag">Waiting for location</span>}
+        {located && stale && <span className="pd-row-flag">Last update may be stale</span>}
       </div>
-      <div className="pd-jeep-meta">
-        <span>📍 {j.gps_quality} GPS</span>
-        <span>🕐 {timeAgo(j.last_updated)}</span>
-      </div>
-    </div>
+    </li>
   );
 }
 
@@ -72,34 +63,77 @@ export default function PublicDashboard() {
   const [dirFilter, setDirFilter] = useState("all");
   const [mapDir,    setMapDir]    = useState("MALANDAY-RECTO");
 
+  const [updating, setUpdating] = useState(false);
+  /** Guards against a slow poll overlapping the next tick. */
+  const inFlight = useRef(false);
+  /** Set on unmount so a late response cannot touch state. */
+  const deadRef = useRef(false);
+
   const fetchData = useCallback(async () => {
+    if (inFlight.current) return;          // previous poll still running
+    inFlight.current = true;
+    setUpdating(true);
     try {
       const res = await fetch(`${API}/public/route/${routeId}`);
       if (!res.ok) throw new Error(`Server error ${res.status}`);
-      setData(await res.json());
+      const json = await res.json();
+      if (deadRef.current) return;
+      setData(json);
       setError(null);
       setLastPoll(new Date());
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      if (!deadRef.current) setError(e.message);
+    } finally {
+      inFlight.current = false;
+      if (!deadRef.current) setUpdating(false);
+    }
   }, [routeId]);
 
   useEffect(() => {
+    deadRef.current = false;
     fetchData();
     const t = setInterval(fetchData, POLL_MS);
-    return () => clearInterval(t);
+    return () => {
+      deadRef.current = true;
+      clearInterval(t);
+    };
   }, [fetchData]);
 
-  const jeepneys  = data?.jeepneys || [];
-  const filtered  = dirFilter === "all" ? jeepneys : jeepneys.filter(j => j.direction === dirFilter);
+  /**
+   * Re-render once a second so "Updated 12 seconds ago" and the stale
+   * threshold stay honest between five-second polls. Cheap: it only moves
+   * a clock the derived values read.
+   */
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const jeepneys  = useMemo(() => data?.jeepneys || [], [data]);
+  const filtered  = useMemo(
+    () => (dirFilter === "all" ? jeepneys : jeepneys.filter(j => j.direction === dirFilter)),
+    [jeepneys, dirFilter],
+  );
+  const mapped    = useMemo(() => filtered.filter(hasPosition), [filtered]);
+  const awaiting  = filtered.length - mapped.length;
   const total     = jeepneys.length;
   const countMR   = jeepneys.filter(j => j.direction === "MALANDAY-RECTO").length;
   const countRM   = jeepneys.filter(j => j.direction === "RECTO-MALANDAY").length;
-  const available = jeepneys.filter(j => j.tier === "AVAILABLE").length;
-  const filling   = jeepneys.filter(j => j.tier === "MODERATE" || j.tier === "FULL").length;
-  const overcrowd = jeepneys.filter(j => j.tier === "OVERCAP").length;
-  const staleCount = jeepneys.filter(j => {
-    if (!j.last_updated) return false;
-    return (Date.now() - new Date(j.last_updated.endsWith("Z") ? j.last_updated : j.last_updated + "Z")) / 1000 > 7200;
-  }).length;
+  const available = jeepneys.filter(j => statusFor(j).key === "available").length;
+  const filling   = jeepneys.filter(j => ["near", "full"].includes(statusFor(j).key)).length;
+  const overcrowd = jeepneys.filter(j => statusFor(j).key === "over").length;
+  const staleCount = jeepneys.filter(j => isStale(j, nowMs)).length;
+
+  /**
+   * One honest line about the feed. "LIVE" used to be a static badge that
+   * said LIVE whether or not anything was arriving.
+   */
+  const feed = error ? { key: "error", label: "Connection problem" }
+    : !data ? { key: "loading", label: "Loading" }
+      : updating ? { key: "updating", label: "Updating" }
+        : total === 0 ? { key: "idle", label: "No active jeepneys" }
+          : { key: "live", label: "Live" };
 
   return (
     <div className="pd-page">
@@ -112,9 +146,9 @@ export default function PublicDashboard() {
             <p className="pd-subtitle">Malanday — Recto · Live Jeepney Status</p>
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
-            <div className="pd-live-dot">
+            <div className={`pd-live-dot pd-feed-${feed.key}`} role="status" aria-live="polite">
               <span className="pd-live-ring"/>
-              LIVE
+              {feed.label}
             </div>
             <a href="/" style={{ fontSize:11, color:"rgba(255,255,255,0.50)", textDecoration:"none", fontWeight:600 }}>
               ⌂ Home
@@ -147,93 +181,101 @@ export default function PublicDashboard() {
       {/* ── Content ─────────────────────────────────────────────── */}
       <div className="pd-content">
 
-        {/* Stale warning */}
-        {staleCount > 0 && (
-          <div style={{ background:"rgba(255,159,10,0.12)", border:"1px solid rgba(255,159,10,0.30)",
-            borderRadius:12, padding:"10px 14px", fontSize:12, color:"#ffd60a", fontWeight:600 }}>
-            ⚠ {staleCount} jeepney{staleCount > 1 ? "s" : ""} hidden — no update in over 2 hours
-          </div>
-        )}
-
-        {/* Direction toggle for the stop map — always visible, independent of live tracking */}
-        <div style={{ display:"flex", gap:8, marginBottom:4 }}>
+        {/* ── Direction filter — drives BOTH the map and the list ────── */}
+        <div className="pd-dir-filter" style={{ padding: 0 }}>
           {[
-            { key:"MALANDAY-RECTO", label:"Going to Recto ↓" },
-            { key:"RECTO-MALANDAY", label:"Going to Malanday ↑" },
-          ].map(({ key, label }) => (
-            <button key={key} onClick={() => setMapDir(key)} style={{
-              flex:1, padding:"9px 0", borderRadius:12,
-              border:`1.5px solid ${mapDir === key ? "#42a5f5" : "rgba(255,255,255,.12)"}`,
-              background: mapDir === key ? "rgba(66,165,245,.18)" : "rgba(255,255,255,.05)",
-              color: mapDir === key ? "#fff" : "rgba(255,255,255,.40)",
-              fontSize:12, fontWeight:700, cursor:"pointer",
-              fontFamily:"'DM Sans',sans-serif", transition:"all .15s",
-            }}>{label}</button>
+            { key: "all",            label: "All directions",   count: total   },
+            { key: "MALANDAY-RECTO", label: "Malanday to Recto", count: countMR },
+            { key: "RECTO-MALANDAY", label: "Recto to Malanday", count: countRM },
+          ].map(({ key, label, count }) => (
+            <button key={key} onClick={() => setDirFilter(key)}
+              className={`pd-dir-btn ${dirFilter === key ? "active" : ""}`}>
+              {label}
+              <span className="pd-dir-count">{count}</span>
+            </button>
           ))}
         </div>
 
-        {/* Stop zone map — always shown regardless of live tracking state */}
-        <StopZoneMap
-          routeId={routeId}
-          direction={mapDir}
-        />
+        {/* ── The map comes first ─────────────────────────────────────
+            A passenger wants to see where the jeepneys are before
+            reading about them. The list below carries the same facts in
+            text for anyone who cannot use a map. */}
+        <LiveRouteMap jeepneys={mapped} direction={dirFilter} />
 
-        {/* Error */}
         {error && (
           <div className="pd-error">
-            ⚠️ Could not reach server — retrying…
-            <br/><small style={{ opacity:0.7 }}>{error}</small>
+            Could not reach the server — retrying every {POLL_MS / 1000} seconds.
+            <br /><small style={{ opacity: 0.7 }}>{error}</small>
           </div>
         )}
 
-        {/* Loading */}
         {!data && !error && (
           <div className="pd-loading">
-            <div className="pd-spinner"/>
-            <p style={{ margin:0, fontSize:13, color:"rgba(255,255,255,0.50)" }}>Loading live data…</p>
+            <div className="pd-spinner" />
+            <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.50)" }}>
+              Loading live jeepney positions…
+            </p>
           </div>
         )}
 
-        {/* Empty */}
-        {data && jeepneys.length === 0 && (
+        {staleCount > 0 && (
+          <div className="pd-stale-note">
+            {staleCount} jeepney{staleCount > 1 ? "s have" : " has"} not reported in over a
+            minute. The last known position is still shown, marked as possibly stale.
+          </div>
+        )}
+
+        {data && total === 0 && (
           <div className="pd-empty">
             <span className="pd-empty-icon">🚌</span>
             <h3>No active jeepneys right now</h3>
-            <p>No conductor is currently recording a trip on this route.<br/>
-              Data appears here when conductors use the RutaSmart app.</p>
+            <p>No conductor is currently recording a trip on this route.<br />
+              Jeepneys appear here within seconds of a trip starting.</p>
           </div>
         )}
 
-        {/* Jeepney cards */}
-        {data && jeepneys.length > 0 && (<>
-          <div className="pd-dir-filter" style={{ padding:0 }}>
+        {data && total > 0 && (
+          <>
+            {awaiting > 0 && (
+              <p className="pd-awaiting">
+                {awaiting} jeepney{awaiting > 1 ? "s are" : " is"} waiting for a location fix and
+                {awaiting > 1 ? " are" : " is"} listed below without a map marker.
+              </p>
+            )}
+
+            {filtered.length === 0 ? (
+              <div className="pd-empty" style={{ padding: "32px 20px" }}>
+                <span className="pd-empty-icon" style={{ fontSize: 36 }}>🚌</span>
+                <h3>No jeepneys in this direction</h3>
+                <p>Switch to "All directions" to see every active jeepney.</p>
+              </div>
+            ) : (
+              <ul className="pd-rows">
+                {filtered.map(j => <JeepRow key={j.trip_id} j={j} />)}
+              </ul>
+            )}
+
+            <p className="pd-hint">
+              Positions and passenger counts update every {POLL_MS / 1000} seconds from
+              conductor devices.
+            </p>
+          </>
+        )}
+
+        {/* ── Where you can board — the published stop zones ──────────── */}
+        <div className="pd-stops">
+          <h2 className="pd-stops-title">Where you can board</h2>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             {[
-              { key:"all",            label:"All",               count:total   },
-              { key:"MALANDAY-RECTO", label:"Malanday → Recto",  count:countMR },
-              { key:"RECTO-MALANDAY", label:"Recto → Malanday",  count:countRM },
-            ].map(({ key, label, count }) => (
-              <button key={key} onClick={() => setDirFilter(key)}
-                className={`pd-dir-btn ${dirFilter === key ? "active" : ""}`}>
-                {label}
-                <span className="pd-dir-count">{count}</span>
-              </button>
+              { key: "MALANDAY-RECTO", label: "Going to Recto" },
+              { key: "RECTO-MALANDAY", label: "Going to Malanday" },
+            ].map(({ key, label }) => (
+              <button key={key} onClick={() => setMapDir(key)} className={
+                `pd-dir-btn ${mapDir === key ? "active" : ""}`}>{label}</button>
             ))}
           </div>
-
-          <p className="pd-hint">Data updates every 5 seconds from conductor devices.</p>
-
-          {filtered.length === 0 ? (
-            <div className="pd-empty" style={{ padding:"32px 20px" }}>
-              <span className="pd-empty-icon" style={{ fontSize:36 }}>🚌</span>
-              <h3>No jeepneys in this direction</h3>
-              <p>Try switching to "All".</p>
-            </div>
-          ) : (
-            <div className="pd-cards">
-              {filtered.map(j => <JeepCard key={j.trip_id} j={j} />)}
-            </div>
-          )}
-        </>)}
+          <StopZoneMap routeId={routeId} direction={mapDir} />
+        </div>
 
       </div>
 
