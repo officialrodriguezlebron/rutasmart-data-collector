@@ -161,16 +161,21 @@ npm run dev
 
 The frontend runs at `http://localhost:5173`.
 
-### Seeding default users
+### Seeding development accounts
 
-For local development, seed default accounts:
+`/auth/seed` creates accounts for local development only. It carries no
+built-in credentials — you supply them — and all three gates must pass:
+
+1. `ENV=development` (exactly; production and any other value are refused)
+2. `SEED_SECRET` set in `rutasmart-backend/.env` and sent in `X-Seed-Secret`
+3. `SEED_ACCOUNTS` set to a JSON array of the accounts you want created
 
 ```bash
-curl -X POST http://localhost:8000/auth/seed \
-     -H "X-API-Key: <your-api-key>"
+curl -X POST http://localhost:8000/auth/seed      -H "X-API-Key: <your-api-key>"      -H "X-Seed-Secret: <your-seed-secret>"
 ```
 
-This is disabled when `ENV=production`.
+With `SEED_ACCOUNTS` unset the endpoint creates nothing. See `.env.example`
+for the template, and never commit real values.
 
 ---
 
@@ -183,7 +188,9 @@ This is disabled when `ENV=production`.
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `RUTASMART_API_KEY` | Yes | Shared API key for protected routes |
 | `FRONTEND_URL` | No | Production frontend origin for CORS |
-| `ENV` | No | `production` disables `/auth/seed`; otherwise development |
+| `ENV` | No | `production` disables `/auth/seed`. Only the exact value `development` enables it |
+| `SEED_SECRET` | No | Required to call `/auth/seed`; sent as the `X-Seed-Secret` header. Unset = seeding disabled |
+| `SEED_ACCOUNTS` | No | JSON array of development accounts to seed. Unset = nothing is created. Never commit real values |
 
 ### Frontend (`rutas-frontend/.env.local`)
 
@@ -358,19 +365,23 @@ plain device-offline state.
 
 ---
 
-## Default Credentials
+## Development Accounts
 
-After running `/auth/seed` in a development environment:
+**No credentials are published here, and none are stored in the source code.**
 
-| Role | Credentials |
-|---|---|
-| Admin | `admin@rutasmart.ph` / `Admin2026!` |
-| Conductor 1 | Employee ID `CDR-2024-042`, PIN `1234`, Jeep `JPN-001` |
-| Conductor 2 | Employee ID `CDR-2024-043`, PIN `5678`, Jeep `JPN-002` |
+`/auth/seed` creates only the accounts an operator supplies in the
+`SEED_ACCOUNTS` environment variable, and it refuses to run at all unless
+`ENV=development` and a matching `SEED_SECRET` is presented. There are no
+default passwords and no fallback accounts, so an unconfigured deployment can
+create nothing through that route.
 
-These are seed values for local development and demo only. Production
-environments must set `ENV=production` to disable the seed endpoint, then
-create accounts manually through the admin dashboard.
+To set up local accounts, put your own values in `rutasmart-backend/.env`
+(gitignored, never committed) following the `SEED_ACCOUNTS` template in
+`.env.example`, then call the endpoint as shown in *Seeding development
+accounts* above.
+
+Production must set `ENV=production`, which disables the endpoint outright.
+Production accounts are created through the admin dashboard.
 
 ---
 

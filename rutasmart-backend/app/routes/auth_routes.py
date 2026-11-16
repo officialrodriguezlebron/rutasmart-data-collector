@@ -4,7 +4,7 @@ RutaSmart Auth Routes
 POST /auth/login/admin     — Admin login (email + password)
 POST /auth/login/conductor — Conductor login (employee_id + PIN)
 POST /auth/create          — Public signup (CONDUCTOR only)
-POST /auth/seed            — Dev-only — disabled when ENV=production
+POST /auth/seed            — Dev-only — needs ENV=development + SEED_SECRET
 GET  /auth/conductors      — List conductor accounts (admin view)
 
 Auth model: two roles, ADMIN and CONDUCTOR.
@@ -18,7 +18,9 @@ Password and PIN hashes are bcrypt. Legacy SHA-256 hashes are accepted on
 login but are silently upgraded to bcrypt on success.
 """
 
+import json
 import os
+import secrets
 import uuid as _uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -180,74 +182,180 @@ def create_user(
     return {"message": "Conductor account created successfully.", "user_id": user_id, "role": "CONDUCTOR"}
 
 
-# ── Dev seed (gated by ENV flag) ───────────────────────────────────────────
+# ── Dev seed (ENV-gated, secret-gated, no credentials in source) ───────────
+#
+# This endpoint previously carried demo account credentials inline. They were
+# removed: anything in source is public the moment the repository is, and a
+# default password stays the password in every deployment that forgets to
+# change it.
+#
+# Three independent gates now apply, and NONE of them has a fallback — a
+# missing or blank value fails closed:
+#
+#   1. ENV must be exactly "development". Production is refused, and so is
+#      staging or any other value, rather than being treated as development.
+#   2. SEED_SECRET must be configured in the environment AND presented by the
+#      caller in the X-Seed-Secret header. Compared in constant time.
+#   3. The accounts themselves come from SEED_ACCOUNTS, a JSON array in the
+#      environment. Nothing is hardcoded, so with SEED_ACCOUNTS unset the
+#      endpoint creates no accounts at all.
+#
+# SEED_ACCOUNTS shape — see .env.example:
+#
+#   [{"user_id": "...", "role": "ADMIN",
+#     "email": "...", "password": "...", "display_name": "..."},
+#    {"user_id": "...", "role": "CONDUCTOR",
+#     "employee_id": "...", "pin": "...", "jeep_code": "...",
+#     "display_name": "..."}]
+#
+# Error messages below name only KEYS, never values: SEED_ACCOUNTS holds
+# plaintext passwords and PINs, and a parser message that quoted the offending
+# text would leak them into an HTTP response and the logs.
+
+SEED_SECRET_HEADER = "X-Seed-Secret"
+
+
+def _seed_accounts_from_env() -> list:
+    """Parse SEED_ACCOUNTS into a list of account specs.
+
+    Returns an empty list when the variable is unset or blank. Never falls
+    back to built-in accounts. Raises 500 on malformed configuration, with a
+    message that deliberately omits the offending text.
+    """
+    raw = os.getenv("SEED_ACCOUNTS", "").strip()
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except ValueError as exc:
+        # exc carries a snippet of the input, which contains credentials.
+        raise HTTPException(
+            status_code=500,
+            detail="SEED_ACCOUNTS is not valid JSON.",
+        ) from exc
+    if not isinstance(parsed, list):
+        raise HTTPException(
+            status_code=500,
+            detail="SEED_ACCOUNTS must be a JSON array of account objects.",
+        )
+    return parsed
+
+
+def _seed_field(spec: dict, key: str, position: str) -> str:
+    """Required non-empty string field from one account spec.
+
+    The error names the key and the account's position only.
+    """
+    value = spec.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=(f"Seed account {position}: '{key}' is required and must be "
+                    f"a non-empty string."),
+        )
+    return value.strip()
+
 
 @router.post("/seed", tags=["Dev"])
-def seed_users(db: Session = Depends(get_db)):
+def seed_users(request: Request, db: Session = Depends(get_db)):
     """
-    Development-only endpoint. Seeds default demo users.
-    Disabled when the ENV environment variable is set to 'production'.
+    Development-only endpoint. Creates the accounts listed in SEED_ACCOUNTS.
+
+    Refused with 403 when ENV is anything other than "development", when
+    SEED_SECRET is not configured, or when the X-Seed-Secret header does not
+    match it. No credentials live in this file and there are no defaults, so
+    an unconfigured deployment can create nothing through this route.
+
+    Already-existing user_ids are skipped, so the call stays idempotent.
     """
+    # ── Gate 1: environment ──────────────────────────────────────────────
+    # Production keeps its original status and message, so that contract is
+    # unchanged for anyone already depending on it.
     if ENV == "production":
         raise HTTPException(
             status_code=403,
             detail="The /auth/seed endpoint is disabled in production.",
         )
+    # Anything that is not explicitly development is refused as well, rather
+    # than being treated as development by default.
+    if ENV != "development":
+        raise HTTPException(
+            status_code=403,
+            detail="The /auth/seed endpoint is only available when ENV=development.",
+        )
 
-    defaults = [
-        {
-            "user_id":      "USR-001",
-            "role":         UserRole.ADMIN,
-            "email":        "admin@rutasmart.ph",
-            "password":     "Admin2026!",
-            "display_name": "A. Santos",
-        },
-        {
-            "user_id":       "USR-003",
-            "role":          UserRole.CONDUCTOR,
-            "employee_id":   "CDR-2024-042",
-            "pin":           "1234",
-            "jeep_code":     "JPN-001",
-            "display_name":  "J. dela Cruz",
-        },
-        {
-            "user_id":       "USR-004",
-            "role":          UserRole.CONDUCTOR,
-            "employee_id":   "CDR-2024-043",
-            "pin":           "5678",
-            "jeep_code":     "JPN-002",
-            "display_name":  "P. Garcia",
-        },
-    ]
+    # ── Gate 2: dedicated seeding secret ─────────────────────────────────
+    seed_secret = os.getenv("SEED_SECRET", "").strip()
+    if not seed_secret:
+        raise HTTPException(
+            status_code=403,
+            detail="Seeding is not enabled: SEED_SECRET is not configured.",
+        )
+    presented = request.headers.get(SEED_SECRET_HEADER, "")
+    # compare_digest on bytes: constant-time, and tolerant of a non-ASCII
+    # header value that would make a str comparison raise.
+    if not secrets.compare_digest(presented.encode("utf-8"),
+                                  seed_secret.encode("utf-8")):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Missing or invalid {SEED_SECRET_HEADER} header.",
+        )
+
+    # ── Gate 3: accounts supplied by the operator, never by this file ────
+    accounts = _seed_accounts_from_env()
+    if not accounts:
+        raise HTTPException(
+            status_code=400,
+            detail=("No seed accounts are configured. Set SEED_ACCOUNTS to a "
+                    "JSON array of account objects; see .env.example."),
+        )
 
     created = []
-    for d in defaults:
-        existing = db.query(User).filter(User.user_id == d["user_id"]).first()
-        if existing:
+    for index, spec in enumerate(accounts, start=1):
+        position = f"#{index}"
+        if not isinstance(spec, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Seed account {position}: each entry must be a JSON object.",
+            )
+
+        user_id = _seed_field(spec, "user_id", position)
+        role_name = _seed_field(spec, "role", position).upper()
+        if role_name not in (UserRole.ADMIN.value, UserRole.CONDUCTOR.value):
+            raise HTTPException(
+                status_code=400,
+                detail=(f"Seed account {position}: 'role' must be "
+                        f"{UserRole.ADMIN.value} or {UserRole.CONDUCTOR.value}."),
+            )
+        role = UserRole(role_name)
+
+        if db.query(User).filter(User.user_id == user_id).first():
             continue
 
         user = User(
-            user_id=d["user_id"],
-            role=d["role"],
-            display_name=d["display_name"],
+            user_id=user_id,
+            role=role,
+            display_name=_seed_field(spec, "display_name", position),
             is_active=True,
         )
 
-        if d["role"] == UserRole.ADMIN:
-            user.email         = d["email"]
-            user.password_hash = User.hash_password(d["password"])
+        if role == UserRole.ADMIN:
+            user.email         = _seed_field(spec, "email", position)
+            user.password_hash = User.hash_password(
+                _seed_field(spec, "password", position))
         else:
-            user.employee_id = d["employee_id"]
-            user.pin_hash    = User.hash_pin(d["pin"])
-            user.jeep_code   = d.get("jeep_code")
+            user.employee_id = _seed_field(spec, "employee_id", position)
+            user.pin_hash    = User.hash_pin(_seed_field(spec, "pin", position))
+            jeep_code        = spec.get("jeep_code")
+            user.jeep_code   = jeep_code.strip() if isinstance(jeep_code, str) and jeep_code.strip() else None
 
         db.add(user)
-        created.append(d["user_id"])
+        created.append(user_id)
 
     db.commit()
     return {
         "seeded":  created,
-        "message": "Default users ready. Remove or disable /auth/seed in production.",
+        "message": "Seed accounts ready. /auth/seed is refused unless ENV=development.",
         "env":     ENV,
     }
 

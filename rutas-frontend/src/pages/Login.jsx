@@ -87,7 +87,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@rutasmart.ph"
+                  placeholder="you@example.com"
                   required
                   autoComplete="username"
                 />
@@ -112,7 +112,7 @@ export default function Login() {
                   type="text"
                   value={empId}
                   onChange={e => setEmpId(e.target.value)}
-                  placeholder="CDR-2024-042"
+                  placeholder="CDR-0000-000"
                   required
                   autoComplete="username"
                 />

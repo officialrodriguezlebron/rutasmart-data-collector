@@ -62,19 +62,19 @@ class TestLegacyHashBackwardCompat:
 @pytest.mark.unit
 class TestPinHashing:
     def test_correct_pin_verifies(self):
-        c = User(user_id="c1", employee_id="CDR-2024-042", role=UserRole.CONDUCTOR,
+        c = User(user_id="c1", employee_id="CDR-TEST-001", role=UserRole.CONDUCTOR,
                  display_name="C", jeep_code="JPN-001")
-        c.set_pin("1234")
-        assert c.verify_pin("1234") is True
+        c.set_pin("4729")
+        assert c.verify_pin("4729") is True
 
     def test_wrong_pin_rejected(self):
-        c = User(user_id="c1", employee_id="CDR-2024-042", role=UserRole.CONDUCTOR,
+        c = User(user_id="c1", employee_id="CDR-TEST-001", role=UserRole.CONDUCTOR,
                  display_name="C", jeep_code="JPN-001")
-        c.set_pin("1234")
+        c.set_pin("4729")
         assert c.verify_pin("9999") is False
 
     def test_pin_hash_is_not_plaintext(self):
-        c = User(user_id="c1", employee_id="CDR-2024-042", role=UserRole.CONDUCTOR,
+        c = User(user_id="c1", employee_id="CDR-TEST-001", role=UserRole.CONDUCTOR,
                  display_name="C", jeep_code="JPN-001")
-        c.set_pin("1234")
-        assert c.pin_hash != "1234"
+        c.set_pin("4729")
+        assert c.pin_hash != "4729"
