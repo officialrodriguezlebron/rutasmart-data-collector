@@ -28,7 +28,7 @@ used as one part of the processing pipeline rather than as the central artifact.
 8. [Role-Based Access Control](#role-based-access-control)
 9. [Offline Resilience](#offline-resilience)
 10. [Field-Readiness Features](#field-readiness-features)
-11. [Default Credentials](#default-credentials)
+11. [Development Accounts](#development-accounts)
 
 ---
 
